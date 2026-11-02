@@ -79,4 +79,8 @@ if [[ "$SKIP_BUILD" == false ]]; then
     "$SCRIPT_DIR/QEQ/scripts/build_macos_app.sh"
   fi
 fi
-exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh" "${PROFILE_ARGS[@]}"
+if [[ ${#PROFILE_ARGS[@]} -gt 0 ]]; then
+  exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh" "${PROFILE_ARGS[@]}"
+else
+  exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh"
+fi
