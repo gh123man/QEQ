@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Hide the global EQ section while an app's EQ is expanded, restoring it when that editor closes without changing global processing.
 - Show the master switch without a visible label, default it to on, and remember the user's on/off choice across launches.
 - Keep global spectrum colors stable per app and derive their hue from each app's icon, with a deterministic fallback for missing or monochrome icons.
 - Increase the popup height limit from 720 to 1,000 points, capped to the available screen height, to give scrolling app controls more room.

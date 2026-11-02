@@ -7,6 +7,9 @@ struct MixerView: View {
     @ObservedObject var model: MixerModel
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
+    private var isAppEQExpanded: Bool {
+        model.snapshot.apps.contains { $0.id == model.selectedEQ }
+    }
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -40,8 +43,10 @@ struct MixerView: View {
                     }.foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
                         .orange.opacity(0.08))
                 }
-                globalSection
-                Divider()
+                if !isAppEQExpanded {
+                    globalSection
+                    Divider()
+                }
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
