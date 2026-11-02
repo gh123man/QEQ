@@ -13,13 +13,19 @@ struct ScreenshotRenderer {
         let model = MixerModel(preview: true)
         model.snapshot.outputName = "MacBook Pro Speakers"
         model.snapshot.timing = "256 frames · 5.3 ms I/O buffer · 48 kHz"
+        // A view-only bitmap has no window-server backdrop. Supply an opaque
+        // appearance-matched backing for documentation captures; the live app
+        // leaves this clear and uses NSPopover's native visual-effect material.
         let host = NSHostingController(
-            rootView: MixerView(model: model).environment(\.controlActiveState, .active).id("empty"))
+            rootView: MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
+                \.controlActiveState, .active
+            ).id("empty"))
         host.sizingOptions = [.preferredContentSize]
         let window = NSWindow(
             contentRect: NSRect(x: -8000, y: 0, width: 500, height: 240),
             styleMask: .borderless, backing: .buffered, defer: false)
-        window.appearance = NSAppearance(named: .darkAqua)
+        let lightAppearance = ProcessInfo.processInfo.environment["QEQ_SCREENSHOT_APPEARANCE"] == "light"
+        window.appearance = NSAppearance(named: lightAppearance ? .aqua : .darkAqua)
         window.contentViewController = host
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil) }
@@ -108,17 +114,23 @@ struct ScreenshotRenderer {
             model.telemetry = combined
         }
         simulateSpectra()
-        host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("mixer")
+        host.rootView = MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
+            \.controlActiveState, .active
+        ).id("mixer")
         try capture("mixer", maximum: MixerModel.panelHeightLimit)
         model.snapshot.apps = [zoom]
         model.selectedEQ = zoom.id
         simulateSpectra()
-        host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("equalizer")
+        host.rootView = MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
+            \.controlActiveState, .active
+        ).id("equalizer")
         try capture("equalizer", maximum: MixerModel.panelHeightLimit)
         model.globalEQ.bands = EQPreset.warm.bands
         model.selectedEQ = MixerModel.globalEQID
         simulateSpectra()
-        host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("global-equalizer")
+        host.rootView = MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
+            \.controlActiveState, .active
+        ).id("global-equalizer")
         try capture("global-equalizer", maximum: MixerModel.panelHeightLimit)
         model.snapshot.apps = (0..<15).map {
             AudioApplication(id: "sample-\($0)", name: "Sample app \($0 + 1)", playing: true)

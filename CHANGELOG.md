@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use the native translucent popover material throughout, with subtle app/graph surfaces and appearance-aware EQ labels and curves.
+
 - Remove redundant meter, global-scope, normal-processing, and graph labels; keep units and actionable states, and move the cut/amplitude explanation into the Gain tooltip.
 
 - Use a monochrome slider mark matching the app icon in the menu bar; hide the options-menu caret.

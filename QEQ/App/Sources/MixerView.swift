@@ -80,7 +80,9 @@ struct MixerView: View {
             }.frame(maxHeight: .infinity)
 
         }.frame(width: 500, height: panelHeight, alignment: .top).clipped().tint(.accentColor)
-            .background(Color(nsColor: .windowBackgroundColor))
+            // NSPopover already supplies the system visual-effect background.
+            // Keep the hosting content clear so that material stays visible.
+            .background(Color.clear)
             .onPreferenceChange(PanelHeights.self) { heights in
                 guard measured != heights else { return }
                 // Geometry feeds the viewport size: never interpolate these
@@ -211,7 +213,7 @@ struct MixerView: View {
                     .modifier(EQContentReveal())
             }
         }.padding(11).background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
+            Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8)
         )
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
     }

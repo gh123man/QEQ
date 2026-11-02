@@ -196,7 +196,7 @@ struct ParametricEQView: View {
             let rect = CGRect(x: 29, y: 20, width: geometry.size.width - 65, height: geometry.size.height - 43)
             let upper = maxFrequency
             ZStack {
-                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color(red: 0.055, green: 0.067, blue: 0.078))
+                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color.primary.opacity(0.045))
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
@@ -207,7 +207,7 @@ struct ParametricEQView: View {
                                 .foregroundStyle(Color.accentColor), at: CGPoint(x: rect.maxX + 17, y: levelY))
                     }
                     context.draw(
-                        Text("EQ dB").font(.system(size: 8)).foregroundStyle(.white.opacity(0.6)),
+                        Text("EQ dB").font(.system(size: 8)).foregroundStyle(.primary.opacity(0.6)),
                         at: CGPoint(x: rect.minX, y: 7), anchor: .leading)
                     context.draw(
                         Text("Output dBFS").font(.system(size: 8)).foregroundStyle(Color.accentColor),
@@ -217,20 +217,21 @@ struct ParametricEQView: View {
                         line.move(to: CGPoint(x: rect.minX, y: y(db)))
                         line.addLine(to: CGPoint(x: rect.maxX, y: y(db)))
                         context.stroke(
-                            line, with: .color(.white.opacity(db == 0 ? (isGlobal ? 0.1 : 0.25) : 0.07)), lineWidth: 1)
+                            line, with: .color(.primary.opacity(db == 0 ? (isGlobal ? 0.1 : 0.25) : 0.07)), lineWidth: 1
+                        )
                         context.draw(
                             Text(String(format: "%+.0f", db)).font(.system(size: 8, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.45)), at: CGPoint(x: 14, y: y(db)))
+                                .foregroundStyle(.primary.opacity(0.45)), at: CGPoint(x: 14, y: y(db)))
                     }
                     for hz in [20.0, 100, 1000, 10000, 20000] where hz <= upper {
                         var line = Path()
                         line.move(to: CGPoint(x: x(hz), y: rect.minY))
                         line.addLine(to: CGPoint(x: x(hz), y: rect.maxY))
-                        context.stroke(line, with: .color(.white.opacity(0.07)), lineWidth: 1)
+                        context.stroke(line, with: .color(.primary.opacity(0.07)), lineWidth: 1)
                         let label = hz >= 1000 ? "\(Int(hz / 1000))k" : "\(Int(hz))"
                         context.draw(
                             Text(label).font(.system(size: 8, design: .monospaced)).foregroundStyle(
-                                .white.opacity(0.45)), at: CGPoint(x: x(hz), y: rect.maxY + 12))
+                                .primary.opacity(0.45)), at: CGPoint(x: x(hz), y: rect.maxY + 12))
                     }
                     if processing, !telemetry.spectrum.isEmpty {
                         let spectrum = telemetry.spectrum
@@ -268,7 +269,7 @@ struct ParametricEQView: View {
                         if index == 0 { curve.move(to: point) } else { curve.addLine(to: point) }
                     }
                     context.stroke(
-                        curve, with: .color(.white.opacity(isGlobal ? 0.3 : (processing ? 0.9 : 0.6))),
+                        curve, with: .color(.primary.opacity(isGlobal ? 0.3 : (processing ? 0.9 : 0.6))),
                         style: StrokeStyle(lineWidth: isGlobal ? 0.8 : 1.6, dash: processing ? [] : [4, 3]))
                 }
                 if !compact || overviewHandles {
@@ -279,7 +280,9 @@ struct ParametricEQView: View {
                         Text("\(index + 1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.black)
                             .frame(width: selected == index ? 21 : 17, height: selected == index ? 21 : 17)
                             .background(b.enabled ? colors[index] : .gray, in: Circle())
-                            .overlay(Circle().strokeBorder(.white.opacity(selected == index ? 0.8 : 0), lineWidth: 1.5))
+                            .overlay(
+                                Circle().strokeBorder(.primary.opacity(selected == index ? 0.8 : 0), lineWidth: 1.5)
+                            )
                             .contentShape(Circle().size(width: 28, height: 28))
                             .position(x: x, y: y)
                             .gesture(
