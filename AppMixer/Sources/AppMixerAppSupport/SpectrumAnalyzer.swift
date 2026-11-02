@@ -7,6 +7,7 @@ public struct AudioTelemetry: Sendable {
     public var peak: Float = 0
     public var limitingDB: Float = 0
     public var apps: [String: AudioTelemetry] = [:]
+    public var simulated = false
     public init() {}
     /// Strongest app in each bin, not a phase-aligned measurement of the final mix.
     static func envelope(_ values: [Self]) -> Self {

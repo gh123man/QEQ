@@ -1,19 +1,19 @@
 {
   "sources": {
     "AppMixer/App/Sources/App.swift": "5fae452c89f2612ad74a2d2e7785ff7158ed5cbc492917616f41ae0c87ae6441",
-    "AppMixer/App/Sources/MixerView.swift": "1dc3b8ea5abbda6eab58176074a160d44884db3f5b8bddd0aaae4f00d8d5aaa4",
-    "AppMixer/App/Sources/ParametricEQView.swift": "42eab3149e66eba81bd34752e6bf841b4642d173532c2b90ab3e5fcc99c4c8ca",
-    "AppMixer/App/Sources/ScreenshotRenderer.swift": "1003ac03f4c63401ae9088e97be5af7eae2b1339b08682a5a1e03956ce2df29e",
+    "AppMixer/App/Sources/MixerView.swift": "2ae244e20920c099900b4d91a4d9e762b835e65269aa769f436508035bbe6572",
+    "AppMixer/App/Sources/ParametricEQView.swift": "221474ab1c9148749251f1487f5a26d4e86a4467b8c233d3e9c4387b029e7f11",
+    "AppMixer/App/Sources/ScreenshotRenderer.swift": "a5d14034ab9dcb5447362c02802193b6c0458dd58968e0ca9b3ea93b7fc7f4ee",
     "AppMixer/Sources/AppMixerCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
     "AppMixer/Sources/AppMixerCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
     "AppMixer/project.yml": "6e4cda3613287fc4f2b87039a970d1c0a433252cc8d464a93d90bc5c13f19a4e",
     "AppMixer/scripts/screenshots.py": "af01fbdc72c6f3fc8ee1329836700a2f82b809bdd6192a0a40242d41dfb35851"
   },
   "images": {
-    "empty.png": "b4a602da2f80aa6d530c39bfc0b87acb64a35807ddf0f9d4352917121b9047c9",
-    "mixer.png": "4a0c6a3b1cf1230b7f53e5c2aa5272ea7bfdadaec31c4be53eb22b607ede441b",
-    "equalizer.png": "c4f1349a3aa19a46f1abca639eece1dbcc4b229446c90bc20f9ec3a90a64fb82",
-    "global-equalizer.png": "2b18ccf7fc9c42c0277d54bcad35a41bb928c512084c89e43cf0934dd78b0c0d",
-    "empty-after-removal.png": "eca044ef7e7ab29a3a4a3a81396688df3bd5684f3be5e7f9bbef93d8f59d9a9d"
+    "empty.png": "84cc54f917a1558486594376961bfb4d4c3e821bb1eda1c7df3993720a13fcde",
+    "mixer.png": "a6c5045fa84edb6db0e57862a26bcc2f24206792af1bdbd253f4cc10799e4847",
+    "equalizer.png": "b6f156450c270a2db5e786003a2959dd92a9ecfa4591b62c00e228bb60e1614b",
+    "global-equalizer.png": "9cd123baac6893ae569222e2428ba9e8f772ad1baedafc2a3302bad62acb5b66",
+    "empty-after-removal.png": "22275cc5e484e7eba65618424e72aaa8e17a578ee575a628ac7b6541ca10e698"
   }
 }

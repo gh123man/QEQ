@@ -46,6 +46,7 @@ struct MixerView: View {
                 }
                 globalSection
                 Divider()
+                searchField.padding(.horizontal, 12).padding(.vertical, 10)
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
@@ -57,7 +58,6 @@ struct MixerView: View {
                         .padding(.horizontal, 4).padding(.vertical, 10)
                         Divider()
                     }
-                    searchField
                     if apps.isEmpty {
                         VStack(spacing: 8) {
                             Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(

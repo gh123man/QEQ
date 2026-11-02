@@ -44,14 +44,15 @@ struct ParametricEQView: View {
                     Spacer()
                     if processing && !telemetry.spectrum.isEmpty {
                         Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                        Text(isGlobal ? "App spectra" : "Live output").font(.system(size: 9)).foregroundStyle(
-                            .secondary
-                        )
-                        .help(
-                            isGlobal
-                                ? "Strongest app in each frequency bin; not a measurement of the summed system output."
-                                : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
-                        )
+                        Text(telemetry.simulated ? "Simulated spectrum" : (isGlobal ? "App spectra" : "Live output"))
+                            .font(.system(size: 9)).foregroundStyle(
+                                .secondary
+                            )
+                            .help(
+                                isGlobal
+                                    ? "Strongest app in each frequency bin; not a measurement of the summed system output."
+                                    : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
+                            )
                         if compact && telemetry.limitingDB > 0.1 {
                             Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
                                 .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)

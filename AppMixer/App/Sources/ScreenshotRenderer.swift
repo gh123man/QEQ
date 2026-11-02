@@ -69,29 +69,63 @@ struct ScreenshotRenderer {
         var musicEQ = MixerSettings()
         musicEQ.volume = 0.65
         model.settings = [zoom.id: zoomEQ, music.id: musicEQ]
-        model.snapshot.active = [zoom.id, music.id]
-        // Explicit illustrative meter levels, not captured audio.
-        for (id, peak) in [(zoom.id, Float(0.08)), (music.id, Float(0.22))] {
-            var level = AudioTelemetry()
-            level.peak = peak
-            model.telemetry.apps[id] = level
+        // Deterministic illustrative spectra: never capture audio or claim these
+        // fixtures are live. Apply the displayed EQ/volume to each sample shape.
+        func simulateSpectra() {
+            var combined = AudioTelemetry()
+            combined.simulated = true
+            combined.spectrum = [Float](repeating: -90, count: 96)
+            model.snapshot.active = Set(model.snapshot.apps.map(\.id))
+            for app in model.snapshot.apps {
+                var value = AudioTelemetry()
+                value.simulated = true
+                let settings = model.value(app.id)
+                for index in 0..<96 {
+                    let hz = 20 * pow(1000, (Double(index) + 0.5) / 96)
+                    func bump(_ center: Double, _ width: Double) -> Double {
+                        exp(-0.5 * pow(log2(hz / center) / width, 2))
+                    }
+                    let shape: Double
+                    if app.id == music.id {
+                        shape = -56 + 27 * bump(85, 0.9) + 20 * bump(900, 1.5) + 12 * bump(6500, 1)
+                    } else if app.id == zoom.id {
+                        shape = -72 + 35 * bump(550, 1.2) + 22 * bump(2400, 0.8)
+                    } else {
+                        shape = -65 + 22 * bump(200, 0.8) + 28 * bump(3300, 1)
+                    }
+                    let ripple = 3 * sin(Double(index) * 1.7) + 2 * cos(Double(index) * 0.63)
+                    let eq =
+                        settings.responseDB(at: hz, sampleRate: 48000)
+                        + model.globalEQ.responseDB(at: hz, sampleRate: 48000)
+                    let db = Float(max(-90, min(0, shape + ripple + eq + 20 * log10(settings.volume))))
+                    value.spectrum.append(db)
+                    combined.spectrum[index] = max(combined.spectrum[index], db)
+                }
+                value.peak = app.id == music.id ? 0.22 : (app.id == zoom.id ? 0.08 : 0.13)
+                combined.peak = max(combined.peak, value.peak)
+                combined.apps[app.id] = value
+            }
+            model.telemetry = combined
         }
+        simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("mixer")
         try capture("mixer", maximum: 720)
         model.snapshot.apps = [zoom]
         model.selectedEQ = zoom.id
-        // Deliberately show the response preview, not fabricated live spectrum.
-        model.enabled = false
+        simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("equalizer")
         try capture("equalizer", maximum: 720)
         model.globalEQ.bands = EQPreset.warm.bands
         model.selectedEQ = MixerModel.globalEQID
+        simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("global-equalizer")
         try capture("global-equalizer", maximum: 720)
         model.snapshot.apps = (0..<15).map {
             AudioApplication(id: "sample-\($0)", name: "Sample app \($0 + 1)", playing: true)
         }
         model.selectedEQ = nil
+        model.enabled = false
+        model.telemetry = AudioTelemetry()
         let longSize = layout()
         guard abs(longSize.height - 720) <= 1 else { throw NSError(domain: "QEQ layout", code: 2) }
         print("long list capped: \(Int(longSize.height)) pt")

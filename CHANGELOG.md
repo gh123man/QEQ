@@ -1,6 +1,8 @@
 # Changelog
 
-## In development
+## 0.1.0-rc.4 — 2026-11-02
+
+- Pin search above the app list and refresh screenshots with explicitly simulated spectra.
 
 - Pin a full-width Global EQ above search and app controls, soften its response line, and add live output meters to collapsed apps.
 - Clarify that a −18 dB band cut leaves about 13% amplitude instead of muting it.

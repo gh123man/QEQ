@@ -11,7 +11,7 @@
   <img src="docs/media/mixer.png" alt="Per-app volume and bypass controls" width="360">
   <img src="docs/media/global-equalizer.png" alt="Global five-band parametric EQ" width="360">
 </p>
-<p align="center"><sub>Native interface shown with sample app settings and levels.</sub></p>
+<p align="center"><sub>Native interface with simulated spectra and sample settings; no captured audio.</sub></p>
 
 ## Features
 
