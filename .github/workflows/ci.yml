@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      APP_MIXER_HARDWARE_TESTS: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install declared tools
+        run: brew bundle
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcodegen --version
+      - name: Format, tests, and universal app build
+        run: ./AppMixer/scripts/check.sh

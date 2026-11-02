@@ -1,0 +1,51 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and local env
+*.log
+.env
+.env.*
+!.env.example
+
+# SwiftPM
+.build/
+AppMixer/.build/
+.swiftpm/
+AppMixer/.swiftpm/
+
+# Xcode generated/user state
+DerivedData/
+AppMixer/AppMixer.xcodeproj/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Local build/release products
+AppMixer/.dist/
+AppMixer/.release/
+AppMixer/.xcode-dd/
+
+# Private signing and provisioning data
+*.p12
+*.cer
+*.key
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+AuthKey_*.p8
+ExportOptions.generated.plist
+
+# Optional JS tooling
+node_modules/

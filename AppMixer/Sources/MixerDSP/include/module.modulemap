@@ -1,0 +1,4 @@
+module MixerDSP {
+  header "MixerDSP.h"
+  export *
+}
