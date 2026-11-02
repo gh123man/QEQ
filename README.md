@@ -68,21 +68,30 @@ This briefly applies a −3 dB bell filter, reports numeric callback/spectrum di
 
 The single-callback private aggregate topology builds on [CoreAudioTapKit](https://github.com/CJStanfield/CoreAudioTapKit); its MIT notice is preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Apple documents the underlying [Core Audio process-tap API and permission](https://developer.apple.com/documentation/CoreAudio/capturing-system-audio-with-core-audio-taps).
 
-## Repository tooling and internal releases
+## Repository tooling and releases
 
 The private source repository is [gh123man/app-mixer](https://github.com/gh123man/app-mixer).
 
-- `./AppMixer/scripts/check.sh` checks Swift formatting and shell syntax, runs the full test suite, and builds the universal app.
+- `./AppMixer/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
 - `xcrun swift-format format --in-place --recursive AppMixer/App/Sources AppMixer/Sources AppMixer/Tests AppMixer/Package.swift` applies the checked-in formatting rules.
-- GitHub Actions runs the same checks on a macOS Intel runner (complementing local Apple Silicon tests) on pull requests and pushes to `main`. It sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two tests that need a physical output device. Local tests include them by default.
-- `AppMixer/release.json` tracks the version, build number, bundle identifier, and signing policy. Release notes live in `AppMixer/ReleaseNotes/`.
+- GitHub Actions validates pull requests and pushes to `main` on Intel, complementing local Apple Silicon tests. Headless CI sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two physical-output tests; local tests include them by default.
+- `AppMixer/release.json` records each version, build number, bundle identifier, and required signing/notarization policy. Notes live in `AppMixer/ReleaseNotes/`.
 
-To cut an internal RC, update the release record and notes, run checks, commit and push to `main`, and wait for CI to pass. Then choose an **Apple Development** identity from `security find-identity -v -p codesigning` and run:
+Update the release record and notes, run checks, commit and push to main, then wait for CI to pass:
 
 ```sh
-SIGNING_IDENTITY='<certificate SHA-1>' ./AppMixer/scripts/cut_release.sh --publish
+./AppMixer/scripts/cut_release.sh --publish
 ```
 
-Without `--publish`, the command builds the signed artifacts locally. It requires a clean, pushed `main` with passing CI, runs local tests, builds both architectures, embeds the source commit, signs with hardened runtime and a secure timestamp, verifies signatures, and produces ZIP/DMG files, a manifest, and SHA-256 checksums in `AppMixer/.release/<version>/`. Publishing creates an annotated tag and uploads the artifacts as a private GitHub prerelease. An existing tag or output directory is never overwritten.
+The command requires clean, pushed main with passing CI and the six configured Apple secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
 
-The Keychain signing key stays on the development Mac; CI has no signing credentials. These RCs use the existing `local.AppMixer` identifier and an **Apple Development certificate**. They are **not notarized** or ready for general Gatekeeper distribution. A public distribution workflow will need a Developer ID Application identity and notarization credentials. No privacy permissions or entitlements are added for signing.
+The workflow publishes a private prerelease with ZIP, DMG, SHA256SUMS, and a manifest containing the source commit and accepted notarization submission IDs. It refuses to replace an existing release. For a failed run, use GitHub's rerun command, or dispatch the workflow with its existing tag. Signing material is removed in an always-run cleanup step; only release artifacts and notarization diagnostics are uploaded.
+
+Required repository Actions secrets (same names as OpenSnek):
+
+- `APPLE_DEVELOPER_ID_APP_CERT_BASE64` — PKCS#12 certificate and private key, base64 encoded.
+- `APPLE_DEVELOPER_ID_APP_CERT_PASSWORD` — PKCS#12 password.
+- `APPLE_DEVELOPER_TEAM_ID` — signing team.
+- `APPLE_NOTARY_API_KEY_P8`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID` — notarization API credentials.
+
+RC.1 was Apple Development signed and not notarized. RC.2 and subsequent releases require Developer ID signing and notarization. The existing `local.AppMixer` bundle ID preserves preferences; changing signing identity may require approving system-audio access again. No extra privacy entitlements are added. Local `./run.sh` builds remain ad-hoc signed.

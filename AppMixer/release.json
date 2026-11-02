@@ -1,8 +1,8 @@
 {
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "marketingVersion": "0.1.0",
-  "build": 1,
+  "build": 2,
   "bundleIdentifier": "local.AppMixer",
-  "signing": "Apple Development",
-  "notarized": false
+  "signing": "Developer ID Application",
+  "notarized": true
 }

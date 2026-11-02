@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-rc.2 — 2026-11-02
+
+- Mirror OpenSnek’s GitHub-hosted Developer ID signing and notarization setup.
+- Require accepted Apple submissions, stapled tickets, and Gatekeeper approval for both app and DMG before publishing.
+
 ## Unreleased
 
 - Resolve Chrome/helper clients into their parent app’s name and icon; migrate helper settings.

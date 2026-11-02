@@ -31,6 +31,6 @@ swift test --package-path AppMixer
 ./AppMixer/scripts/xcodebuild_generated.sh -scheme AppMixer -destination 'generic/platform=macOS' build
 ```
 
-## Internal RCs
+## Signed and notarized RCs
 
-Use `AppMixer/release.json` and matching release notes to record each RC before committing. `cut_release.sh --publish` requires clean, pushed main and passing CI, signs locally using `SIGNING_IDENTITY`, and uploads a private prerelease. Never export or upload a signing key. Apple Development RCs are not notarized. Keep hardware tests enabled for local validation; only headless CI sets `APP_MIXER_HARDWARE_TESTS=0`.
+Update `AppMixer/release.json` and matching release notes before committing. After local checks, push main and wait for CI. `cut_release.sh --publish` runs local tests and tags that commit; GitHub's Release DMG workflow uses the six Apple secrets to sign with Developer ID, notarize and staple both app and DMG, verify Gatekeeper acceptance, then publish a private prerelease. Do not publish unnotarized fallbacks or overwrite an existing release. Never commit or print signing secrets. Keep hardware tests enabled locally; only headless CI sets `APP_MIXER_HARDWARE_TESTS=0`.

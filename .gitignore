@@ -49,3 +49,7 @@ ExportOptions.generated.plist
 
 # Optional JS tooling
 node_modules/
+
+# Python tooling caches
+__pycache__/
+*.pyc
