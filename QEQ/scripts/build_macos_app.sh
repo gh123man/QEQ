@@ -90,8 +90,10 @@ BUILT_APP="$DERIVED_DATA_PATH/Build/Products/$XCODE_CONFIGURATION/QEQ.app"
 rm -rf "$APP_BUNDLE"
 ditto "$BUILT_APP" "$APP_BUNDLE"
 
+python3 "$SCRIPT_DIR/configure_bundle.py" "$APP_BUNDLE"
+
 require_cmd codesign
-codesign --force --deep --sign - "$APP_BUNDLE"
+codesign --force --deep --preserve-metadata=entitlements --sign - "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 echo "App bundle ready: $APP_BUNDLE"

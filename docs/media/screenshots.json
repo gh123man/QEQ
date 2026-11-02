@@ -1,31 +1,38 @@
 {
   "sources": {
-    "QEQ/App/Sources/App.swift": "49c025c11127ffdcf1648acfd8b0f378779aa49ef8c4d5434b1cb3a6bd451de1",
+    "QEQ/App/Sources/App.swift": "64b4c954af9c243e0bcab8c83fcec89667525c9df5bb551563cf495cae7a2d6c",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
-    "QEQ/App/Sources/MixerView.swift": "0135f6ce604b78e090fcfa2f3f5bc627ebbf8481f2568157561f0f9b4c0f6470",
+    "QEQ/App/Sources/MixerView.swift": "844aec8fbfe3e00b11458458daa7059370989af1338c6f85b4b3782091b6afe4",
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
-    "QEQ/App/Sources/ScreenshotRenderer.swift": "1369f1e67c669bfd171201aac51543ae126eb8f7d81b353af5c266f8312d9271",
+    "QEQ/App/Sources/ScreenshotRenderer.swift": "9d67ac78e739c76cbc28ac0beca1238ab6895220d231bc7ec419467af7920fb0",
+    "QEQ/App/Sources/SettingsView.swift": "a35b5b0109645eb70d025ed6bf8883a546b72664b02794f15f92f94d686a0907",
+    "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
     "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "d4ac6c6b52bca23249832ce752b611e5df8a80ff5756ffb5d12aabdbc9299c5b",
+    "QEQ/Sources/QEQAppSupport/AppLog.swift": "920a724539b3d1743471e83bea22ceaf06a1ba8674050ea40d847dc3db95d0f4",
     "QEQ/Sources/QEQAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
     "QEQ/Sources/QEQAppSupport/AudioAppList.swift": "f9a7c62967e94bb83ba092dc670733baf87faa56cf2d9cdd2dfba225f59cca87",
     "QEQ/Sources/QEQAppSupport/AudioDiagnostics.swift": "be3671d94c8cadbc54b41e6b73df03799d9578003e7e7503a1b205e9e559c9d3",
     "QEQ/Sources/QEQAppSupport/AudioHardware.swift": "6c5abe151e976afb80cd4f665e645c243fa8726abdf4021c3c2a864736807498",
-    "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "81f81aa2d3f1a63aca939754e5405e270edb63069ddb2305fa4205e890005435",
+    "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "cf0109ed9f3209cde719190815a354c1829c5210b6e4a40af231cb2e106f57ad",
     "QEQ/Sources/QEQAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
-    "QEQ/Sources/QEQAppSupport/RouteController.swift": "a3319d1884fc4b58e086f6bc2869de656c769615a5a3c180c0dce56f6942fbc9",
+    "QEQ/Sources/QEQAppSupport/ReleaseUpdates.swift": "e5e2c9210b2f1a8f49b147b2e1ed0fc5339fd6580b464a88dfa25105b9829c26",
+    "QEQ/Sources/QEQAppSupport/RouteController.swift": "004c5c0376ceccfe9c9cc64bede007a8cb8c2d7ba6be5f9a331486d4d2c890aa",
     "QEQ/Sources/QEQAppSupport/SpectrumAnalyzer.swift": "0fb0317ce2658d36df5d513f10e4969ff45d182410763104dd48d92f8be97e83",
+    "QEQ/Sources/QEQAppSupport/UpdateStore.swift": "7fb48f039bd6a14cd2c44409c67f63ebffc4ebcbd8e1d96da269e4eb96385067",
     "QEQ/Sources/QEQCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
     "QEQ/Sources/QEQCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
-    "QEQ/project.yml": "ec9a0df75be3e1dd04c43d6c9b01ca0c7e1d7d9b0f6d1cb557c3e74c42458b24",
-    "QEQ/scripts/screenshots.py": "33f2a726352afa9de8f2fa26b3036e9bc56800323a08f06fa77499bacb1c6429"
+    "QEQ/project.yml": "dd66d8dc0d55e786a576ab33cc144044de65d2ac4cf2acc9897aba36427939f8",
+    "QEQ/scripts/screenshots.py": "0c52eba6e67b653c394fd885d6d800e8d8f44fbe89fd60619a3c711dd16093dd"
   },
   "images": {
     "empty.png": "8cac6afa2b2a73e094ca01521990826cc06935ec8bbf1aa35a0f96e222fa32c8",
     "mixer.png": "f959c25f9f7bd4e6f269f983efd7d845c2414e7998cef638c3a5766c90f0c5c9",
     "equalizer.png": "04548a08dadc8ab0fda878b56f794efed35f706dd7fe95885e47a762ac68440b",
     "global-equalizer.png": "a5ea61ecf49ea59476a03ac884e769fd25e72cc8d411663cd3753e6ce6f811a8",
-    "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9"
+    "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9",
+    "update-available.png": "5d678ee2a3ed3f016c0e68c9a13b926eb93513d2b917e1ea315be1b21562846a",
+    "settings.png": "f7d04dbbcf37aca68c3eee05ab0b4d29641d6311f9d33b9958f09a0f8b3cc90f"
   }
 }

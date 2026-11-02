@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 
+import update_artifacts
+
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / 'QEQ'
 
@@ -53,10 +55,12 @@ def verify_signature(path, team, runtime=False):
 def main():
     config = json.loads((PACKAGE / 'release.json').read_text())
     version = config['version']
-    require(re.fullmatch(r'\d+\.\d+\.\d+-rc\.\d+', version), 'Invalid RC version')
+    require(re.fullmatch(r'\d+\.\d+\.\d+(?:-rc\.\d+)?', version), 'Invalid release version')
     require(config['signing'] == 'Developer ID Application' and config['notarized'] is True,
             'Release must require Developer ID signing and notarization')
     require(os.environ.get('RELEASE_REF_NAME') == f'v{version}', 'Tag and release.json must match')
+    update_artifacts.public_key()
+    require(os.environ.get('QEQ_SPARKLE_PRIVATE_ED_KEY'), 'Missing QEQ update signing secret')
     commit = run('git', 'rev-parse', 'HEAD', capture=True)
     require(commit == run('git', 'rev-parse', f'v{version}^{{commit}}', capture=True), 'Checkout does not match tag')
     team = os.environ['APPLE_DEVELOPER_TEAM_ID']
@@ -77,13 +81,15 @@ def main():
     info = app / 'Contents/Info.plist'
     with info.open('rb') as handle:
         values = plistlib.load(handle)
-    values.update(CFBundleShortVersionString=config['marketingVersion'], CFBundleVersion=str(config['build']),
-                  QEQReleaseVersion=version, QEQSourceCommit=commit)
+    values.update(CFBundleShortVersionString=version, CFBundleVersion=str(config['build']),
+                  QEQReleaseVersion=version, QEQSourceCommit=commit, QEQBuildChannel='release')
     with info.open('wb') as handle:
         plistlib.dump(values, handle)
-    # All dependencies are static; the app is the only executable code bundle.
-    run('codesign', '--force', '--options', 'runtime', '--timestamp', '--keychain', os.environ['KEYCHAIN_PATH'],
-        '--sign', identity, str(app))
+    # Sign Sparkle helpers inside-out, retaining their sandbox entitlements.
+    for target in update_artifacts.signing_targets(app):
+        run('codesign', '--force', '--preserve-metadata=entitlements', '--options', 'runtime', '--timestamp',
+            '--keychain', os.environ['KEYCHAIN_PATH'], '--sign', identity, str(target))
+        verify_signature(target, team, runtime=True)
     signature = verify_signature(app, team, runtime=True)
     architectures = run('lipo', '-archs', str(app / 'Contents/MacOS/QEQ'), capture=True).split()
     require(set(architectures) == {'arm64', 'x86_64'}, 'Release must be universal')
@@ -124,7 +130,9 @@ def main():
     screenshots = PACKAGE / '.release/screenshots'
     run('python3', 'QEQ/scripts/screenshots.py', '--check', '--output', str(screenshots))
     screenshot_archive = Path(shutil.make_archive(str(artifacts / f'QEQ-{version}-screenshots'), 'zip', screenshots))
-    paths = [archive, dmg, manifest_path, screenshot_archive]
+    appcast = update_artifacts.generate(archive, config, Path(os.environ['SPARKLE_TOOLS_DIR']),
+                                       os.environ['QEQ_SPARKLE_PRIVATE_ED_KEY'])
+    paths = [archive, dmg, manifest_path, screenshot_archive, appcast]
     (artifacts / 'SHA256SUMS').write_text(''.join(
         f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in paths))
     print(f'Notarized and stapled release artifacts: {artifacts}')

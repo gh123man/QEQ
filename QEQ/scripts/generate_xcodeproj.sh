@@ -36,6 +36,8 @@ fi
 
 rm -rf "$PROJECT_FILE"
 xcodegen generate --spec "$SPEC_FILE" --project "$PROJECT_DIR"
+mkdir -p "$PROJECT_FILE/project.xcworkspace/xcshareddata/swiftpm"
+cp "$PROJECT_DIR/XcodePackages.resolved" "$PROJECT_FILE/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 echo "Generated (gitignored): $PROJECT_FILE"
 
 if $OPEN_AFTER; then

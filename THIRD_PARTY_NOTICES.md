@@ -33,3 +33,7 @@ SOFTWARE.
 ## Filter equations
 
 Parametric biquad equations follow the Robert Bristow-Johnson [Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/), published by the W3C Audio Working Group. The response graph and playback use the same coefficient implementation.
+
+## Sparkle
+
+QEQ embeds [Sparkle 2.9.3](https://github.com/sparkle-project/Sparkle) for verified update installation. Its license and bundled dependency notices are included in [Sparkle.txt](QEQ/App/Resources/Licenses/Sparkle.txt), also shipped in the app. The quiet-check/explicit-install workflow follows OpenSnek's design; QEQ's release checker and logging implementation are independent.

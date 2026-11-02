@@ -149,5 +149,45 @@ struct ScreenshotRenderer {
         print("small-screen cap: \(Int(smallScreenSize.height)) pt")
         model.snapshot.apps = []
         try capture("empty-after-removal", maximum: 520)
+        let updates = UpdateStore(
+            currentVersion: "0.1.0", distribution: true, defaults: nil,
+            previewUpdate: AvailableUpdate(version: "0.1.1"))
+        model.maximumPanelHeight = MixerModel.panelHeightLimit
+        model.snapshot.apps = [zoom, chrome, music]
+        model.enabled = true
+        simulateSpectra()
+        host.rootView = MixerView(model: model, updates: updates).background(Color(nsColor: .windowBackgroundColor))
+            .environment(
+                \.controlActiveState, .active
+            ).id("update-available")
+        try capture("update-available", maximum: MixerModel.panelHeightLimit)
+        try renderSettings(to: directory, appearance: window.appearance, updates: updates)
     }
+    private static func renderSettings(to directory: URL, appearance: NSAppearance?, updates: UpdateStore) throws {
+        let host = NSHostingController(
+            rootView: SettingsView(updates: updates, preview: true) { "Fixture diagnostics" })
+        let window = NSWindow(
+            contentRect: NSRect(x: -8000, y: 0, width: 470, height: 480),
+            styleMask: .borderless, backing: .buffered, defer: false)
+        window.appearance = appearance
+        window.contentViewController = host
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil) }
+        for _ in 0..<12 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.035))
+            host.view.layoutSubtreeIfNeeded()
+            host.view.displayIfNeeded()
+            CATransaction.flush()
+        }
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 940, pixelsHigh: 960,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0)!
+        bitmap.size = NSSize(width: 470, height: 480)
+        host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
+        try bitmap.representation(using: .png, properties: [:])!.write(
+            to: directory.appendingPathComponent("settings.png"))
+        print("settings: 470 × 480 pt")
+    }
+
 }

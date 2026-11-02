@@ -23,6 +23,7 @@ final class MixerModel: ObservableObject {
     private let engine = MixerEngine()
     private var observers: [NSObjectProtocol] = []
     private var saveWork: DispatchWorkItem?
+    var showSettings: (() -> Void)?
 
     init(preview: Bool = false) {
         self.preview = preview
@@ -69,13 +70,23 @@ final class MixerModel: ObservableObject {
     }
     var diagnostics: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "QEQReleaseVersion") as? String ?? "development"
+        let channel = Bundle.main.object(forInfoDictionaryKey: "QEQBuildChannel") as? String ?? "development"
         let apps = snapshot.apps.map { app in
             "\(app.name): playing=\(app.playing), clients=\(app.processes), outputs=\(app.outputDevices.map { String(describing: $0.sorted()) } ?? "unknown"), enabled=\(value(app.id).enabled), adjusted=\(value(app.id).needsProcessing), frames=\(snapshot.callbackFrames[app.id] ?? 0), status=\(snapshot.routeMessages[app.id] ?? "normal")"
         }.joined(separator: "\n")
         return
-            "QEQ \(version)\n\(ProcessInfo.processInfo.operatingSystemVersionString)\nOutput: \(snapshot.outputName), \(snapshot.sampleRate) Hz\n\(snapshot.timing)\nMixer enabled: \(enabled)\nGlobal EQ active: \(globalEQ.hasEnabledEQ)\n\(snapshot.error ?? "No errors")\n\(apps)"
+            "QEQ \(version) (\(channel))\n\(ProcessInfo.processInfo.operatingSystemVersionString)\nOutput: \(snapshot.outputName), \(snapshot.sampleRate) Hz\n\(snapshot.timing)\nMixer enabled: \(enabled)\nGlobal EQ active: \(globalEQ.hasEnabledEQ)\n\(snapshot.error ?? "No errors")\n\(apps)"
+    }
+    var diagnosticReport: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        var values = settings.filter { $0.value.shouldPersist }
+        values[Self.globalEQID] = globalEQ
+        let data = (try? encoder.encode(values)) ?? Data()
+        return diagnostics + "\n\nEQ settings\n" + String(decoding: data, as: UTF8.self)
     }
     func toggle(_ value: Bool) {
+        if !preview { AppLog.shared.write(.info, "Processing enabled: \(value)") }
         enabled = value
         if !preview { preferences.enabled = value }
         changing = true
@@ -125,6 +136,10 @@ final class MixerModel: ObservableObject {
     }
     func save() {
         guard !preview else { return }
+        AppLog.shared.write(
+            .debug,
+            "Saving settings: \(settings.filter { $0.value.shouldPersist }.count) apps, global EQ=\(globalEQ.hasEnabledEQ)"
+        )
         if let data = try? JSONEncoder().encode(settings.filter { $0.value.shouldPersist }) {
             UserDefaults.standard.set(data, forKey: "appSettings")
         }
@@ -159,6 +174,15 @@ final class MixerModel: ObservableObject {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let model = MixerModel(preview: CommandLine.arguments.contains("--render-screenshots"))
+    let updates = UpdateStore(
+        currentVersion: Bundle.main.object(forInfoDictionaryKey: "QEQReleaseVersion") as? String ?? "0.1.0",
+        distribution: Bundle.main.object(forInfoDictionaryKey: "QEQBuildChannel") as? String == "release",
+        defaults: CommandLine.arguments.contains("--render-screenshots") ? nil : .standard,
+        logger: CommandLine.arguments.contains("--render-screenshots") ? nil : .shared)
+    private lazy var installer = UpdateInstaller(store: updates)
+    private lazy var settingsWindow = SettingsWindowController(updates: updates) { [weak self] in
+        self?.model.diagnosticReport ?? "QEQ is not running."
+    }
     private var item: NSStatusItem!
     private let popover = NSPopover()
     private var performanceRecorder: PerformanceRecorder?
@@ -186,6 +210,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
             return
         }
+        AppLog.shared.write(.info, "QEQ started, version \(updates.currentVersion)")
+        updates.installHandler = { [weak self] release in self?.installer.install(release) }
+        updates.start()
+        model.showSettings = { [weak self] in
+            self?.popover.performClose(nil)
+            self?.settingsWindow.show()
+        }
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = MenuBarIcon.makeImage()
         item.button?.toolTip = "QEQ · Quick EQ"
@@ -194,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         popover.contentSize = NSSize(width: 500, height: 240)
-        let host = NSHostingController(rootView: MixerView(model: model))
+        let host = NSHostingController(rootView: MixerView(model: model, updates: updates))
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
         // Show the controls once at launch so a menu-bar-only app is easy to find.
@@ -228,7 +259,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
     func popoverDidClose(_ notification: Notification) { model.setPanelVisible(false) }
-    func applicationWillTerminate(_ notification: Notification) { model.shutdown() }
+    func applicationWillTerminate(_ notification: Notification) {
+        updates.stop()
+        AppLog.shared.write(.info, "QEQ shutting down; restoring system audio")
+        model.shutdown()
+    }
 }
 
 @main

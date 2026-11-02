@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add quiet update discovery, an Update available button, and explicit Sparkle installation with signed feeds and archives.
+- Add Settings for automatic checks, RC opt-in, log levels, and local diagnostic-log collection.
+
 - Reduce idle UI work and app-discovery overhead; reuse spectrum-analysis buffers during playback.
 - Add opt-in CPU/route profiling and regression coverage for spectrum restart after pause, bypass, and closing the popup.
 

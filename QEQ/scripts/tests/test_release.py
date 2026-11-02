@@ -3,8 +3,11 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
 
 spec = importlib.util.spec_from_file_location('build_release', Path(__file__).parents[1] / 'build_release.py')
 release = importlib.util.module_from_spec(spec)

@@ -28,12 +28,17 @@ final class RouteController {
         let message: String
     }
     private var retries: [String: Retry] = [:]
+    private let log: AppLog?
     private let create: (AudioApplication, OutputDevice, MixerSettings, MixerSettings) throws -> any AudioRoute
     init(
+        log: AppLog? = nil,
         create: @escaping (AudioApplication, OutputDevice, MixerSettings, MixerSettings) throws -> any AudioRoute = {
             try AppAudioRoute(app: $0, output: $1, settings: $2, global: $3)
         }
-    ) { self.create = create }
+    ) {
+        self.create = create
+        self.log = log
+    }
 
     func resetFailures() {
         retries.removeAll()
@@ -41,11 +46,13 @@ final class RouteController {
         messages.removeAll()
     }
     func stop() {
+        if !routes.isEmpty { log?.write(.info, "Releasing all audio routes (\(routes.count))") }
         for route in routes.values { route.stop() }
         routes.removeAll()
         resetFailures()
     }
     func remove(_ id: String) {
+        if routes[id] != nil { log?.write(.info, "Releasing audio route: \(id)") }
         routes.removeValue(forKey: id)?.stop()
         retries.removeValue(forKey: id)
     }
@@ -108,6 +115,10 @@ final class RouteController {
                 let route = try create(app, output, settings[app.id] ?? MixerSettings(), global)
                 route.setAnalysis(analyzeAll || app.id == analysisApp || analysisApp == MixerEngine.globalEQID)
                 routes[app.id] = route
+                log?.write(
+                    .info,
+                    "Audio route started: \(app.id), output=\(output.name), \(output.sampleRate) Hz, \(output.bufferFrames) frames"
+                )
                 // Keep attempt count until this route has actually delivered audio.
             } catch { fail(app: app, output: output, now: now, error: error) }
         }
@@ -122,6 +133,7 @@ final class RouteController {
         let message =
             "\(app.name) on \(output.name): \(error.localizedDescription) "
             + (retrying ? "Reconnecting this app…" : "This app is bypassed. Retry after checking its output.")
+        log?.write(.warning, message)
         retries[app.id] = Retry(
             processes: app.processes, output: output, after: retrying ? now + 2 : .infinity,
             attempts: attempts, message: message)

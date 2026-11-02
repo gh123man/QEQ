@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing RC tag to build and publish
+        description: Existing stable or RC tag to build and publish
         required: true
         type: string
 permissions:
@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE_REF_NAME="${WORKFLOW_TAG:-$GITHUB_REF_NAME}"
-          [[ "$RELEASE_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]
+          [[ "$RELEASE_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]
           git fetch origin main
           git merge-base --is-ancestor HEAD origin/main
           [[ "$(git rev-parse HEAD)" == "$(git rev-parse "$RELEASE_REF_NAME^{commit}")" ]]
@@ -94,11 +94,23 @@ jobs:
           security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_DEVELOPER_ID_APP_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+      - name: Download pinned Sparkle signing tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SPARKLE_TOOLS_DIR="$RUNNER_TEMP/qeq-sparkle"
+          mkdir -p "$SPARKLE_TOOLS_DIR"
+          gh release download 2.9.3 --repo sparkle-project/Sparkle --pattern Sparkle-2.9.3.tar.xz --dir "$SPARKLE_TOOLS_DIR"
+          echo "74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be6  $SPARKLE_TOOLS_DIR/Sparkle-2.9.3.tar.xz" | shasum -a 256 -c -
+          tar -xf "$SPARKLE_TOOLS_DIR/Sparkle-2.9.3.tar.xz" -C "$SPARKLE_TOOLS_DIR"
+          echo "SPARKLE_TOOLS_DIR=$SPARKLE_TOOLS_DIR" >> "$GITHUB_ENV"
       - name: Sign, notarize, staple, and assess app and DMG
         env:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          QEQ_SPARKLE_PRIVATE_ED_KEY: ${{ secrets.QEQ_SPARKLE_PRIVATE_ED_KEY }}
         run: python3 QEQ/scripts/build_release.py
       - name: Upload verified release artifacts
         uses: actions/upload-artifact@v4
@@ -107,7 +119,7 @@ jobs:
           path: QEQ/.release/*/artifacts/*
           include-hidden-files: true
           if-no-files-found: error
-      - name: Publish private prerelease
+      - name: Publish release with signed updater feed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -117,7 +129,9 @@ jobs:
             echo "Release already exists; refusing to replace published artifacts." >&2
             exit 1
           fi
-          gh release create "$RELEASE_REF_NAME" --verify-tag --prerelease --latest=false \
+          RELEASE_FLAGS=(--latest)
+          if [[ "$VERSION" == *-rc.* ]]; then RELEASE_FLAGS=(--prerelease --latest=false); fi
+          gh release create "$RELEASE_REF_NAME" --verify-tag "${RELEASE_FLAGS[@]}" \
             --title "QEQ $VERSION" --notes-file "QEQ/ReleaseNotes/$VERSION.md" \
             QEQ/.release/"$VERSION"/artifacts/*
       - name: Retain notarization diagnostics

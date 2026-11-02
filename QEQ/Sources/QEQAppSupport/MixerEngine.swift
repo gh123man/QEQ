@@ -40,9 +40,11 @@ public final class MixerEngine: @unchecked Sendable {
     private let requestedEnabled = OSAllocatedUnfairLock(initialState: false)
     private var suspended = false
     private var failure: String?
+    private var lastLoggedFailure: String?
+    private var logging = true
     private var deliver: (@Sendable (MixerSnapshot) -> Void)?
     public init() {
-        controller = RouteController()
+        controller = RouteController(log: .shared)
         discover = nil
         readOutput = { try HAL.output() }
     }
@@ -50,6 +52,7 @@ public final class MixerEngine: @unchecked Sendable {
         controller: RouteController, discover: @escaping () throws -> [AudioApplication],
         readOutput: @escaping () throws -> OutputDevice
     ) {
+        logging = false
         self.controller = controller
         self.discover = discover
         self.readOutput = readOutput
@@ -225,9 +228,19 @@ public final class MixerEngine: @unchecked Sendable {
             snapshot.error = controller.errors.keys.sorted().first.flatMap { controller.errors[$0] }
         } catch {
             failure = error.localizedDescription
+            if logging, failure != lastLoggedFailure {
+                AppLog.shared.write(.error, "Audio discovery failed: \(error.localizedDescription)")
+                lastLoggedFailure = failure
+            }
             enabled = false
             requestedEnabled.withLock { $0 = false }
             stopRoutes()
+        }
+        if logging {
+            AppLog.shared.write(
+                .debug,
+                "Audio state: enabled=\(enabled), output=\(snapshot.outputName), active=\(snapshot.active.sorted()), callbackFrames=\(snapshot.callbackFrames), peaks=\(snapshot.peaks)"
+            )
         }
         snapshot.enabled = enabled
         snapshot.error = failure ?? snapshot.error

@@ -12,6 +12,10 @@ settings:
     OTHER_LDFLAGS: ["$(inherited)", "-lc++"]
     CURRENT_PROJECT_VERSION: 1
     MARKETING_VERSION: 0.1.0
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.3
 targets:
   MixerDSP:
     type: library.static
@@ -76,6 +80,8 @@ targets:
       - target: QEQCore
       - target: MixerDSP
       - target: QEQAppSupport
+      - package: Sparkle
+        product: Sparkle
     scheme:
       gatherCoverageData: false
       testTargets:

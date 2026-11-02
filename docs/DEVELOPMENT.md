@@ -74,7 +74,7 @@ The single-callback private aggregate topology builds on [CoreAudioTapKit](https
 
 ## Repository tooling and releases
 
-The private source repository is [gh123man/QEQ](https://github.com/gh123man/QEQ).
+The source repository is [gh123man/QEQ](https://github.com/gh123man/QEQ).
 
 - `./QEQ/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
 - `xcrun swift-format format --in-place --recursive QEQ/App/Sources QEQ/Sources QEQ/Tests QEQ/Package.swift` applies the checked-in formatting rules.
@@ -94,7 +94,7 @@ Review and commit the application changes, `docs/media/*.png`, and `docs/media/s
 ./QEQ/scripts/cut_release.sh --publish
 ```
 
-The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the six configured Apple secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
+The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the Apple and update-signing secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
 
 The workflow renders screenshots again from the tagged source, checks the layouts, and publishes their ZIP alongside the app ZIP, DMG, SHA256SUMS, and a manifest containing the source commit and accepted notarization submission IDs. It refuses to replace an existing release. For a failed run, use GitHub's rerun command, or dispatch the workflow with its existing tag. Signing material is removed in an always-run cleanup step; only release artifacts and notarization diagnostics are uploaded.
 
@@ -132,3 +132,24 @@ For light-appearance screenshot QA, run `QEQ_SCREENSHOT_APPEARANCE=light python3
 ## Performance
 
 See [profiling results and commands](PERFORMANCE.md) for Release microbenchmarks and the opt-in `./run.sh --profile <absolute-jsonl-path>` CPU/route recorder.
+
+## Updates and diagnostics
+
+The options menu → **Settings…** opens a native settings window. Release builds check QEQ's public GitHub releases at most once daily (also across restarts). Checks only change the **Update available** button; Sparkle is created after an explicit install click. Automatic downloads, unsolicited updater windows, and system-profile reporting are disabled. RCs require the **Include release candidates** toggle, even when the installed version is an RC. Manual checks and errors stay in Settings. Local development builds allow manual discovery but disable automatic checks and installation.
+
+Updates require both a published `appcast.xml` and the matching app ZIP. The checker compares version numbers numerically and never suggests older builds. Sparkle 2.9.3 verifies signed feeds and Ed25519 archive signatures before extraction, then handles installation and relaunch. QEQ keeps processing during download; normal termination releases audio routes before the updated app starts. Releases predating this mechanism need one manual installation to acquire it.
+
+The release workflow now supports stable and RC tags, signs Sparkle's nested helpers before the app, notarizes/staples both formats, generates/verifies the signed appcast, and includes it in `SHA256SUMS`. Stable releases become GitHub's latest release; RCs remain prereleases. The Sparkle source revision is pinned in `QEQ/XcodePackages.resolved`; its official tool archive is also SHA-256 pinned in the workflow. Update both deliberately when upgrading Sparkle.
+
+Production setup is one-time: with approval to create the repository credential, run `swift QEQ/scripts/setup_update_signing.swift`. It generates a dedicated Ed25519 seed, sends it to `gh secret set QEQ_SPARKLE_PRIVATE_ED_KEY` through stdin, and writes only the public key to `QEQ/update-signing.json`. It refuses to overwrite an existing key or secret. Commit the public key. The private key is never put in command arguments, logs, or a local file. Release builds fail closed without the key/secret or if archive/feed signature verification fails.
+
+The default log level is Warning. Choose Debug before reproducing an issue, then **Save diagnostic log…** to collect current app/device/route state, EQ settings and recent logs in one text file. This file can contain app names and audio-device details; collection never records audio or uploads anything. Logs live in `~/Library/Logs/QEQ` and rotate between two files of at most 1 MB each. Logging runs on a utility queue, never the real-time audio callback. Debug adds a once-per-second state summary; other levels log lifecycle events/errors. **Clear logs** removes both files.
+
+Offline update packaging smoke test, with a disposable in-memory key and no publication:
+
+```sh
+python3 QEQ/scripts/smoke_update_artifacts.py \
+  --tools QEQ/.dist/sparkle-tools --output QEQ/.dist/update-smoke
+```
+
+The tools directory must contain the checksum-verified Sparkle 2.9.3 distribution (same archive/digest as the release workflow). The test signs a copy of the development bundle, generates a signed feed, verifies the archive against its embedded public key, rejects a tampered archive, and removes the disposable artifacts. It does not perform a live app replacement. Native settings and update-available screenshots are generated alongside the existing mixer captures.

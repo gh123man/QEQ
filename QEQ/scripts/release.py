@@ -33,7 +33,7 @@ def main():
         return
     config = json.loads((ROOT / 'QEQ/release.json').read_text())
     version = config['version']
-    require(re.fullmatch(r'\d+\.\d+\.\d+-rc\.\d+', version), 'Expected an RC version')
+    require(re.fullmatch(r'\d+\.\d+\.\d+(?:-rc\.\d+)?', version), 'Expected a stable or RC version')
     require(config['signing'] == 'Developer ID Application' and config['notarized'] is True,
             'Release policy must require Developer ID signing and notarization')
     run('python3', 'QEQ/scripts/screenshots.py', '--check')
@@ -52,11 +52,11 @@ def main():
     secrets = json.loads(run('gh', 'secret', 'list', '--json', 'name', capture=True))
     required = {'APPLE_DEVELOPER_ID_APP_CERT_BASE64', 'APPLE_DEVELOPER_ID_APP_CERT_PASSWORD',
                 'APPLE_DEVELOPER_TEAM_ID', 'APPLE_NOTARY_API_KEY_P8', 'APPLE_NOTARY_KEY_ID',
-                'APPLE_NOTARY_ISSUER_ID'}
-    require(required <= {secret['name'] for secret in secrets}, 'Missing GitHub Apple signing secrets')
+                'APPLE_NOTARY_ISSUER_ID', 'QEQ_SPARKLE_PRIVATE_ED_KEY'}
+    require(required <= {secret['name'] for secret in secrets}, 'Missing GitHub signing secrets')
     run('swift', 'test', '--package-path', 'QEQ')
     if args.publish:
-        run('git', 'tag', '-a', tag, '-m', f'QEQ {version}: Developer ID signed and notarized RC')
+        run('git', 'tag', '-a', tag, '-m', f'QEQ {version}: Developer ID signed and notarized release')
         run('git', 'push', 'origin', tag)
         print(f'Pushed {tag}. Follow the Release DMG workflow; only verified artifacts will be published.')
     else:

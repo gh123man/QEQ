@@ -5,6 +5,7 @@ import SwiftUI
 
 struct MixerView: View {
     @ObservedObject var model: MixerModel
+    var updates: UpdateStore? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
@@ -23,11 +24,14 @@ struct MixerView: View {
                     Image(systemName: "speaker.wave.2").foregroundStyle(.secondary)
                     Text(model.snapshot.outputName).font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer()
+                    if let updates { UpdateAvailableButton(updates: updates) }
                     if model.changing { ProgressView().controlSize(.mini) }
                     Toggle("Enabled", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                         .help("Off restores original audio for every app.")
                     Menu {
+                        Button("Settings…") { model.showSettings?() }.keyboardShortcut(",")
+                        Divider()
                         Button("Copy diagnostics") {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(model.diagnostics, forType: .string)
