@@ -50,7 +50,8 @@ struct MixerDSP {
     uint32_t channels, tapBuffers;
     std::atomic<uint64_t> version{0}, frames{0}, faults{0};
     std::atomic<double> parameters[paramCount];
-    std::atomic<float> peak{0};
+    std::atomic<float> peak{0}, limitingDB{0};
+    double limiterGain=1, limiterRelease;
     double target[paramCount]{}, current[paramCount]{};
     State state[2][bandCount];
     std::atomic<bool> analyze{false};
@@ -59,7 +60,7 @@ struct MixerDSP {
     uint64_t analysisPosition=0;
     uint32_t remaining=0;
     uint64_t applied=0;
-    MixerDSP(double r, uint32_t c, uint32_t b): rate(r),channels(c),tapBuffers(b) {
+    MixerDSP(double r, uint32_t c, uint32_t b): rate(r),channels(c),tapBuffers(b),limiterRelease(std::exp(-1./(.05*r))) {
         current[0]=target[0]=1;
         for (int band=0;band<bandCount;band++) current[1+band*5]=target[1+band*5]=1;
         for(int i=0;i<paramCount;i++) parameters[i].store(current[i],std::memory_order_relaxed);
@@ -70,15 +71,6 @@ MixerDSP *MixerDSPCreate(double rate,uint32_t channels,uint32_t buffers) {
     return new MixerDSP(rate,channels,buffers);
 }
 void MixerDSPDestroy(MixerDSP *dsp) { delete dsp; }
-double MixerEQHeadroom(const MixerEQBand *bands,uint32_t count) {
-    double db=0;
-    for(uint32_t i=0;bands && i<std::min(count,5u);i++) {
-        auto b=sanitized(bands[i]); if(!b.enabled) continue;
-        if(b.type<3) db+=std::max(0.f,b.gain);
-        else if(b.q>1/std::sqrt(2.)) db+=20*std::log10(b.q/std::sqrt(1-1/(4*b.q*b.q)));
-    }
-    return db;
-}
 double MixerEQResponse(const MixerEQBand *bands,uint32_t count,double rate,double hz) {
     if(!std::isfinite(rate)||rate<8000||!std::isfinite(hz)) return 0;
     const double w=2*M_PI*std::clamp(hz,1.,rate*.499)/rate;
@@ -97,7 +89,7 @@ void MixerDSPConfigure(MixerDSP *d,float volume,bool muted,const MixerEQBand *ba
     Coeff filters[bandCount];
     for(uint32_t i=0;bands && i<std::min(count,5u);i++) filters[i]=coefficients(d->rate,bands[i]);
     d->version.fetch_add(1);
-    d->parameters[0].store(muted?0:volume*std::pow(10.,-MixerEQHeadroom(bands,count)/20));
+    d->parameters[0].store(muted?0:volume);
     for(int b=0;b<bandCount;b++) {
         const double values[]={filters[b].b0,filters[b].b1,filters[b].b2,filters[b].a1,filters[b].a2};
         for(int j=0;j<5;j++) d->parameters[1+b*5+j].store(values[j]);
@@ -153,11 +145,13 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
     const bool analyze=d->analyze.load(std::memory_order_relaxed);
     if(analyze) d->analysisVersion.fetch_add(1);
     float peak=0;
+    double minimumGain=1;
     for(uint32_t f=0;f<frames;f++) {
         if(d->remaining) {
             for(int i=0;i<paramCount;i++) d->current[i]+=(d->target[i]-d->current[i])/d->remaining;
             d->remaining--;
         }
+        double processed[2]{}, framePeak=0;
         for(uint32_t c=0;c<d->channels;c++) {
             double x=in[c][f*inStride[c]];
             for(int b=0;b<bandCount;b++) {
@@ -170,7 +164,16 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
             }
             x*=d->current[0];
             if(!std::isfinite(x)) { x=0; for(auto &s:d->state[c]) s={}; }
-            const float sample=(float)std::clamp(x,-1.,1.);
+            processed[c]=x; framePeak=std::max(framePeak,std::abs(x));
+        }
+        // Stereo-linked sample-peak protection: instantaneous attack, 50 ms
+        // release. No lookahead, extra buffer, or fixed attenuation for EQ boosts.
+        const double required=framePeak>1 ? 1/framePeak : 1;
+        const double recovering=1-(1-d->limiterGain)*d->limiterRelease;
+        d->limiterGain=std::min(required,recovering);
+        minimumGain=std::min(minimumGain,d->limiterGain);
+        for(uint32_t c=0;c<d->channels;c++) {
+            const float sample=(float)std::clamp(processed[c]*d->limiterGain,-1.,1.);
             if(analyze) d->analysis[c][d->analysisPosition%analysisCount].store(sample);
             out[c][f*outStride[c]]=sample; peak=std::max(peak,std::abs(sample));
         }
@@ -181,12 +184,14 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
     }
     if(analyze) { d->analysisFrames.store(d->analysisPosition); d->analysisVersion.fetch_add(1); }
     d->peak.store(peak,std::memory_order_relaxed);
+    d->limitingDB.store((float)(-20*std::log10(std::max(1e-20,minimumGain))),std::memory_order_relaxed);
     d->frames.fetch_add(frames,std::memory_order_relaxed);
 }
 OSStatus MixerDSPCallback(AudioObjectID,const AudioTimeStamp*,const AudioBufferList *in,const AudioTimeStamp*,AudioBufferList *out,const AudioTimeStamp*,void *context) {
     MixerDSPProcess(static_cast<MixerDSP*>(context),in,out); return noErr;
 }
 float MixerDSPPeak(const MixerDSP *d) { return d->peak.load(std::memory_order_relaxed); }
+float MixerDSPLimitingDB(const MixerDSP *d) { return d->limitingDB.load(std::memory_order_relaxed); }
 uint64_t MixerDSPFrames(const MixerDSP *d) { return d->frames.load(std::memory_order_relaxed); }
 uint64_t MixerDSPFaults(const MixerDSP *d) { return d->faults.load(std::memory_order_relaxed); }
 

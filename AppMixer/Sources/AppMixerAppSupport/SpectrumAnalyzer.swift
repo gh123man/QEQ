@@ -5,6 +5,7 @@ import MixerDSP
 public struct AudioTelemetry: Sendable {
     public var spectrum: [Float] = []
     public var peak: Float = 0
+    public var limitingDB: Float = 0
     public init() {}
 }
 
@@ -28,6 +29,7 @@ final class SpectrumAnalyzer {
         guard MixerDSPReadAnalysis(dsp, &left, &right, UInt32(Self.count)) else { return nil }
         var value = AudioTelemetry()
         value.peak = MixerDSPPeak(dsp)
+        value.limitingDB = MixerDSPLimitingDB(dsp)
         value.spectrum = spectrum(left: left, right: right, sampleRate: sampleRate)
         return value
     }

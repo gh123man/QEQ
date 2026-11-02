@@ -18,18 +18,20 @@ USAGE
 }
 
 terminate_existing_app() {
-  if ! pgrep -x "AppMixer" >/dev/null 2>&1; then
+  local process_name="$1"
+  if ! pgrep -x "$process_name" >/dev/null 2>&1; then
     return
   fi
 
-  pkill -TERM -x "AppMixer" >/dev/null 2>&1 || true
+  pkill -TERM -x "$process_name" >/dev/null 2>&1 || true
   for _ in {1..20}; do
-    if ! pgrep -x "AppMixer" >/dev/null 2>&1; then
+    local process_name="$1"
+  if ! pgrep -x "$process_name" >/dev/null 2>&1; then
       return
     fi
     sleep 0.1
   done
-  pkill -x "AppMixer" >/dev/null 2>&1 || true
+  pkill -x "$process_name" >/dev/null 2>&1 || true
 }
 
 CLEAN_BUILD=false
@@ -62,7 +64,8 @@ if [[ "$SKIP_BUILD" == true && "$CLEAN_BUILD" == true ]]; then
   exit 1
 fi
 
-terminate_existing_app
+terminate_existing_app AppMixer
+terminate_existing_app QEQ
 if [[ "$SKIP_BUILD" == false ]]; then
   if [[ "$CLEAN_BUILD" == true ]]; then
     "$SCRIPT_DIR/AppMixer/scripts/build_macos_app.sh" --clean

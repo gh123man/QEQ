@@ -72,7 +72,7 @@ def main():
     artifacts.mkdir()
     run(str(PACKAGE / 'scripts/build_macos_app.sh'), '--configuration', 'release',
         '--output', str(out / 'build'), '--bundle-id', config['bundleIdentifier'])
-    app = out / 'build/AppMixer.app'
+    app = out / 'build/QEQ.app'
     info = app / 'Contents/Info.plist'
     with info.open('rb') as handle:
         values = plistlib.load(handle)
@@ -84,7 +84,7 @@ def main():
     run('codesign', '--force', '--options', 'runtime', '--timestamp', '--keychain', os.environ['KEYCHAIN_PATH'],
         '--sign', identity, str(app))
     signature = verify_signature(app, team, runtime=True)
-    architectures = run('lipo', '-archs', str(app / 'Contents/MacOS/AppMixer'), capture=True).split()
+    architectures = run('lipo', '-archs', str(app / 'Contents/MacOS/QEQ'), capture=True).split()
     require(set(architectures) == {'arm64', 'x86_64'}, 'Release must be universal')
     submission = out / 'app-notary-submission.zip'
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(submission))
@@ -92,14 +92,14 @@ def main():
     run('xcrun', 'stapler', 'staple', str(app))
     run('xcrun', 'stapler', 'validate', str(app))
     run('spctl', '--assess', '--verbose=2', '--type', 'execute', str(app))
-    archive = artifacts / f'AppMixer-{version}-macOS.zip'
+    archive = artifacts / f'QEQ-{version}-macOS.zip'
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(archive))
     staging = out / 'dmg-staging'
     staging.mkdir()
-    run('ditto', str(app), str(staging / 'AppMixer.app'))
+    run('ditto', str(app), str(staging / 'QEQ.app'))
     (staging / 'Applications').symlink_to('/Applications')
-    dmg = artifacts / f'AppMixer-{version}-macOS.dmg'
-    run('hdiutil', 'create', '-volname', 'AppMixer', '-srcfolder', str(staging), '-format', 'UDZO', str(dmg))
+    dmg = artifacts / f'QEQ-{version}-macOS.dmg'
+    run('hdiutil', 'create', '-volname', 'QEQ', '-srcfolder', str(staging), '-format', 'UDZO', str(dmg))
     run('codesign', '--sign', identity, '--timestamp', '--keychain', os.environ['KEYCHAIN_PATH'], str(dmg))
     verify_signature(dmg, team)
     dmg_submission = notarize(dmg, 'dmg', logs)
@@ -110,8 +110,8 @@ def main():
     # Confirm ZIP packaging preserved the app's signature and offline ticket.
     extracted = out / 'zip-verification'
     run('ditto', '-x', '-k', str(archive), str(extracted))
-    verify_signature(extracted / 'AppMixer.app', team, runtime=True)
-    run('xcrun', 'stapler', 'validate', str(extracted / 'AppMixer.app'))
+    verify_signature(extracted / 'QEQ.app', team, runtime=True)
+    run('xcrun', 'stapler', 'validate', str(extracted / 'QEQ.app'))
     manifest = dict(config, sourceCommit=commit, sourceRepository=os.environ['GITHUB_REPOSITORY'],
                     tag=f'v{version}', architectures=architectures,
                     xcode=run('xcodebuild', '-version', capture=True),

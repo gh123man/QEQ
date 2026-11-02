@@ -50,6 +50,17 @@ private func rms(_ samples: [Float]) -> Double {
     // A separate processor keeps its own neutral state.
     #expect(abs(rms(render(frequency: 60)) - 0.1 / sqrt(2)) < 0.0001)
 }
+@Test func bassBoostRaisesBassWithoutTurningDownUnrelatedFrequencies() {
+    for rate in [44100.0, 48000, 96000] {
+        let bassDB =
+            20 * log10(rms(render(frequency: 60, bass: 12, rate: rate)) / rms(render(frequency: 60, rate: rate)))
+        let highDB =
+            20 * log10(rms(render(frequency: 4000, bass: 12, rate: rate)) / rms(render(frequency: 4000, rate: rate)))
+        print("+12 dB bass @ \(rate): bass \(bassDB) dB, highs \(highDB) dB")
+        #expect(bassDB > 11.5 && bassDB < 12.1)
+        #expect(abs(highDB) < 0.05)
+    }
+}
 @Test func otherBandsAndSampleRates() {
     for rate in [44100.0, 48000, 96000] {
         let middle = rms(render(frequency: 1000, mid: -12, rate: rate)) / rms(render(frequency: 1000, rate: rate))
@@ -67,10 +78,10 @@ private func rms(_ samples: [Float]) -> Double {
     #expect(MixerDSPCreate(48000, 8, 1) == nil)
     #expect(MixerDSPCreate(.nan, 2, 1) == nil)
 }
-@Test func boostedEQRemainsFiniteWithConservativeHeadroom() {
+@Test func boostedEQRemainsFiniteWithPeakProtection() {
     let output = render(frequency: 1000, bass: 12, mid: 12, treble: 12)
     #expect(output.allSatisfy { $0.isFinite && abs($0) <= 1 })
-    #expect(rms(output) < 0.1)
+    #expect(rms(output) > 0.1)
 }
 @Test func planarStereoSkipsPhysicalInputAndKeepsChannelsSeparate() {
     let count = 512
@@ -264,7 +275,7 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
             settings.bands[2] = EQBand(type: type, frequency: 1000, gain: -8, q: type.isShelf ? 0.5 : 2)
             for frequency in [250.0, 1000, 4000] {
                 let actual = renderParametric(settings, frequency: frequency, rate: rate)
-                let predicted = settings.responseDB(at: frequency, sampleRate: rate) - settings.headroomDB
+                let predicted = settings.responseDB(at: frequency, sampleRate: rate)
                 #expect(
                     abs(actual - predicted) < 0.08,
                     "\(type) \(frequency) Hz @ \(rate): actual \(actual), graph \(predicted)")
@@ -329,4 +340,81 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
     #expect(left.allSatisfy { $0 == 0.1 } && left == right)
     MixerDSPEnableAnalysis(dsp, false)
     #expect(!MixerDSPReadAnalysis(dsp, &left, &right, 2048))
+}
+
+private func processSamples(_ inputSamples: [Float], channels: Int, dsp: OpaquePointer) -> [Float] {
+    var input = inputSamples
+    var output = [Float](repeating: 0, count: input.count)
+    input.withUnsafeMutableBytes { i in
+        output.withUnsafeMutableBytes { o in
+            var inABL = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: UInt32(channels), mDataByteSize: UInt32(i.count), mData: i.baseAddress))
+            var outABL = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: UInt32(channels), mDataByteSize: UInt32(o.count), mData: o.baseAddress))
+            MixerDSPProcess(dsp, &inABL, &outABL)
+        }
+    }
+    return output
+}
+
+@Test func peakProtectionIsImmediateStereoLinkedAndRecovers() {
+    for rate in [44100.0, 48000, 96000] {
+        let dsp = MixerDSPCreate(rate, 2, 1)!
+        defer { MixerDSPDestroy(dsp) }
+        let quiet: [Float] = [0.25, -0.5]
+        #expect(processSamples(quiet, channels: 2, dsp: dsp) == quiet)
+        #expect(MixerDSPLimitingDB(dsp) == 0)
+        // The overload is contained in its original sample, and both channels
+        // receive identical gain even though only the left exceeds full scale.
+        let impulse = processSamples([2, -0.4], channels: 2, dsp: dsp)
+        #expect(abs(impulse[0] - 1) < 0.000001)
+        #expect(abs(impulse[1] + 0.2) < 0.000001)
+        #expect(abs(MixerDSPLimitingDB(dsp) - 6.0206) < 0.001)
+        let recovery = processSamples(
+            Array(repeating: quiet, count: Int(rate / 2)).flatMap { $0 }, channels: 2, dsp: dsp)
+        #expect(recovery.allSatisfy { $0.isFinite && abs($0) <= 1 })
+        #expect(abs(recovery[0] - 0.125) < 0.001)
+        #expect(abs(recovery[recovery.count - 2] - 0.25) < 0.00003)
+        let settled = processSamples(quiet, channels: 2, dsp: dsp)
+        #expect(abs(settled[1] + 0.5) < 0.00003)
+        #expect(MixerDSPLimitingDB(dsp) < 0.001)
+        let otherApp = MixerDSPCreate(rate, 2, 1)!
+        defer { MixerDSPDestroy(otherApp) }
+        #expect(processSamples(quiet, channels: 2, dsp: otherApp) == quiet)
+    }
+}
+
+@Test func bassAndTrebleBoostsDoNotStackFullBandAttenuation() {
+    var settings = MixerSettings()
+    settings.bass = 12
+    settings.treble = 12
+    for rate in [44100.0, 48000, 96000] {
+        for hz in [60.0, 1000, 16000] {
+            let measured = renderParametric(settings, frequency: hz, rate: rate)
+            #expect(abs(measured - settings.responseDB(at: hz, sampleRate: rate)) < 0.08)
+        }
+    }
+}
+
+@Test func loweringAppVolumeProvidesHeadroomBeforePeakProtection() {
+    let dsp = MixerDSPCreate(48000, 1, 1)!
+    defer { MixerDSPDestroy(dsp) }
+    var settings = MixerSettings()
+    settings.volume = 0.1
+    settings.bass = 12
+    let bands = settings.dspBands
+    bands.withUnsafeBufferPointer {
+        MixerDSPConfigure(dsp, Float(settings.volume), false, $0.baseAddress, UInt32($0.count))
+    }
+    // Settle the existing 10 ms parameter ramp before sending a loud signal.
+    _ = processSamples([Float](repeating: 0, count: 1024), channels: 1, dsp: dsp)
+    let input = (0..<48000).map { Float(0.8 * sin(2 * .pi * 60 * Double($0) / 48000)) }
+    let output = processSamples(input, channels: 1, dsp: dsp)
+    #expect(MixerDSPLimitingDB(dsp) == 0)
+    let measured = 20 * log10(rms(Array(output.suffix(24000))) / rms(Array(input.suffix(24000))))
+    #expect(abs(measured - (settings.responseDB(at: 60, sampleRate: 48000) - 20)) < 0.08)
 }

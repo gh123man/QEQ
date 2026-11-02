@@ -92,7 +92,7 @@ jobs:
       - name: Upload verified release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AppMixer-${{ env.RELEASE_REF_NAME }}
+          name: QEQ-${{ env.RELEASE_REF_NAME }}
           path: AppMixer/.release/*/artifacts/*
           include-hidden-files: true
           if-no-files-found: error
@@ -107,7 +107,7 @@ jobs:
             exit 1
           fi
           gh release create "$RELEASE_REF_NAME" --verify-tag --prerelease --latest=false \
-            --title "AppMixer $VERSION" --notes-file "AppMixer/ReleaseNotes/$VERSION.md" \
+            --title "QEQ $VERSION" --notes-file "AppMixer/ReleaseNotes/$VERSION.md" \
             AppMixer/.release/"$VERSION"/artifacts/*
       - name: Retain notarization diagnostics
         if: always()

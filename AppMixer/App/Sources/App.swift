@@ -11,12 +11,16 @@ final class MixerModel: ObservableObject {
     @Published var changing = false
     @Published var selectedEQ: String?
     @Published var telemetry = AudioTelemetry()
+    @Published var maximumPanelHeight: CGFloat = 720
+    private let preview: Bool
     private var panelVisible = false
     private let engine = MixerEngine()
     private var observers: [NSObjectProtocol] = []
     private var saveWork: DispatchWorkItem?
 
-    init() {
+    init(preview: Bool = false) {
+        self.preview = preview
+        guard !preview else { return }
         if let data = UserDefaults.standard.data(forKey: "appSettings"),
             let saved = try? JSONDecoder().decode([String: MixerSettings].self, from: data)
         {
@@ -46,6 +50,14 @@ final class MixerModel: ObservableObject {
                 Task { @MainActor in self?.engine.suspend(false) }
             })
     }
+    var diagnostics: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "AppMixerReleaseVersion") as? String ?? "development"
+        let apps = snapshot.apps.map { app in
+            "\(app.name): playing=\(app.playing), clients=\(app.processes), outputs=\(app.outputDevices.map { String(describing: $0.sorted()) } ?? "unknown"), enabled=\(value(app.id).enabled), adjusted=\(value(app.id).needsProcessing), frames=\(snapshot.callbackFrames[app.id] ?? 0), status=\(snapshot.routeMessages[app.id] ?? "normal")"
+        }.joined(separator: "\n")
+        return
+            "QEQ \(version)\n\(ProcessInfo.processInfo.operatingSystemVersionString)\nOutput: \(snapshot.outputName), \(snapshot.sampleRate) Hz\n\(snapshot.timing)\nMixer enabled: \(enabled)\n\(snapshot.error ?? "No errors")\n\(apps)"
+    }
     func toggle(_ value: Bool) {
         enabled = value
         changing = true
@@ -64,6 +76,7 @@ final class MixerModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
     func save() {
+        guard !preview else { return }
         if let data = try? JSONEncoder().encode(settings.filter { $0.value.shouldPersist }) {
             UserDefaults.standard.set(data, forKey: "appSettings")
         }
@@ -82,6 +95,7 @@ final class MixerModel: ObservableObject {
         }
     }
     func shutdown() {
+        guard !preview else { return }
         save()
         engine.shutdown()
     }
@@ -89,11 +103,24 @@ final class MixerModel: ObservableObject {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    let model = MixerModel()
+    let model = MixerModel(preview: CommandLine.arguments.contains("--render-screenshots"))
     private var item: NSStatusItem!
     private let popover = NSPopover()
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        if let index = CommandLine.arguments.firstIndex(of: "--render-screenshots"),
+            index + 1 < CommandLine.arguments.count
+        {
+            do {
+                try ScreenshotRenderer.render(
+                    to: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
+            } catch {
+                fputs("Screenshot rendering failed: \(error)\n", stderr)
+                exit(1)
+            }
+            NSApp.terminate(nil)
+            return
+        }
         if let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--audio-check=") }) {
             let bundleID = String(argument.dropFirst("--audio-check=".count))
             model.shutdown()
@@ -104,14 +131,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "slider.vertical.3", accessibilityDescription: "AppMixer")
-        item.button?.toolTip = "Audio mixer"
+        item.button?.image = NSImage(systemSymbolName: "slider.vertical.3", accessibilityDescription: "QEQ")
+        item.button?.toolTip = "QEQ · Quick EQ"
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 500, height: 720)
-        popover.contentViewController = NSHostingController(rootView: MixerView(model: model))
+        popover.contentSize = NSSize(width: 500, height: 240)
+        let host = NSHostingController(rootView: MixerView(model: model))
+        host.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = host
         // Show the controls once at launch so a menu-bar-only app is easy to find.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.showPopover() }
     }
@@ -120,6 +149,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
     private func showPopover() {
         guard let button = item.button else { return }
+        model.maximumPanelHeight = min(
+            720, max(280, (button.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
         model.setPanelVisible(true)
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

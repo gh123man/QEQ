@@ -102,10 +102,12 @@ struct ParametricEQView: View {
                     Button("Flat EQ") { model.edit(appID) { $0.bands = MixerSettings.defaultBands } }
                 }.menuStyle(.borderlessButton).fixedSize()
                 Spacer()
-                if settings.headroomDB > 0 {
-                    Text(String(format: "Headroom −%.1f dB", settings.headroomDB)).foregroundStyle(.secondary)
-                        .help("Automatic output reduction reserves space for EQ boosts and resonant filters.")
-                }
+                let limiting = processing && model.telemetry.limitingDB > 0.1
+                Text(limiting ? String(format: "Limiting −%.1f dB", model.telemetry.limitingDB) : "Peak protection")
+                    .foregroundStyle(limiting ? Color.orange : Color.secondary)
+                    .help(
+                        "Only reduces gain when output peaks exceed full scale, with no added buffering. Lower app volume if limiting is frequent. The curve shows EQ before volume and peak protection."
+                    )
                 Button("Reset app") { model.edit(appID) { $0 = MixerSettings() } }
             }.font(.system(size: 10)).buttonStyle(.borderless)
         }

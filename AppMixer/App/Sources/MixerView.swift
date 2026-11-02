@@ -6,53 +6,59 @@ import SwiftUI
 struct MixerView: View {
     @ObservedObject var model: MixerModel
     @State private var search = ""
+    @State private var measured: [String: CGFloat] = [:]
     private var apps: [AudioApplication] {
         model.snapshot.apps.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
     }
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "speaker.wave.2").foregroundStyle(.secondary)
-                Text(model.snapshot.outputName).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                Spacer()
-                if model.changing { ProgressView().controlSize(.mini) }
-                Toggle("Mixer", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
-                    .toggleStyle(.switch).controlSize(.small).font(.system(size: 11))
-                    .help("Off restores original audio for every app.")
-            }.padding(.horizontal, 16).padding(.vertical, 12)
-            Divider()
-            if let error = model.snapshot.error {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("System audio restored").font(.system(size: 11, weight: .semibold))
-                    Text(error).font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
-                    HStack {
-                        Button("Retry") { model.toggle(true) }
-                        Button("Privacy settings") {
-                            NSWorkspace.shared.open(
-                                URL(
-                                    string:
-                                        "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")!
-                            )
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "speaker.wave.2").foregroundStyle(.secondary)
+                    Text(model.snapshot.outputName).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer()
+                    if model.changing { ProgressView().controlSize(.mini) }
+                    Toggle("Mixer", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
+                        .toggleStyle(.switch).controlSize(.small).font(.system(size: 11))
+                        .help("Off restores original audio for every app.")
+                }.padding(.horizontal, 16).padding(.vertical, 12)
+                Divider()
+                if let error = model.snapshot.error {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(model.enabled ? "Some apps are bypassed" : "System audio restored").font(
+                            .system(size: 11, weight: .semibold))
+                        Text(error).font(.system(size: 11)).lineLimit(4).fixedSize(horizontal: false, vertical: true)
+                            .help(error)
+                        HStack {
+                            Button("Retry") { model.toggle(true) }
+                            Button("Privacy settings") {
+                                NSWorkspace.shared.open(
+                                    URL(
+                                        string:
+                                            "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture"
+                                    )!
+                                )
+                            }
                         }
-                    }
-                }.foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
-                    .orange.opacity(0.08))
-            }
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Filter apps", text: $search).textFieldStyle(.plain)
-                if !search.isEmpty {
-                    Button {
-                        search = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                    }.buttonStyle(.plain)
+                    }.foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
+                        .orange.opacity(0.08))
                 }
-            }.font(.system(size: 11)).padding(8).background(
-                .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6)
-            ).padding(12)
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Filter apps", text: $search).textFieldStyle(.plain)
+                    if !search.isEmpty {
+                        Button {
+                            search = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }.buttonStyle(.plain)
+                    }
+                }.font(.system(size: 11)).padding(8).background(
+                    .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6)
+                ).padding(12)
+            }.trackHeight("header")
             ScrollView {
-                LazyVStack(spacing: 8) {
+                VStack(spacing: 8) {
                     if apps.isEmpty {
                         VStack(spacing: 8) {
                             Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(
@@ -63,20 +69,40 @@ struct MixerView: View {
                     }
                     ForEach(apps) { app in appCard(app) }
                 }.padding(.horizontal, 12).padding(.bottom, 12)
-            }
-            Divider()
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(
-                        model.enabled
-                            ? "\(model.snapshot.active.count) apps processing" : "Bypassed · original system audio")
-                    Text(model.snapshot.timing).foregroundStyle(.tertiary)
-                        .help("Hardware buffer duration, not measured end-to-end latency.")
-                }
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.plain)
-            }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
-        }.frame(width: 500, height: 720).tint(.teal)
+                    .fixedSize(horizontal: false, vertical: true).trackHeight("apps")
+            }.frame(
+                height: min(
+                    measured["apps", default: 110],
+                    max(
+                        0, model.maximumPanelHeight - measured["header", default: 100] - measured["footer", default: 50]
+                    )))
+            VStack(spacing: 0) {
+                Divider()
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(
+                            model.enabled
+                                ? "\(model.snapshot.active.count) apps processing" : "Bypassed · original system audio")
+                        Text(model.snapshot.timing).foregroundStyle(.tertiary)
+                            .help("Hardware buffer duration, not measured end-to-end latency.")
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Copy diagnostics") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(model.diagnostics, forType: .string)
+                        }
+                        Divider()
+                        Button("Quit QEQ") { NSApp.terminate(nil) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .menuStyle(.borderlessButton).fixedSize().help("QEQ options")
+                }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
+            }.trackHeight("footer")
+        }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.teal)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
     }
     private func appCard(_ app: AudioApplication) -> some View {
         let settings = model.value(app.id)
@@ -90,7 +116,9 @@ struct MixerView: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(app.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Text(status(app, settings: settings)).font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(status(app, settings: settings)).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(
+                        1
+                    ).help(status(app, settings: settings))
                 }
                 Spacer()
                 Button {
@@ -142,8 +170,24 @@ struct MixerView: View {
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String {
         if !settings.enabled { return "App bypassed" }
         if !model.enabled { return "System bypass" }
+        if let message = model.snapshot.routeMessages[app.id] { return message }
         if model.snapshot.active.contains(app.id) { return settings.muted ? "Muted" : "Processing" }
         if settings.isFlat { return app.playing ? "Playing · original audio" : "Idle · original audio" }
         return "Starting…"
+    }
+}
+
+private struct PanelHeights: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+extension View {
+    fileprivate func trackHeight(_ section: String) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: PanelHeights.self, value: [section: geometry.size.height])
+            })
     }
 }

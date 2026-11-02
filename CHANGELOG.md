@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-rc.3 — 2026-11-02
+
+- Rebrand as QEQ (Quick EQ), with a new app icon, concise README, and screenshots.
+- Size the popover to its contents up to a screen-aware maximum.
+- Replace automatic full-band boost attenuation with stereo-linked sample-peak protection and live gain-reduction feedback.
+- Wait for active playback before routing restored app settings; release paused routes and identify apps on other outputs.
+- Isolate stalled routes, bound automatic retries, and add copyable diagnostics.
+
 ## 0.1.0-rc.2 — 2026-11-02
 
 - Mirror OpenSnek’s GitHub-hosted Developer ID signing and notarization setup.

@@ -8,7 +8,6 @@ typedef struct MixerDSP MixerDSP;
 typedef struct { uint32_t type; float frequency, gain, q; bool enabled; } MixerEQBand;
 void MixerDSPConfigure(MixerDSP *dsp, float volume, bool muted, const MixerEQBand *bands, uint32_t count);
 double MixerEQResponse(const MixerEQBand *bands, uint32_t count, double rate, double frequency);
-double MixerEQHeadroom(const MixerEQBand *bands, uint32_t count);
 // Analysis observes a copy; it never queues or delays playback. 2048 samples/channel.
 void MixerDSPEnableAnalysis(MixerDSP *dsp, bool enabled);
 bool MixerDSPReadAnalysis(const MixerDSP *dsp, float *left, float *right, uint32_t count);
@@ -21,6 +20,8 @@ OSStatus MixerDSPCallback(AudioObjectID device, const AudioTimeStamp *now, const
  const AudioTimeStamp *inputTime, AudioBufferList *output, const AudioTimeStamp *outputTime, void *context);
 OSStatus MixerDSPRegister(AudioObjectID device, MixerDSP *dsp, AudioDeviceIOProcID *proc);
 float MixerDSPPeak(const MixerDSP *dsp);
+// Maximum stereo-linked gain reduction in the latest callback, in dB.
+float MixerDSPLimitingDB(const MixerDSP *dsp);
 uint64_t MixerDSPFrames(const MixerDSP *dsp);
 uint64_t MixerDSPFaults(const MixerDSP *dsp);
 #ifdef __cplusplus

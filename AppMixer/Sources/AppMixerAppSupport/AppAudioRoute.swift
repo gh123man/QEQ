@@ -5,16 +5,15 @@ import CoreAudio
 import Foundation
 import MixerDSP
 
-final class AppAudioRoute {
+final class AppAudioRoute: AudioRoute {
     private var tap: AudioObjectID = 0
     private var aggregate: AudioObjectID = 0
     private var proc: AudioDeviceIOProcID?
     private var dsp: OpaquePointer?
     let processes: [AudioObjectID]
     let output: OutputDevice
-    let started = Date()
     private(set) var lastFrames: UInt64 = 0
-    private(set) var lastProgress = Date()
+    private(set) var lastProgress = ProcessInfo.processInfo.systemUptime
 
     init(app: AudioApplication, output: OutputDevice, settings: MixerSettings) throws {
         processes = app.processes
@@ -25,7 +24,7 @@ final class AppAudioRoute {
     private func start(app: AudioApplication, settings: MixerSettings) throws {
         do {
             let description = CATapDescription(processes: app.processes, deviceUID: output.uid, stream: 0)
-            description.name = "AppMixer · \(app.name)"
+            description.name = "QEQ · \(app.name)"
             description.isPrivate = true
             description.muteBehavior = .mutedWhenTapped
             try checkAudio(AudioHardwareCreateProcessTap(description, &tap), "Create app audio tap")
@@ -36,7 +35,7 @@ final class AppAudioRoute {
                     message: "The app tap and output formats do not match. Select another output and retry.")
             }
             let config: [String: Any] = [
-                kAudioAggregateDeviceNameKey: "AppMixer · \(app.name)",
+                kAudioAggregateDeviceNameKey: "QEQ · \(app.name)",
                 kAudioAggregateDeviceUIDKey: "local.AppMixer.route.\(UUID().uuidString)",
                 kAudioAggregateDeviceIsPrivateKey: true,
                 kAudioAggregateDeviceIsStackedKey: false,
@@ -107,17 +106,17 @@ final class AppAudioRoute {
         let frames = MixerDSPFrames(dsp)
         if frames != lastFrames {
             lastFrames = frames
-            lastProgress = Date()
+            lastProgress = ProcessInfo.processInfo.systemUptime
         }
         if MixerDSPFaults(dsp) > 0 {
             throw AudioFailure(
                 message:
                     "The output buffer layout changed. Processing stopped to restore normal audio. Retry the mixer.")
         }
-        if Date().timeIntervalSince(lastProgress) > 4 {
+        if (ProcessInfo.processInfo.systemUptime - lastProgress) > 4 {
             throw AudioFailure(
                 message:
-                    "No audio callbacks arrived. Normal audio has been restored. Check system-audio permission, then retry."
+                    "No audio callbacks arrived while this app reported active playback. The app route has been released. This can be a device/route problem or capture access; it does not by itself establish a permission failure."
             )
         }
     }

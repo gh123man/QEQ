@@ -82,10 +82,6 @@ public struct MixerSettings: Codable, Equatable, Sendable {
         set { bands[4].gain = newValue }
     }
     public var dspBands: [MixerEQBand] { bands.map(\.dspBand) }
-    public var headroomDB: Double {
-        let b = dspBands
-        return b.withUnsafeBufferPointer { MixerEQHeadroom($0.baseAddress, UInt32($0.count)) }
-    }
     public func responseDB(at frequency: Double, sampleRate: Double) -> Double {
         let b = dspBands
         return b.withUnsafeBufferPointer { MixerEQResponse($0.baseAddress, UInt32($0.count), sampleRate, frequency) }

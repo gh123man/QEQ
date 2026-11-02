@@ -49,7 +49,7 @@ def main():
     require(required <= {secret['name'] for secret in secrets}, 'Missing GitHub Apple signing secrets')
     run('swift', 'test', '--package-path', 'AppMixer')
     if args.publish:
-        run('git', 'tag', '-a', tag, '-m', f'AppMixer {version}: Developer ID signed and notarized RC')
+        run('git', 'tag', '-a', tag, '-m', f'QEQ {version}: Developer ID signed and notarized RC')
         run('git', 'push', 'origin', tag)
         print(f'Pushed {tag}. Follow the Release DMG workflow; only verified artifacts will be published.')
     else:

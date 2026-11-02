@@ -58,7 +58,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$PACKAGE_DIR/.dist}"
 DERIVED_DATA_PATH="$OUTPUT_DIR/.derived-data"
-APP_BUNDLE="$OUTPUT_DIR/AppMixer.app"
+APP_BUNDLE="$OUTPUT_DIR/QEQ.app"
 XCODE_CONFIGURATION="$(tr '[:lower:]' '[:upper:]' <<< "${CONFIGURATION:0:1}")${CONFIGURATION:1}"
 
 require_cmd xcodebuild
@@ -85,7 +85,7 @@ xcodebuild \
   CODE_SIGN_IDENTITY="" \
   PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
 
-BUILT_APP="$DERIVED_DATA_PATH/Build/Products/$XCODE_CONFIGURATION/AppMixer.app"
+BUILT_APP="$DERIVED_DATA_PATH/Build/Products/$XCODE_CONFIGURATION/QEQ.app"
 [[ -d "$BUILT_APP" ]] || { echo "Built app not found: $BUILT_APP" >&2; exit 1; }
 rm -rf "$APP_BUNDLE"
 ditto "$BUILT_APP" "$APP_BUNDLE"

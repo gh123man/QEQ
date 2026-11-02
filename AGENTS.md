@@ -1,4 +1,4 @@
-# Codex Instructions
+# QEQ — Codex Instructions
 
 Goal: shortest path from request to the exact files, commands, and constraints needed for this Apple project.
 
@@ -34,3 +34,7 @@ swift test --package-path AppMixer
 ## Signed and notarized RCs
 
 Update `AppMixer/release.json` and matching release notes before committing. After local checks, push main and wait for CI. `cut_release.sh --publish` runs local tests and tags that commit; GitHub's Release DMG workflow uses the six Apple secrets to sign with Developer ID, notarize and staple both app and DMG, verify Gatekeeper acceptance, then publish a private prerelease. Do not publish unnotarized fallbacks or overwrite an existing release. Never commit or print signing secrets. Keep hardware tests enabled locally; only headless CI sets `APP_MIXER_HARDWARE_TESTS=0`.
+
+## Branding and UI captures
+
+The user-facing app and artifacts are QEQ. Internal modules and `local.AppMixer` identity remain stable for settings compatibility. See `docs/DEVELOPMENT.md` for screenshot generation and diagnostics. Screenshots must use the app-owned renderer, never desktop capture or computer use.

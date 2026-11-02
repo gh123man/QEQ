@@ -10,7 +10,7 @@ func checkAudio(_ status: OSStatus, _ operation: String) throws {
     guard status == noErr else {
         throw AudioFailure(
             message:
-                "\(operation) failed (Core Audio \(status)). If access was denied, allow AppMixer in System Settings → Privacy & Security → Screen & System Audio Recording, then retry."
+                "\(operation) failed (Core Audio \(status)). If access was denied, allow QEQ in System Settings → Privacy & Security → Screen & System Audio Recording, then retry."
         )
     }
 }
@@ -119,9 +119,17 @@ enum HAL {
             guard key != Bundle.main.bundleIdentifier else { continue }
             let playing = ((try? uint(object, kAudioProcessPropertyIsRunningOutput)) ?? 0) != 0
             guard playing || url != nil else { continue }
+            let devices: Set<AudioObjectID>? =
+                playing
+                ? (try? Set(objects(object, kAudioProcessPropertyDevices, scope: kAudioObjectPropertyScopeOutput))) : []
             if var app = grouped[key] {
                 app.processes.append(object)
                 app.playing = app.playing || playing
+                if let previous = app.outputDevices, let devices {
+                    app.outputDevices = previous.union(devices)
+                } else {
+                    app.outputDevices = nil
+                }
                 if !processBundle.isEmpty && processBundle != key && !app.aliases.contains(processBundle) {
                     app.aliases.append(processBundle)
                 }
@@ -129,7 +137,8 @@ enum HAL {
             } else {
                 grouped[key] = AudioApplication(
                     id: key, name: name.isEmpty ? "Audio process \(pid)" : name, path: url?.path, processes: [object],
-                    playing: playing, aliases: processBundle.isEmpty || processBundle == key ? [] : [processBundle])
+                    playing: playing, aliases: processBundle.isEmpty || processBundle == key ? [] : [processBundle],
+                    outputDevices: devices)
             }
         }
         return grouped.values.map {
@@ -147,6 +156,19 @@ public struct AudioApplication: Identifiable, Sendable {
     public var processes: [AudioObjectID]
     public var playing: Bool
     public var aliases: [String] = []
+    public var outputDevices: Set<AudioObjectID>? = nil
+    public init(
+        id: String, name: String, path: String? = nil, processes: [AudioObjectID] = [], playing: Bool = false,
+        aliases: [String] = [], outputDevices: Set<AudioObjectID>? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.processes = processes
+        self.playing = playing
+        self.aliases = aliases
+        self.outputDevices = outputDevices
+    }
 }
 struct OutputDevice: Equatable, Sendable {
     let id: AudioObjectID
