@@ -2,7 +2,7 @@ import Foundation
 import QEQCore
 import os
 
-public struct MixerSnapshot: Sendable {
+public struct MixerSnapshot: Equatable, Sendable {
     public var apps: [AudioApplication] = []
     public var active: Set<String> = []
     public var peaks: [String: Float] = [:]
@@ -27,17 +27,33 @@ public final class MixerEngine: @unchecked Sendable {
     private var analyzeAll = false
     private var analyzers: [String: SpectrumAnalyzer] = [:]
     private var analysisReadings: [String: AudioTelemetry] = [:]
+    private var lastAnalysis = AudioTelemetry()
     private var deliverAnalysis: (@Sendable (AudioTelemetry) -> Void)?
-    private let controller = RouteController()
+    private let controller: RouteController
+    private let discover: (() throws -> [AudioApplication])?
+    private let readOutput: () throws -> OutputDevice
     private var settings: [String: MixerSettings] = [:]
     private var globalEQ = MixerSettings()
     private var appList = AudioAppList()
+    private let identityCache = AppIdentityCache()
     private var enabled = false
     private let requestedEnabled = OSAllocatedUnfairLock(initialState: false)
     private var suspended = false
     private var failure: String?
     private var deliver: (@Sendable (MixerSnapshot) -> Void)?
-    public init() {}
+    public init() {
+        controller = RouteController()
+        discover = nil
+        readOutput = { try HAL.output() }
+    }
+    init(
+        controller: RouteController, discover: @escaping () throws -> [AudioApplication],
+        readOutput: @escaping () throws -> OutputDevice
+    ) {
+        self.controller = controller
+        self.discover = discover
+        self.readOutput = readOutput
+    }
     public func start(
         settings: [String: MixerSettings], global: MixerSettings = MixerSettings(),
         enabled initialEnabled: Bool = false,
@@ -102,35 +118,55 @@ public final class MixerEngine: @unchecked Sendable {
             for (id, route) in controller.routes {
                 route.setAnalysis(analyzeAll || id == key || key == Self.globalEQID)
             }
-            deliver(AudioTelemetry())
+            lastAnalysis = AudioTelemetry()
+            deliver(lastAnalysis)
             // Opening a flat EQ needs a route for its spectrum too. Closing the
             // panel releases that route immediately unless its audio is adjusted.
             refresh()
-            guard key != nil else { return }
-            let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now(), repeating: .milliseconds(67), leeway: .milliseconds(10))
-            timer.setEventHandler { [weak self] in
-                guard let self, let key = analysisApp else { return }
-                let routes = controller.routes.filter { analyzeAll || key == Self.globalEQID || $0.key == key }
-                analyzers = analyzers.filter { routes[$0.key] != nil }
-                analysisReadings = analysisReadings.filter { routes[$0.key] != nil }
-                for (id, route) in routes {
-                    let analyzer = analyzers[id] ?? SpectrumAnalyzer()
-                    analyzers[id] = analyzer
-                    if let value = route.analysis(using: analyzer) { analysisReadings[id] = value }
-                    // Level meters should not wait for a full FFT window or a
-                    // successful spectrum snapshot while its writer is active.
-                    var reading = analysisReadings[id] ?? AudioTelemetry()
-                    reading.peak = route.peak
-                    analysisReadings[id] = reading
-                }
-                var combined = AudioTelemetry.envelope(Array(analysisReadings.values))
-                combined.apps = analysisReadings
-                deliverAnalysis?(combined)
-            }
-            analysisTimer = timer
-            timer.resume()
         }
+    }
+    /// Only wake at visual frame rate while a visible spectrum has an audio route.
+    /// Discovery still runs once per second so playback/recovery remain responsive.
+    private func refreshAnalysisTimer() {
+        guard let key = analysisApp,
+            controller.routes.keys.contains(where: { analyzeAll || key == Self.globalEQID || $0 == key })
+        else {
+            analysisTimer?.cancel()
+            analysisTimer = nil
+            analyzers.removeAll()
+            analysisReadings.removeAll()
+            publishAnalysis(AudioTelemetry())
+            return
+        }
+        guard analysisTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now(), repeating: .milliseconds(67), leeway: .milliseconds(10))
+        timer.setEventHandler { [weak self] in self?.readAnalysis() }
+        analysisTimer = timer
+        timer.resume()
+    }
+    private func readAnalysis() {
+        guard let key = analysisApp else { return }
+        let routes = controller.routes.filter { analyzeAll || key == Self.globalEQID || $0.key == key }
+        analyzers = analyzers.filter { routes[$0.key] != nil }
+        analysisReadings = analysisReadings.filter { routes[$0.key] != nil }
+        for (id, route) in routes {
+            let analyzer = analyzers[id] ?? SpectrumAnalyzer()
+            analyzers[id] = analyzer
+            if let value = route.analysis(using: analyzer) { analysisReadings[id] = value }
+            // Meters do not wait for a full FFT window or a successful snapshot.
+            var reading = analysisReadings[id] ?? AudioTelemetry()
+            reading.peak = route.peak
+            analysisReadings[id] = reading
+        }
+        var combined = AudioTelemetry.envelope(Array(analysisReadings.values))
+        combined.apps = analysisReadings
+        publishAnalysis(combined)
+    }
+    private func publishAnalysis(_ value: AudioTelemetry) {
+        guard value != lastAnalysis else { return }
+        lastAnalysis = value
+        deliverAnalysis?(value)
     }
     public func suspend(_ value: Bool) {
         queue.async { [self] in
@@ -158,7 +194,7 @@ public final class MixerEngine: @unchecked Sendable {
         var snapshot = MixerSnapshot()
         enabled = enabled && requestedEnabled.withLock { $0 }
         do {
-            let discovered = try HAL.applications()
+            let discovered = try discover?() ?? HAL.applications(identityCache: identityCache)
             for app in discovered {
                 for alias in app.aliases.sorted() where settings[alias] != nil {
                     if settings[app.id] == nil { settings[app.id] = settings[alias] }
@@ -167,7 +203,7 @@ public final class MixerEngine: @unchecked Sendable {
                 }
             }
             snapshot.apps = appList.visibleApps(from: discovered, settings: settings)
-            let output = try HAL.output()
+            let output = try readOutput()
             snapshot.outputName = output.name
             snapshot.sampleRate = output.sampleRate
             snapshot.timing = String(
@@ -195,6 +231,7 @@ public final class MixerEngine: @unchecked Sendable {
         }
         snapshot.enabled = enabled
         snapshot.error = failure ?? snapshot.error
+        refreshAnalysisTimer()
         deliver?(snapshot)
     }
 }

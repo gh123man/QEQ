@@ -26,7 +26,8 @@ struct AppIdentity {
         if url == nil,
             let owner = runningApps.filter({ app in
                 guard let id = app.bundleIdentifier else { return false }
-                return app.activationPolicy == .regular && (bundleID == id || bundleID.hasPrefix(id + "."))
+                // activationPolicy queries LaunchServices. Reject unrelated IDs before that IPC.
+                return (bundleID == id || bundleID.hasPrefix(id + ".")) && app.activationPolicy == .regular
             }).max(by: { ($0.bundleIdentifier?.count ?? 0) < ($1.bundleIdentifier?.count ?? 0) })
         {
             url = containingApp(owner.bundleURL)
@@ -42,5 +43,36 @@ struct AppIdentity {
             ?? (info?["CFBundleName"] as? String)
             ?? url?.deletingPathExtension().lastPathComponent ?? fallbackName
         return Self(id: id, name: name, url: url)
+    }
+}
+
+/// Control-queue cache of display metadata only. Playback, output devices and
+/// process membership must still be read on every discovery tick.
+final class AppIdentityCache {
+    private struct Entry {
+        let pid: Int32
+        let bundleID: String
+        let identity: AppIdentity
+        let expires: TimeInterval
+    }
+    private var entries: [UInt32: Entry] = [:]
+    func retain(processes: [UInt32]) {
+        let live = Set(processes)
+        entries = entries.filter { live.contains($0.key) }
+    }
+    func identity(
+        object: UInt32, pid: Int32, bundleID: String, now: TimeInterval, resolve: () -> AppIdentity
+    ) -> AppIdentity {
+        if let entry = entries[object], entry.pid == pid, entry.bundleID == bundleID, now < entry.expires {
+            return entry.identity
+        }
+        let identity = resolve()
+        // Retry unresolved helpers next tick; their parent may still be launching.
+        if identity.url != nil {
+            entries[object] = Entry(pid: pid, bundleID: bundleID, identity: identity, expires: now + 30)
+        } else {
+            entries.removeValue(forKey: object)
+        }
+        return identity
     }
 }

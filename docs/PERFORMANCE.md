@@ -1,0 +1,47 @@
+# Performance profiling
+
+## 2026-11-02 findings
+
+A sample of the running RC.6-era Release app showed repeated LaunchServices metadata queries, IconServices lookups and SwiftUI rendering. An audio callback was active during that capture, so it is **not a verified idle baseline**. Stack samples include blocked threads and are not a CPU percentage breakdown.
+
+Release microbenchmarks on this Mac (48 kHz stereo; warm-up excluded):
+
+| Work | Before | After |
+| --- | ---: | ---: |
+| Audio-app discovery | 7.90 ms | 5.51 ms with warm metadata cache |
+| 16,384-frame stereo FFT + 96 spectrum bins | 0.127 ms | 0.073 ms |
+| 241-point EQ response curve | 0.024 ms | unchanged |
+| 10-band DSP, 256 stereo frames | 0.004 ms | unchanged |
+| Same DSP with analysis capture | 0.005 ms | unchanged |
+
+These are component wall times, not whole-app CPU or acoustic latency. Discovery depends on the apps/processes running. The DSP benchmark includes six non-flat bands in the ten-band chain. At 48 kHz, each 256-frame block represents 5.33 ms of audio; the filter callback was not the main optimization target.
+
+Changes:
+
+- Stop the 15 Hz analysis timer when the popup has no route to visualize. Discovery restarts it when playback begins; bypass and closing the popup stop it.
+- Skip identical spectrum and UI publications, including steady silence.
+- Cache app icons while their rows are present. Cache resolved process display metadata for up to 30 seconds; invalidate on process/PID/bundle changes and retry unresolved helpers immediately. Playback state and device routing are never cached.
+- Reuse FFT work buffers, vectorize window multiplication, and compute the Hann window and normalization once. Frequency bins, stereo power, and displayed dB values retain their existing semantics.
+
+One-second discovery, route recovery, DSP coefficients, smoothing, limiter, audio buffers and permissions are unchanged. More invasive DSP changes are not justified by these measurements. Full local correctness/hardware tests and the universal app build pass, including pause/resume, bypass and reopen regression coverage for the analysis timer.
+
+## Reproduce
+
+Run component benchmarks alone in Release mode (they do not play or capture audio):
+
+```sh
+QEQ_PROFILE=1 swift test -c release --package-path QEQ --filter profileComponents
+```
+
+For actual process CPU and route state:
+
+```sh
+mkdir -p QEQ/.dist/profiles
+./run.sh --no-build --profile "$PWD/QEQ/.dist/profiles/live.jsonl"
+```
+
+This restarts QEQ and records 30 seconds of numeric counters: 10 seconds with its own popup open, 10 closed, then 10 open. It leaves the popup open. It does not change EQ, playback, or saved settings, and does not record audio or the desktop. The parent output directory must exist. Profiling is opt-in and dormant on normal launches.
+
+Run once with playback paused, and again with the same source playing at the same volume/output. Each JSON line contains process CPU (100% = one core), actual popup visibility, route count, Core Audio's playing-app count and the latest output peak. Discard `warmup` samples. A playing app can keep a silent stream open, so distinguish `activeRoutes == 0` from an active route with `latestPeak == 0`. Peak is the most recent discovery reading, not the maximum over the entire two-second interval. Compare the same conditions; don't mix open-popup CPU with background CPU.
+
+For call stacks, use `sample <QEQ-pid> 8 1 -file /tmp/qeq.sample.txt`. Keep local logs and samples out of git.

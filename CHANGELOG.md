@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reduce idle UI work and app-discovery overhead; reuse spectrum-analysis buffers during playback.
+- Add opt-in CPU/route profiling and regression coverage for spectrum restart after pause, bypass, and closing the popup.
+
 ## 0.1.0-rc.6 — 2026-11-02
 
 - Refine the popup with subtle system translucency, opaque spectrum plots, and light/dark appearance support.

@@ -9,4 +9,8 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
   "$SCRIPT_DIR/build_macos_app.sh"
 fi
 
-open "$APP_BUNDLE"
+if [[ $# -gt 0 ]]; then
+  open "$APP_BUNDLE" --args "$@"
+else
+  open "$APP_BUNDLE"
+fi

@@ -128,3 +128,7 @@ The icon was created with the built-in image-generation tool. The source asset a
 Native screenshot rendering is also checked in CI before tagging. It reads fixture app icons directly from bundles to avoid headless IconServices stalls. A 90-second timeout retains a process sample on failure. RC.4 was tagged but not published after exposing that runner issue; RC.5 includes the fix.
 
 For light-appearance screenshot QA, run `QEQ_SCREENSHOT_APPEARANCE=light python3 QEQ/scripts/screenshots.py --skip-build --output /tmp/qeq-light-screenshots`. The default README captures use dark appearance. Offscreen captures validate layout and colors; desktop backdrop blur is visible in the live popover.
+
+## Performance
+
+See [profiling results and commands](PERFORMANCE.md) for Release microbenchmarks and the opt-in `./run.sh --profile <absolute-jsonl-path>` CPU/route recorder.

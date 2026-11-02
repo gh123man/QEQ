@@ -98,8 +98,10 @@ enum HAL {
             sampleRate: format.mSampleRate, bufferFrames: try uint(id, kAudioDevicePropertyBufferFrameSize),
             channels: format.mChannelsPerFrame)
     }
-    static func applications() throws -> [AudioApplication] {
+    static func applications(identityCache: AppIdentityCache? = nil) throws -> [AudioApplication] {
         let processes = try objects(system, kAudioHardwarePropertyProcessObjectList)
+        identityCache?.retain(processes: processes)
+        let now = ProcessInfo.processInfo.systemUptime
         var grouped: [String: AudioApplication] = [:]
         let runningApps = NSWorkspace.shared.runningApplications
         for object in processes {
@@ -107,12 +109,17 @@ enum HAL {
             let pid = pid_t(bitPattern: rawPID)
             guard pid != getpid(), pid > 0 else { continue }
             let processBundle = (try? string(object, kAudioProcessPropertyBundleID)) ?? ""
-            let running = NSRunningApplication(processIdentifier: pid)
-            let identity = AppIdentity.resolve(
-                bundleURL: running?.bundleURL, executableURL: running?.executableURL,
-                bundleID: running?.bundleIdentifier ?? (processBundle.isEmpty ? "pid.\(pid)" : processBundle),
-                fallbackName: running?.localizedName
-                    ?? (processBundle.isEmpty ? "Audio process \(pid)" : processBundle), runningApps: runningApps)
+            func resolve() -> AppIdentity {
+                let running = NSRunningApplication(processIdentifier: pid)
+                return AppIdentity.resolve(
+                    bundleURL: running?.bundleURL, executableURL: running?.executableURL,
+                    bundleID: running?.bundleIdentifier ?? (processBundle.isEmpty ? "pid.\(pid)" : processBundle),
+                    fallbackName: running?.localizedName
+                        ?? (processBundle.isEmpty ? "Audio process \(pid)" : processBundle), runningApps: runningApps)
+            }
+            let identity =
+                identityCache?.identity(
+                    object: object, pid: pid, bundleID: processBundle, now: now, resolve: resolve) ?? resolve()
             let key = identity.id
             let name = identity.name
             let url = identity.url
@@ -149,7 +156,7 @@ enum HAL {
     }
 }
 
-public struct AudioApplication: Identifiable, Sendable {
+public struct AudioApplication: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let path: String?

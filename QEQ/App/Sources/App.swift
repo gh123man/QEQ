@@ -17,6 +17,7 @@ final class MixerModel: ObservableObject {
     @Published var maximumPanelHeight: CGFloat = MixerModel.panelHeightLimit
     private let preview: Bool
     private let spectrumColors = AppSpectrumColors()
+    private var icons: [String: NSImage] = [:]
     private let preferences = MixerPreferences()
     private var panelVisible = false
     private let engine = MixerEngine()
@@ -48,9 +49,12 @@ final class MixerModel: ObservableObject {
                     }
                     self.save()
                 }
-                self?.snapshot = value
-                self?.enabled = value.enabled
-                self?.changing = false
+                guard let self else { return }
+                if self.snapshot != value { self.snapshot = value }
+                if self.enabled != value.enabled { self.enabled = value.enabled }
+                if self.changing { self.changing = false }
+                let paths = Set(value.apps.compactMap(\.path))
+                self.icons = self.icons.filter { paths.contains($0.key) }
             }
         }
         let center = NSWorkspace.shared.notificationCenter
@@ -80,7 +84,12 @@ final class MixerModel: ObservableObject {
     func value(_ id: String) -> MixerSettings { id == Self.globalEQID ? globalEQ : settings[id] ?? MixerSettings() }
     func icon(for app: AudioApplication) -> NSImage? {
         guard let path = app.path else { return nil }
-        guard preview else { return NSWorkspace.shared.icon(forFile: path) }
+        if let icon = icons[path] { return icon }
+        if !preview {
+            let icon = NSWorkspace.shared.icon(forFile: path)
+            icons[path] = icon
+            return icon
+        }
         // Headless macOS runners can block indefinitely in IconServices. Fixture
         // rendering reads the bundle's icon directly and uses the view's fallback
         // symbol when an installed app has no standalone icon resource.
@@ -89,7 +98,9 @@ final class MixerModel: ObservableObject {
             let resource = bundle.resourceURL?.appendingPathComponent(
                 (name as NSString).pathExtension.isEmpty ? name + ".icns" : name)
         else { return nil }
-        return NSImage(contentsOf: resource)
+        let icon = NSImage(contentsOf: resource)
+        icons[path] = icon
+        return icon
     }
     func spectrumColor(for app: AudioApplication) -> Color {
         Color(nsColor: spectrumColors.color(for: app.id, icon: icon(for: app)))
@@ -132,7 +143,10 @@ final class MixerModel: ObservableObject {
     private func refreshAnalysis() {
         engine.setAnalysisApp(panelVisible ? (selectedEQ ?? Self.globalEQID) : nil, includeGlobal: panelVisible) {
             [weak self] value in
-            Task { @MainActor in self?.telemetry = value }
+            Task { @MainActor in
+                guard let self, self.telemetry != value else { return }
+                self.telemetry = value
+            }
         }
     }
     func shutdown() {
@@ -147,6 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let model = MixerModel(preview: CommandLine.arguments.contains("--render-screenshots"))
     private var item: NSStatusItem!
     private let popover = NSPopover()
+    private var performanceRecorder: PerformanceRecorder?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if let index = CommandLine.arguments.firstIndex(of: "--render-screenshots"),
@@ -183,7 +198,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
         // Show the controls once at launch so a menu-bar-only app is easy to find.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.showPopover() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            self.showPopover()
+            if let index = CommandLine.arguments.firstIndex(of: "--profile-performance"),
+                index + 1 < CommandLine.arguments.count
+            {
+                let recorder = PerformanceRecorder()
+                self.performanceRecorder = recorder
+                recorder.start(
+                    path: CommandLine.arguments[index + 1], model: self.model,
+                    isVisible: { [weak self] in self?.popover.isShown == true },
+                    setVisible: { [weak self] visible in
+                        if visible { self?.showPopover() } else { self?.popover.performClose(nil) }
+                    })
+            }
+        }
     }
     @objc private func togglePopover() {
         if popover.isShown { popover.performClose(nil) } else { showPopover() }

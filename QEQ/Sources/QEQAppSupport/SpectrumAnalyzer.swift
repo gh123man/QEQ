@@ -2,7 +2,7 @@ import Accelerate
 import Foundation
 import MixerDSP
 
-public struct AudioTelemetry: Sendable {
+public struct AudioTelemetry: Equatable, Sendable {
     public var spectrum: [Float] = []
     public var peak: Float = 0
     public var limitingDB: Float = 0
@@ -31,7 +31,9 @@ final class SpectrumAnalyzer {
     static let count = Int(MixerAnalysisFrameCount)
     static let bins = 96
     private let setup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(count), .FORWARD)
-    private let window = (0..<count).map { Float(0.5 - 0.5 * cos(2 * .pi * Double($0) / Double(count))) }
+    private static let window = (0..<count).map { Float(0.5 - 0.5 * cos(2 * .pi * Double($0) / Double(count))) }
+    private static let scale = 2 / window.reduce(0, +)
+    private var windowed = [Float](repeating: 0, count: count)
     private var left = [Float](repeating: 0, count: count)
     private var right = [Float](repeating: 0, count: count)
     private var imaginary = [Float](repeating: 0, count: count)
@@ -49,10 +51,10 @@ final class SpectrumAnalyzer {
     }
     func spectrum(left: [Float], right: [Float], sampleRate: Double) -> [Float] {
         guard let setup, left.count == Self.count, right.count == Self.count else { return [] }
-        powers = [Float](repeating: 0, count: Self.count / 2)
-        let scale = 2 / window.reduce(0, +)
+        vDSP_vclr(&powers, 1, vDSP_Length(powers.count))
+        let scale = Self.scale
         for channel in [left, right] {
-            var windowed = zip(channel, window).map(*)
+            vDSP_vmul(channel, 1, Self.window, 1, &windowed, 1, vDSP_Length(Self.count))
             vDSP_DFT_Execute(setup, &windowed, &imaginary, &realOutput, &imaginaryOutput)
             for i in 0..<powers.count {
                 powers[i] +=

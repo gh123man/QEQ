@@ -8,11 +8,12 @@ usage() {
 Build and launch the app from the repo root.
 
 Usage:
-  ./run.sh [--clean] [--no-build]
+  ./run.sh [--clean] [--no-build] [--profile <jsonl>]
 
 Options:
   --clean       Do a clean rebuild before launch
   --no-build    Launch the existing app bundle without rebuilding
+  --profile     Record 30 seconds of CPU/route counters with the popup open/closed
   -h, --help    Show this help
 USAGE
 }
@@ -36,11 +37,17 @@ terminate_existing_app() {
 
 CLEAN_BUILD=false
 SKIP_BUILD=false
+PROFILE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clean)
       CLEAN_BUILD=true
       shift
+      ;;
+    --profile)
+      [[ $# -ge 2 && "$2" == /* ]] || { echo "--profile requires an absolute output file path" >&2; exit 1; }
+      PROFILE_ARGS=(--profile-performance "$2")
+      shift 2
       ;;
     --no-build)
       SKIP_BUILD=true
@@ -72,4 +79,4 @@ if [[ "$SKIP_BUILD" == false ]]; then
     "$SCRIPT_DIR/QEQ/scripts/build_macos_app.sh"
   fi
 fi
-exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh"
+exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh" "${PROFILE_ARGS[@]}"
