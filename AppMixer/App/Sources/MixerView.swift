@@ -5,6 +5,7 @@ import SwiftUI
 
 struct MixerView: View {
     @ObservedObject var model: MixerModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
     private var isAppEQExpanded: Bool {
@@ -43,10 +44,8 @@ struct MixerView: View {
                     }.foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
                         .orange.opacity(0.08))
                 }
-                if !isAppEQExpanded {
-                    globalSection
-                    Divider()
-                }
+                globalSection
+                Divider()
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
@@ -96,6 +95,8 @@ struct MixerView: View {
             }.trackHeight("footer")
         }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.accentColor)
             .background(Color(nsColor: .windowBackgroundColor))
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: model.selectedEQ)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: isAppEQExpanded)
             .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
     }
     private var globalSection: some View {
@@ -115,7 +116,8 @@ struct MixerView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("EQ")
-                        Image(systemName: selected ? "chevron.up" : "chevron.down").font(.system(size: 8))
+                        Image(systemName: "chevron.down").font(.system(size: 8))
+                            .rotationEffect(.degrees(selected ? 180 : 0))
                     }.font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                         .background(
                             selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
@@ -131,15 +133,20 @@ struct MixerView: View {
                 ).toggleStyle(.switch).controlSize(.mini).labelsHidden()
                     .help("Bypass Global EQ while keeping each app's settings.")
             }.padding(.horizontal, 16).padding(.top, 12)
-            ParametricEQView(
-                model: model, appID: MixerModel.globalEQID, compact: true,
-                overviewHandles: selected, selection: $globalBand)
+            if !isAppEQExpanded {
+                ParametricEQView(
+                    model: model, appID: MixerModel.globalEQID, compact: true,
+                    overviewHandles: selected, selection: $globalBand
+                )
+                .transition(.opacity)
+            }
             if selected {
                 ParametricEQView(
                     model: model, appID: MixerModel.globalEQID,
                     controlsOnly: true, selection: $globalBand
                 )
                 .padding(.horizontal, 16).padding(.top, 4)
+                .transition(.opacity)
             }
         }.padding(.bottom, 10)
     }
@@ -179,7 +186,8 @@ struct MixerView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("EQ")
-                        Image(systemName: selected ? "chevron.up" : "chevron.down").font(.system(size: 8))
+                        Image(systemName: "chevron.down").font(.system(size: 8))
+                            .rotationEffect(.degrees(selected ? 180 : 0))
                     }
                     .font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                     .background(
@@ -208,8 +216,10 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
+                    .transition(.opacity)
             } else {
                 activityMeter(app)
+                    .transition(.opacity)
             }
         }.padding(11).background(
             Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
