@@ -28,3 +28,15 @@ jobs:
         run: |
           python3 AppMixer/scripts/screenshots.py --check
           ./AppMixer/scripts/check.sh
+      - name: Validate native screenshot rendering
+        run: python3 AppMixer/scripts/screenshots.py --skip-build --output AppMixer/.release/screenshots
+      - name: Retain screenshot diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diagnostics
+          path: |
+            AppMixer/.release/screenshots/*
+            AppMixer/.release/screenshot-render.sample.txt
+          if-no-files-found: ignore
+          retention-days: 7

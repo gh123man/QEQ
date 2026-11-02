@@ -129,6 +129,14 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
+      - name: Retain screenshot diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diagnostics-${{ github.run_id }}
+          path: AppMixer/.release/screenshot-render.sample.txt
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Remove signing material
         if: always()
         run: |

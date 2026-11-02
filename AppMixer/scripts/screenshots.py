@@ -50,7 +50,21 @@ def main():
         return
     if not args.skip_build:
         subprocess.run([str(ROOT / 'AppMixer/scripts/build_macos_app.sh'), '--configuration', 'release'], check=True)
-    subprocess.run([str(ROOT / 'AppMixer/.dist/QEQ.app/Contents/MacOS/QEQ'), '--render-screenshots', str(output)], check=True)
+    command = [str(ROOT / 'AppMixer/.dist/QEQ.app/Contents/MacOS/QEQ'), '--render-screenshots', str(output)]
+    with subprocess.Popen(command) as renderer:
+        try:
+            status = renderer.wait(timeout=90)
+        except subprocess.TimeoutExpired:
+            sample = ROOT / 'AppMixer/.release/screenshot-render.sample.txt'
+            sample.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                subprocess.run(['sample', str(renderer.pid), '2', '-file', str(sample)], timeout=15)
+            finally:
+                renderer.kill()
+                renderer.wait()
+            raise SystemExit(f'Screenshot renderer timed out; process sample: {sample}')
+        if status:
+            raise SystemExit(f'Screenshot renderer exited with status {status}')
     record = {'sources': sources(), 'images': {name + '.png': digest(output / (name + '.png')) for name in NAMES}}
     (output / 'screenshots.json').write_text(json.dumps(record, indent=2) + '\n')
     verify(output)
