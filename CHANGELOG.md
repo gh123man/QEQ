@@ -2,6 +2,9 @@
 
 ## In development
 
+- Pin a full-width Global EQ above search and app controls, soften its response line, and add live output meters to collapsed apps.
+- Clarify that a −18 dB band cut leaves about 13% amplitude instead of muting it.
+
 - Add Global EQ above the app list, with an always-visible spectrum and layered app traces.
 - Start spectrum analysis on opening the panel, including flat EQ, while preserving global bypass.
 - Add 11 EQ presets, double-click band reset, system accent color, prominent app mute buttons, and a power-icon Quit button.

@@ -115,6 +115,11 @@ public final class MixerEngine: @unchecked Sendable {
                     let analyzer = analyzers[id] ?? SpectrumAnalyzer()
                     analyzers[id] = analyzer
                     if let value = route.analysis(using: analyzer) { analysisReadings[id] = value }
+                    // Level meters should not wait for a full FFT window or a
+                    // successful spectrum snapshot while its writer is active.
+                    var reading = analysisReadings[id] ?? AudioTelemetry()
+                    reading.peak = route.peak
+                    analysisReadings[id] = reading
                 }
                 var combined = AudioTelemetry.envelope(Array(analysisReadings.values))
                 combined.apps = analysisReadings

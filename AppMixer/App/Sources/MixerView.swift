@@ -6,6 +6,7 @@ import SwiftUI
 struct MixerView: View {
     @ObservedObject var model: MixerModel
     @State private var search = ""
+    @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
     private var apps: [AudioApplication] {
         model.snapshot.apps.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
@@ -43,23 +44,20 @@ struct MixerView: View {
                     }.foregroundStyle(.orange).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
                         .orange.opacity(0.08))
                 }
-                HStack(spacing: 7) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Filter apps", text: $search).textFieldStyle(.plain)
-                    if !search.isEmpty {
-                        Button {
-                            search = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }.buttonStyle(.plain)
-                    }
-                }.font(.system(size: 11)).padding(8).background(
-                    .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6)
-                ).padding(12)
+                globalSection
+                Divider()
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
-                    globalCard
+                    if model.selectedEQ == MixerModel.globalEQID {
+                        ParametricEQView(
+                            model: model, appID: MixerModel.globalEQID,
+                            controlsOnly: true, selection: $globalBand
+                        )
+                        .padding(.horizontal, 4).padding(.vertical, 10)
+                        Divider()
+                    }
+                    searchField
                     if apps.isEmpty {
                         VStack(spacing: 8) {
                             Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(
@@ -69,7 +67,7 @@ struct MixerView: View {
                         }.padding(30)
                     }
                     ForEach(apps) { app in appCard(app) }
-                }.padding(.horizontal, 12).padding(.bottom, 12)
+                }.padding(.horizontal, 12).padding(.vertical, 12)
                     .fixedSize(horizontal: false, vertical: true).trackHeight("apps")
             }.frame(
                 height: min(
@@ -108,7 +106,22 @@ struct MixerView: View {
             .background(Color(nsColor: .windowBackgroundColor))
             .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
     }
-    private var globalCard: some View {
+    private var searchField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Filter apps", text: $search).textFieldStyle(.plain)
+            if !search.isEmpty {
+                Button {
+                    search = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }.buttonStyle(.plain)
+            }
+        }.font(.system(size: 11)).padding(8).background(
+            .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6)
+        )
+    }
+    private var globalSection: some View {
         let selected = model.selectedEQ == MixerModel.globalEQID
         return VStack(spacing: 9) {
             HStack(spacing: 9) {
@@ -140,13 +153,11 @@ struct MixerView: View {
                         })
                 ).toggleStyle(.switch).controlSize(.mini).labelsHidden()
                     .help("Bypass Global EQ while keeping each app's settings.")
-            }
-            ParametricEQView(model: model, appID: MixerModel.globalEQID, compact: !selected)
-        }.padding(11).background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.65),
-            in: RoundedRectangle(cornerRadius: 8)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
+            }.padding(.horizontal, 16).padding(.top, 12)
+            ParametricEQView(
+                model: model, appID: MixerModel.globalEQID, compact: true,
+                overviewHandles: selected, selection: $globalBand)
+        }.padding(.bottom, 10)
     }
     private func appCard(_ app: AudioApplication) -> some View {
         let settings = model.value(app.id)
@@ -213,11 +224,39 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
+            } else {
+                activityMeter(app)
             }
         }.padding(11).background(
             Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
         )
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
+    }
+    private func activityMeter(_ app: AudioApplication) -> some View {
+        let available = model.enabled && app.playing && model.snapshot.active.contains(app.id)
+        let peak = available ? (model.telemetry.apps[app.id]?.peak ?? 0) : 0
+        let db = peak > 0 ? 20 * log10(Double(peak)) : -.infinity
+        let fraction = max(0, min(1, (db + 60) / 60))
+        let label = !available ? "—" : (peak > 0 ? String(format: "%.0f dBFS", db) : "−∞ dBFS")
+        return HStack(spacing: 7) {
+            Text("Output").foregroundStyle(.tertiary)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.12))
+                    Capsule().fill(Color.accentColor.opacity(0.75))
+                        .frame(width: geometry.size.width * fraction)
+                }
+            }.frame(height: 4)
+                .animation(.linear(duration: 0.067), value: fraction)
+            Text(label).monospacedDigit().foregroundStyle(.secondary).frame(width: 51, alignment: .trailing)
+        }.font(.system(size: 9))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(app.name) output level")
+            .accessibilityValue(available ? label : "Not metered")
+            .help(
+                model.enabled
+                    ? "Live output peak after app volume, mute, and both EQs. Meter scale: −60 to 0 dBFS."
+                    : "Enable Mixer to show live output levels. Bypass releases all audio taps.")
     }
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String {
         if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return "App bypassed" }

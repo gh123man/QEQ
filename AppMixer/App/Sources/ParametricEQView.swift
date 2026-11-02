@@ -6,7 +6,16 @@ struct ParametricEQView: View {
     @ObservedObject var model: MixerModel
     let appID: String
     var compact = false
-    @State private var selected = 0
+    var controlsOnly = false
+    var overviewHandles = false
+    var selection: Binding<Int>?
+    @State private var localSelected = 0
+    private var selected: Int {
+        get { selection?.wrappedValue ?? localSelected }
+        nonmutating set {
+            if let selection { selection.wrappedValue = newValue } else { localSelected = newValue }
+        }
+    }
     private var settings: MixerSettings { model.value(appID) }
     private var band: EQBand { settings.bands[selected] }
     private var isGlobal: Bool { appID == MixerModel.globalEQID }
@@ -29,49 +38,54 @@ struct ParametricEQView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 5) {
-                Text(compact ? "Spectrum" : "Parametric EQ").font(.system(size: 11, weight: .medium))
-                Spacer()
-                if processing && !telemetry.spectrum.isEmpty {
-                    Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                    Text(isGlobal ? "App spectra" : "Live output").font(.system(size: 9)).foregroundStyle(.secondary)
+            if !controlsOnly {
+                HStack(spacing: 5) {
+                    Text(compact ? "Spectrum" : "Parametric EQ").font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    if processing && !telemetry.spectrum.isEmpty {
+                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
+                        Text(isGlobal ? "App spectra" : "Live output").font(.system(size: 9)).foregroundStyle(
+                            .secondary
+                        )
                         .help(
                             isGlobal
                                 ? "Strongest app in each frequency bin; not a measurement of the summed system output."
                                 : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
                         )
-                    if compact && telemetry.limitingDB > 0.1 {
-                        Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
-                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)
-                            .help(
-                                "Automatic clipping protection is reducing gain. Lower app volume or EQ boosts for more headroom."
+                        if compact && telemetry.limitingDB > 0.1 {
+                            Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
+                                .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)
+                                .help(
+                                    "Automatic clipping protection is reducing gain. Lower app volume or EQ boosts for more headroom."
+                                )
+                        } else {
+                            Text(
+                                telemetry.peak > 0.00003
+                                    ? String(format: "%.0f dBFS", 20 * log10(telemetry.peak)) : "−∞ dBFS"
                             )
-                    } else {
-                        Text(
-                            telemetry.peak > 0.00003
-                                ? String(format: "%.0f dBFS", 20 * log10(telemetry.peak)) : "−∞ dBFS"
-                        )
-                        .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).frame(
-                            width: 53, alignment: .trailing)
-                    }
-                } else {
-                    Text(processing ? "Waiting for signal" : "Preview · enable processing for spectrum").font(
-                        .system(size: 9)
-                    ).foregroundStyle(.secondary)
-                }
-            }
-            graph.frame(height: compact ? 110 : 190)
-            if isGlobal && processing && !spectrumApps.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(spectrumApps) { app in
-                            HStack(spacing: 4) {
-                                Capsule().fill(spectrumColor(app.id)).frame(width: 12, height: 2)
-                                Text(app.name).lineLimit(1)
-                            }.font(.system(size: 9)).foregroundStyle(.secondary)
+                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).frame(
+                                width: 53, alignment: .trailing)
                         }
+                    } else {
+                        Text(processing ? "Waiting for signal" : "Preview · enable processing for spectrum").font(
+                            .system(size: 9)
+                        ).foregroundStyle(.secondary)
                     }
-                }.frame(height: 13)
+                }
+                .padding(.horizontal, isGlobal ? 16 : 0)
+                graph.frame(height: compact ? 150 : 190)
+                if isGlobal && processing && !spectrumApps.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(spectrumApps) { app in
+                                HStack(spacing: 4) {
+                                    Capsule().fill(spectrumColor(app.id)).frame(width: 12, height: 2)
+                                    Text(app.name).lineLimit(1)
+                                }.font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }.frame(height: 13).padding(.horizontal, 16)
+                }
             }
             if !compact {
                 HStack(spacing: 5) {
@@ -118,6 +132,18 @@ struct ParametricEQView: View {
                     numberControl(
                         band.type.isShelf ? "Slope" : "Q", unit: "", value: binding(\.q),
                         range: 0.1...(band.type.isShelf ? 1 : 10), decimals: 2)
+                }
+                if band.type.hasGain && band.gain <= -0.1 {
+                    Text(
+                        String(
+                            format: "%.1f dB ≈ %.0f%% amplitude in the affected range, not mute.", band.gain,
+                            100 * pow(10, band.gain / 20))
+                    )
+                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .help(
+                        "Shelf gain applies away from the transition frequency; bell gain applies at its center. The spectrum shows the remaining output on a logarithmic scale."
+                    )
                 }
                 HStack(spacing: 8) {
                     Text("Width").font(.system(size: 10)).foregroundStyle(.secondary).frame(
@@ -181,7 +207,7 @@ struct ParametricEQView: View {
             let rect = CGRect(x: 29, y: 20, width: geometry.size.width - 65, height: geometry.size.height - 43)
             let upper = maxFrequency
             ZStack {
-                RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.055, green: 0.067, blue: 0.078))
+                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color(red: 0.055, green: 0.067, blue: 0.078))
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
@@ -201,7 +227,8 @@ struct ParametricEQView: View {
                         var line = Path()
                         line.move(to: CGPoint(x: rect.minX, y: y(db)))
                         line.addLine(to: CGPoint(x: rect.maxX, y: y(db)))
-                        context.stroke(line, with: .color(.white.opacity(db == 0 ? 0.25 : 0.07)), lineWidth: 1)
+                        context.stroke(
+                            line, with: .color(.white.opacity(db == 0 ? (isGlobal ? 0.1 : 0.25) : 0.07)), lineWidth: 1)
                         context.draw(
                             Text(String(format: "%+.0f", db)).font(.system(size: 8, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.45)), at: CGPoint(x: 14, y: y(db)))
@@ -251,10 +278,10 @@ struct ParametricEQView: View {
                         if index == 0 { curve.move(to: point) } else { curve.addLine(to: point) }
                     }
                     context.stroke(
-                        curve, with: .color(.white.opacity(processing ? 0.9 : 0.6)),
-                        style: StrokeStyle(lineWidth: 1.6, dash: processing ? [] : [4, 3]))
+                        curve, with: .color(.white.opacity(isGlobal ? 0.3 : (processing ? 0.9 : 0.6))),
+                        style: StrokeStyle(lineWidth: isGlobal ? 0.8 : 1.6, dash: processing ? [] : [4, 3]))
                 }
-                if !compact {
+                if !compact || overviewHandles {
                     ForEach(0..<5) { index in
                         let b = settings.bands[index]
                         let x = rect.minX + log(min(upper, max(20, b.frequency)) / 20) / log(upper / 20) * rect.width

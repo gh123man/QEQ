@@ -70,6 +70,12 @@ struct ScreenshotRenderer {
         musicEQ.volume = 0.65
         model.settings = [zoom.id: zoomEQ, music.id: musicEQ]
         model.snapshot.active = [zoom.id, music.id]
+        // Explicit illustrative meter levels, not captured audio.
+        for (id, peak) in [(zoom.id, Float(0.08)), (music.id, Float(0.22))] {
+            var level = AudioTelemetry()
+            level.peak = peak
+            model.telemetry.apps[id] = level
+        }
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("mixer")
         try capture("mixer", maximum: 720)
         model.snapshot.apps = [zoom]

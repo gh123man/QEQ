@@ -410,8 +410,37 @@ private func renderParametric(
     }
     MixerDSPConfigure(dsp, 1, true, nil, 0)
     _ = processSamples(signal, channels: 1, dsp: dsp)
+    // Peak is per callback; the large settling block includes the mute ramp.
+    // The next hardware-sized callback must report zero after that ramp ends.
+    _ = processSamples(Array(signal.prefix(512)), channels: 1, dsp: dsp)
     let muted = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
     #expect(muted.spectrum.allSatisfy { $0 == -90 })
+    #expect(muted.peak == 0)
+}
+
+@Test func maximumBassCutLeavesMeasuredResidualAudioInsteadOfSilence() throws {
+    let rate = 48000.0
+    let frequency = 40.0
+    let dsp = MixerDSPCreate(rate, 1, 1)!
+    defer { MixerDSPDestroy(dsp) }
+    MixerDSPEnableAnalysis(dsp, true)
+    let analyzer = SpectrumAnalyzer()
+    let input = (0..<48000).map { Float(0.1 * sin(2 * .pi * frequency * Double($0) / rate)) }
+    _ = processSamples(input, channels: 1, dsp: dsp)
+    let before = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
+    let bin = try #require(before.spectrum.enumerated().max(by: { $0.element < $1.element })).offset
+    var settings = MixerSettings()
+    settings.bass = -18
+    let bands = settings.dspBands
+    bands.withUnsafeBufferPointer { MixerDSPConfigure(dsp, 1, false, $0.baseAddress, UInt32($0.count)) }
+    let output = processSamples(input, channels: 1, dsp: dsp)
+    let after = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
+    let ratio = rms(Array(output.suffix(24000))) / rms(Array(input.suffix(24000)))
+    let measuredDB = Double(after.spectrum[bin] - before.spectrum[bin])
+    print("−18 dB bass at 40 Hz: amplitude \(ratio), spectrum change \(measuredDB) dB")
+    #expect(ratio > 0.12 && ratio < 0.14)
+    #expect(after.peak > 0 && after.spectrum[bin] > -90)
+    #expect(abs(measuredDB - settings.responseDB(at: frequency, sampleRate: rate)) < 0.2)
 }
 
 private func processSamples(_ inputSamples: [Float], channels: Int, dsp: OpaquePointer) -> [Float] {
