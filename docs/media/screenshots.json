@@ -2,7 +2,7 @@
   "sources": {
     "QEQ/App/Sources/App.swift": "0847cd13bf4dbaa0a811a908aa8be94e8d886e98f7800db12d586da1fad072b2",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
-    "QEQ/App/Sources/MixerView.swift": "db37cfe0287b7b4e93feadbad71e69f87c2ac445ee5b7751039ab0032fcdce5c",
+    "QEQ/App/Sources/MixerView.swift": "0135f6ce604b78e090fcfa2f3f5bc627ebbf8481f2568157561f0f9b4c0f6470",
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/ScreenshotRenderer.swift": "1369f1e67c669bfd171201aac51543ae126eb8f7d81b353af5c266f8312d9271",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",

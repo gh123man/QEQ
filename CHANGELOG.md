@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Use the native translucent popover material with subtle app surfaces; keep spectrum plots opaque with appearance-aware backgrounds, labels, and curves.
+- Use the native translucent popover material with a stronger system-color backing and subtle app surfaces; keep spectrum plots opaque with appearance-aware backgrounds, labels, and curves.
 
 - Remove redundant meter, global-scope, normal-processing, and graph labels; keep units and actionable states, and move the cut/amplitude explanation into the Gain tooltip.
 
