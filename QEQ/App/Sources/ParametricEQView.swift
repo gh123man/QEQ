@@ -36,19 +36,12 @@ struct ParametricEQView: View {
         VStack(spacing: 10) {
             if !controlsOnly {
                 HStack(spacing: 5) {
-                    Text(compact ? "Spectrum" : "Parametric EQ").font(.system(size: 11, weight: .medium))
                     Spacer()
                     if processing && !telemetry.spectrum.isEmpty {
                         Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                        Text(telemetry.simulated ? "Simulated spectrum" : (isGlobal ? "App spectra" : "Live output"))
-                            .font(.system(size: 9)).foregroundStyle(
-                                .secondary
-                            )
-                            .help(
-                                isGlobal
-                                    ? "Strongest app in each frequency bin; not a measurement of the summed system output."
-                                    : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
-                            )
+                        if telemetry.simulated {
+                            Text("Simulated spectrum").font(.system(size: 9)).foregroundStyle(.secondary)
+                        }
                         if compact && telemetry.limitingDB > 0.1 {
                             Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
                                 .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)
@@ -70,6 +63,11 @@ struct ParametricEQView: View {
                     }
                 }
                 .padding(.horizontal, isGlobal ? 16 : 0)
+                .help(
+                    isGlobal
+                        ? "Strongest app in each frequency bin; not a measurement of the summed system output."
+                        : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
+                )
                 graph.frame(height: compact ? 150 : 190)
                 if isGlobal && processing && !spectrumApps.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -125,26 +123,20 @@ struct ParametricEQView: View {
                     numberControl(
                         "Frequency", unit: "Hz", value: binding(\.frequency), range: 20...maxFrequency, decimals: 0)
                     numberControl("Gain", unit: "dB", value: binding(\.gain), range: -18...18, decimals: 1).disabled(
-                        !band.type.hasGain)
+                        !band.type.hasGain
+                    ).help(
+                        String(
+                            format:
+                                "%.1f dB ≈ %.0f%% amplitude in the affected range. A cut reduces audio; it does not mute it.",
+                            band.gain, 100 * pow(10, band.gain / 20)))
                     numberControl(
                         band.type.isShelf ? "Slope" : "Q", unit: "", value: binding(\.q),
                         range: 0.1...(band.type.isShelf ? 1 : 10), decimals: 2)
                 }
-                if band.type.hasGain && band.gain <= -0.1 {
-                    Text(
-                        String(
-                            format: "%.1f dB ≈ %.0f%% amplitude in the affected range, not mute.", band.gain,
-                            100 * pow(10, band.gain / 20))
-                    )
-                    .font(.system(size: 9)).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .help(
-                        "Shelf gain applies away from the transition frequency; bell gain applies at its center. The spectrum shows the remaining output on a logarithmic scale."
-                    )
-                }
                 HStack(spacing: 8) {
-                    Text("Width").font(.system(size: 10)).foregroundStyle(.secondary).frame(
-                        width: 35, alignment: .leading)
+                    Text(band.type.isShelf ? "Slope" : "Width").font(.system(size: 10)).foregroundStyle(.secondary)
+                        .frame(
+                            width: 35, alignment: .leading)
                     Slider(
                         value: Binding(get: { log10(band.q) }, set: { value in edit { $0.q = pow(10, value) } }),
                         in: -1...(band.type.isShelf ? 0 : 1)

@@ -70,7 +70,7 @@ struct MixerView: View {
                         VStack(spacing: 8) {
                             Text("No audio apps yet").font(
                                 .system(size: 12, weight: .medium))
-                            Text("Start playback to see an app here. Apps with saved adjustments also appear.")
+                            Text("Play audio to add an app.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }.padding(30)
                     }
@@ -96,11 +96,7 @@ struct MixerView: View {
             HStack(spacing: 9) {
                 Image(systemName: "slider.horizontal.3").font(.system(size: 19)).frame(width: 25)
                     .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Global EQ").font(.system(size: 12, weight: .medium))
-                    Text(model.globalEQ.enabled ? "All apps on this output" : "Global EQ bypassed")
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
-                }
+                Text("Global EQ").font(.system(size: 12, weight: .medium))
                 Spacer()
                 Button {
                     model.selectEQ(MixerModel.globalEQID)
@@ -154,9 +150,9 @@ struct MixerView: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(app.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Text(status(app, settings: settings)).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(
-                        1
-                    ).help(status(app, settings: settings))
+                    if let status = status(app, settings: settings) {
+                        Text(status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).help(status)
+                    }
                 }
                 Spacer()
                 Button {
@@ -226,7 +222,6 @@ struct MixerView: View {
         let fraction = max(0, min(1, (db + 60) / 60))
         let label = !available ? "—" : (peak > 0 ? String(format: "%.0f dBFS", db) : "−∞ dBFS")
         return HStack(spacing: 7) {
-            Text("Output").foregroundStyle(.tertiary)
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.secondary.opacity(0.12))
@@ -245,15 +240,15 @@ struct MixerView: View {
                     ? "Live output peak after app volume, mute, and both EQs. Meter scale: −60 to 0 dBFS."
                     : "Turn on the master switch to show live output levels. Bypass releases all audio taps.")
     }
-    private func status(_ app: AudioApplication, settings: MixerSettings) -> String {
-        if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return "App bypassed" }
-        if !model.enabled { return "System bypass" }
+    private func status(_ app: AudioApplication, settings: MixerSettings) -> String? {
+        if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return nil }
+        if !model.enabled { return nil }
         if let message = model.snapshot.routeMessages[app.id] { return message }
         if model.snapshot.active.contains(app.id) {
             if !settings.enabled { return "Global EQ only" }
-            return settings.muted ? "Muted" : "Processing"
+            return nil
         }
-        if settings.isFlat { return app.playing ? "Playing · original audio" : "Idle · original audio" }
+        if settings.isFlat { return app.playing ? nil : "Idle" }
         return "Starting…"
     }
 }

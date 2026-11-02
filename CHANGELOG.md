@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove redundant meter, global-scope, normal-processing, and graph labels; keep units and actionable states, and move the cut/amplitude explanation into the Gain tooltip.
+
 - Use a monochrome slider mark matching the app icon in the menu bar; hide the options-menu caret.
 - Rename the package, modules, targets, tests, and CI/release paths to QEQ while preserving the existing bundle identity.
 

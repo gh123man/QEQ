@@ -2,8 +2,8 @@
   "sources": {
     "QEQ/App/Sources/App.swift": "0847cd13bf4dbaa0a811a908aa8be94e8d886e98f7800db12d586da1fad072b2",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
-    "QEQ/App/Sources/MixerView.swift": "3d445d7a3f2939d9f90b94580f2c19dd046964b02097e15babbd1ab12ba88bdf",
-    "QEQ/App/Sources/ParametricEQView.swift": "d0a425d9a293b0b8ee9a0d4ad5e787449ea31691466c2158244a94f9e8a64a54",
+    "QEQ/App/Sources/MixerView.swift": "d81b010bcb6d66b663b4d1f4a6aa124dc351459436e794e2694322c70fe036dc",
+    "QEQ/App/Sources/ParametricEQView.swift": "7583c2398d485b806c4d2b65e645fd7b90b7ba347d389d6091b0c9a00a7fef5a",
     "QEQ/App/Sources/ScreenshotRenderer.swift": "6956a3d18b6b5e52cd2b387773eaf1752b216be2798b674b73f9856c40c40ecb",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
     "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
@@ -21,10 +21,10 @@
     "QEQ/scripts/screenshots.py": "33f2a726352afa9de8f2fa26b3036e9bc56800323a08f06fa77499bacb1c6429"
   },
   "images": {
-    "empty.png": "6970efb9d15e4ff4f921b41a60df99164fa2dc15d3feea7c950af4228d1eb68e",
-    "mixer.png": "8d43cfda1e1f08b20d8f31a29b28084eeade003ffd8fe4ea5dab61afc6df35e8",
-    "equalizer.png": "2ab17abb3f3f1ffc2a336690ea9fc4de8e460ed9cb04f02e2954bf0f91785ffc",
-    "global-equalizer.png": "f80083d7b106df508dca113ffa2f36657b8cdff6f103345eb183f7c1a4713714",
-    "empty-after-removal.png": "6890dcc1e767da1db69627a7f79fb50260ff5516ed180177ca3a089b422b7669"
+    "empty.png": "a1cd3bd3375adde720f6a850f74e42a9040d7277f7b442f9a6dc17983e36eb57",
+    "mixer.png": "07ea8a63c53e41bc8a6a9975b374518667eb0037be77e91e6198830801d9706b",
+    "equalizer.png": "865fd71331e36fc05c3dc3946d83db2a55a2ac949a877fc2abdb2ea67e96abbc",
+    "global-equalizer.png": "626d28f167b6fbcdc6a671db9d090c9dde1dc9ab9bcfc9d0da44a289b0eabc03",
+    "empty-after-removal.png": "1c0e3b06b64a92821f4d7619183564a435a0ba74363b4b084811f6ef679b710b"
   }
 }
