@@ -17,6 +17,7 @@ def digest(path):
 def sources():
     paths = list((ROOT / 'AppMixer/App/Sources').glob('*.swift'))
     paths += list((ROOT / 'AppMixer/Sources/AppMixerCore').glob('*.swift'))
+    paths += list((ROOT / 'AppMixer/Sources/AppMixerAppSupport').glob('*.swift'))
     paths += [ROOT / 'AppMixer/project.yml', Path(__file__).resolve()]
     return {str(p.relative_to(ROOT)): digest(p) for p in sorted(paths)}
 

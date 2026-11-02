@@ -25,10 +25,6 @@ struct ParametricEQView: View {
     private var spectrumApps: [AudioApplication] {
         Array(model.snapshot.apps.filter { model.telemetry.apps[$0.id]?.spectrum.isEmpty == false }.prefix(6))
     }
-    private func spectrumColor(_ id: String) -> Color {
-        let palette: [Color] = [.orange, .green, .pink, .purple, .cyan, .yellow]
-        return palette[(spectrumApps.firstIndex { $0.id == id } ?? 0) % palette.count]
-    }
     private var processing: Bool {
         model.enabled
             && (isGlobal ? !model.snapshot.active.isEmpty : settings.enabled && model.snapshot.active.contains(appID))
@@ -80,7 +76,7 @@ struct ParametricEQView: View {
                         HStack(spacing: 12) {
                             ForEach(spectrumApps) { app in
                                 HStack(spacing: 4) {
-                                    Capsule().fill(spectrumColor(app.id)).frame(width: 12, height: 2)
+                                    Capsule().fill(model.spectrumColor(for: app)).frame(width: 12, height: 2)
                                     Text(app.name).lineLimit(1)
                                 }.font(.system(size: 9)).foregroundStyle(.secondary)
                             }
@@ -267,7 +263,8 @@ struct ParametricEQView: View {
                                         y: rect.maxY - CGFloat(max(0, min(1, (db + 90) / 90))) * rect.height)
                                     if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
                                 }
-                                context.stroke(line, with: .color(spectrumColor(app.id).opacity(0.85)), lineWidth: 1)
+                                context.stroke(
+                                    line, with: .color(model.spectrumColor(for: app).opacity(0.85)), lineWidth: 1)
                             }
                         }
                     }

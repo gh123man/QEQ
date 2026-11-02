@@ -15,7 +15,7 @@ struct MixerView: View {
                     Text(model.snapshot.outputName).font(.system(size: 12, weight: .medium)).lineLimit(1)
                     Spacer()
                     if model.changing { ProgressView().controlSize(.mini) }
-                    Toggle("Mixer", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
+                    Toggle("Enabled", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
                         .toggleStyle(.switch).controlSize(.small).font(.system(size: 11))
                         .help("Off restores original audio for every app.")
                 }.padding(.horizontal, 16).padding(.vertical, 12)
@@ -235,7 +235,7 @@ struct MixerView: View {
             .help(
                 model.enabled
                     ? "Live output peak after app volume, mute, and both EQs. Meter scale: −60 to 0 dBFS."
-                    : "Enable Mixer to show live output levels. Bypass releases all audio taps.")
+                    : "Turn on Enabled to show live output levels. Bypass releases all audio taps.")
     }
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String {
         if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return "App bypassed" }

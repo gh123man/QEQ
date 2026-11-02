@@ -1,19 +1,29 @@
 {
   "sources": {
-    "AppMixer/App/Sources/App.swift": "7e4feb304ed5a48e32cbcb8094de949ab9e03cce77151cca02e651b557ec0e66",
-    "AppMixer/App/Sources/MixerView.swift": "4be590b43053df396f4bad7452e163e802aed4d49ee520f36da4c313f705cd74",
-    "AppMixer/App/Sources/ParametricEQView.swift": "221474ab1c9148749251f1487f5a26d4e86a4467b8c233d3e9c4387b029e7f11",
+    "AppMixer/App/Sources/App.swift": "c064082ae0f2372178afa3341413d2d99f72e8dac7a181e3f489478b925924fc",
+    "AppMixer/App/Sources/MixerView.swift": "f4d4169fc8c2129722c254f745db229ca806133885b6a81970b910e2c51ccc95",
+    "AppMixer/App/Sources/ParametricEQView.swift": "8eb3324da5b01517b7b82827ee7000854931b95f7e282f321f85668a160b4178",
     "AppMixer/App/Sources/ScreenshotRenderer.swift": "dceea7e68a39960a2c160bc38e4e587896b44de7d25feaef6e4981fe2b5f3933",
+    "AppMixer/Sources/AppMixerAppSupport/AppAudioRoute.swift": "9530d7346e20242e57b9fd993f72488d613a8dc82882b790c5811a5d57141743",
+    "AppMixer/Sources/AppMixerAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
+    "AppMixer/Sources/AppMixerAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
+    "AppMixer/Sources/AppMixerAppSupport/AudioAppList.swift": "e887879d17d4d571d3fc262a9a08f669b88f5173472fec2e28a9078f409ada7b",
+    "AppMixer/Sources/AppMixerAppSupport/AudioDiagnostics.swift": "821e2c7cda2a9fc755957802a809a2daddeabbdd8645674fef9eb879198050fe",
+    "AppMixer/Sources/AppMixerAppSupport/AudioHardware.swift": "e60412c3fac522ffe88c0d65d6023be677d9b275cb365130101c9a856b7d513d",
+    "AppMixer/Sources/AppMixerAppSupport/MixerEngine.swift": "16470f2b6e4c84e28488ab9356983941b84877f644d4256f3a6d07da18db59e3",
+    "AppMixer/Sources/AppMixerAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
+    "AppMixer/Sources/AppMixerAppSupport/RouteController.swift": "f844d63f07eecc0b03339cde41b7d6dd8159d466b80b20ca3f01f24686bccd03",
+    "AppMixer/Sources/AppMixerAppSupport/SpectrumAnalyzer.swift": "cae420ff6a84c419a8471f991894081a836c4210558c2a8539ea9015eb427547",
     "AppMixer/Sources/AppMixerCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
     "AppMixer/Sources/AppMixerCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
     "AppMixer/project.yml": "6e4cda3613287fc4f2b87039a970d1c0a433252cc8d464a93d90bc5c13f19a4e",
-    "AppMixer/scripts/screenshots.py": "9d787d21ffa0535f89d3afcfcd4f5ba1c36e82bb1f9bcff369322484fb44bfee"
+    "AppMixer/scripts/screenshots.py": "b1b7b6681fad9e27ad64991dd284784b964eddebe0d3e14f78ab0740fa2239bb"
   },
   "images": {
-    "empty.png": "b10763e26c3c3c5d6c1332fcabd70625e2ee5d3dbb42f36728c34a4c6ea79202",
-    "mixer.png": "c97cc5e0645d7d26737001bfc86b5651b28f961b218e3a33417e835c79b52a81",
-    "equalizer.png": "0b77bf99aeda07101228596cb7dd7ebe1ee20b5572acbf4a95280ba2ba836c96",
-    "global-equalizer.png": "e933b86dba0dfc7dfc9b8331990dcee11ab4ccc649d67b7941d772830d1688cc",
-    "empty-after-removal.png": "2512f61c501d05e4d8a630bc4348084c96805e38612f8125843d5c0d38cc8067"
+    "empty.png": "2cccd74ce26c6c0e25a1776899e4c849143742bb86a63b28b686d846fb179dc5",
+    "mixer.png": "e7f5ef24ac4891bd057ad3c34f83c83ee88e962a0b6fe92f4069f8c47a9bf65e",
+    "equalizer.png": "d36d3275542c8c711642317384d86885309759389e897c59e9f1c24067792beb",
+    "global-equalizer.png": "e95970d63424b69c24cb1a89f06edd2d20834840ff72e0f630ed12ac99a1b51a",
+    "empty-after-removal.png": "efca97e7325957cd17e6f50a7e8efb7fae17c9699eb3ded638397a3e8a2368ef"
   }
 }

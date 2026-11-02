@@ -40,11 +40,14 @@ public final class MixerEngine: @unchecked Sendable {
     public init() {}
     public func start(
         settings: [String: MixerSettings], global: MixerSettings = MixerSettings(),
+        enabled initialEnabled: Bool = false,
         deliver: @escaping @Sendable (MixerSnapshot) -> Void
     ) {
+        requestedEnabled.withLock { $0 = initialEnabled }
         queue.async { [self] in
             self.settings = settings
             self.globalEQ = global
+            self.enabled = requestedEnabled.withLock { $0 }
             self.deliver = deliver
             let timer = DispatchSource.makeTimerSource(queue: queue)
             timer.schedule(deadline: .now(), repeating: 1, leeway: .milliseconds(200))

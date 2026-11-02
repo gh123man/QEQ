@@ -25,7 +25,7 @@
 
 Open the DMG, drag **QEQ** to Applications, and launch it. Start playback, click the sliders in the menu bar, adjust an app, then enable the mixer.
 
-Allow **system-audio capture** when macOS asks. No microphone, Accessibility, or screen capture permission is needed. Every launch starts bypassed.
+Allow **system-audio capture** when macOS asks. No microphone, Accessibility, or screen capture permission is needed. QEQ defaults to enabled and remembers your on/off choice.
 
 ## Build
 

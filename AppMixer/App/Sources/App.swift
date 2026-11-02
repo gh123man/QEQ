@@ -16,6 +16,8 @@ final class MixerModel: ObservableObject {
     static let panelHeightLimit: CGFloat = 1000
     @Published var maximumPanelHeight: CGFloat = MixerModel.panelHeightLimit
     private let preview: Bool
+    private let spectrumColors = AppSpectrumColors()
+    private let preferences = MixerPreferences()
     private var panelVisible = false
     private let engine = MixerEngine()
     private var observers: [NSObjectProtocol] = []
@@ -24,6 +26,7 @@ final class MixerModel: ObservableObject {
     init(preview: Bool = false) {
         self.preview = preview
         guard !preview else { return }
+        enabled = preferences.enabled
         if let data = UserDefaults.standard.data(forKey: "appSettings"),
             let saved = try? JSONDecoder().decode([String: MixerSettings].self, from: data)
         {
@@ -36,7 +39,7 @@ final class MixerModel: ObservableObject {
             globalEQ.volume = 1
             globalEQ.muted = false
         }
-        engine.start(settings: settings, global: globalEQ) { [weak self] value in
+        engine.start(settings: settings, global: globalEQ, enabled: enabled) { [weak self] value in
             Task { @MainActor in
                 if let self, !value.migratedIDs.isEmpty {
                     for (old, new) in value.migratedIDs {
@@ -70,6 +73,7 @@ final class MixerModel: ObservableObject {
     }
     func toggle(_ value: Bool) {
         enabled = value
+        if !preview { preferences.enabled = value }
         changing = true
         engine.setEnabled(value)
     }
@@ -86,6 +90,9 @@ final class MixerModel: ObservableObject {
                 (name as NSString).pathExtension.isEmpty ? name + ".icns" : name)
         else { return nil }
         return NSImage(contentsOf: resource)
+    }
+    func spectrumColor(for app: AudioApplication) -> Color {
+        Color(nsColor: spectrumColors.color(for: app.id, icon: icon(for: app)))
     }
     func edit(_ id: String, _ edit: (inout MixerSettings) -> Void) {
         var value = value(id)
