@@ -243,11 +243,14 @@ func bypassDoesNotCreateAudioTapsOrChangeDefaultOutput() async throws {
             == "/Applications/My.app backup/Browser.app")
 }
 
-private func renderParametric(_ settings: MixerSettings, frequency: Double, rate: Double = 48000) -> Double {
+private func renderParametric(
+    _ settings: MixerSettings, frequency: Double, rate: Double = 48000,
+    global: MixerSettings = MixerSettings()
+) -> Double {
     let count = 48000
     let dsp = MixerDSPCreate(rate, 1, 1)!
     defer { MixerDSPDestroy(dsp) }
-    let bands = settings.dspBands
+    let bands = settings.processingBands(global: global)
     bands.withUnsafeBufferPointer {
         MixerDSPConfigure(dsp, Float(settings.volume), settings.muted, $0.baseAddress, UInt32($0.count))
     }
@@ -266,6 +269,34 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
     }
     #expect(output.allSatisfy { $0.isFinite })
     return 20 * log10(rms(Array(output.suffix(count / 2))) / rms(Array(input.suffix(count / 2))))
+}
+
+@Test func globalAndAppFiltersComposeAndBypassIndependently() {
+    var app = MixerSettings()
+    app.bass = -6
+    var global = MixerSettings()
+    global.bass = 3
+    global.treble = -4
+    for rate in [44100.0, 48000, 96000] {
+        for hz in [60.0, 1000, 12000] {
+            let combined = renderParametric(app, frequency: hz, rate: rate, global: global)
+            #expect(
+                abs(combined - app.responseDB(at: hz, sampleRate: rate) - global.responseDB(at: hz, sampleRate: rate))
+                    < 0.12)
+            var bypassedApp = app
+            bypassedApp.enabled = false
+            #expect(
+                abs(
+                    renderParametric(bypassedApp, frequency: hz, rate: rate, global: global)
+                        - global.responseDB(at: hz, sampleRate: rate)) < 0.12)
+            var bypassedGlobal = global
+            bypassedGlobal.enabled = false
+            #expect(
+                abs(
+                    renderParametric(app, frequency: hz, rate: rate, global: bypassedGlobal)
+                        - app.responseDB(at: hz, sampleRate: rate)) < 0.12)
+        }
+    }
 }
 
 @Test func parametricGraphMatchesActualDSPForAllFilterTypes() {
@@ -309,7 +340,6 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
     let frequency = 20 * pow(1000, (Double(peak.offset) + 0.5) / Double(bins.count))
     #expect(abs(log2(frequency / tone)) < 0.2)
     #expect(abs(peak.element + 20) < 0.2)
-    analyzer.reset()
     let silence = analyzer.spectrum(
         left: .init(repeating: 0, count: count), right: .init(repeating: 0, count: count), sampleRate: rate)
     #expect(silence.allSatisfy { $0 == -90 })
@@ -318,11 +348,12 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
 @Test func analysisSnapshotIsOptInAndDoesNotChangeAudio() {
     let dsp = MixerDSPCreate(48000, 1, 1)!
     defer { MixerDSPDestroy(dsp) }
-    var left = [Float](repeating: 0, count: 2048)
+    let count = SpectrumAnalyzer.count
+    var left = [Float](repeating: 0, count: count)
     var right = left
-    #expect(!MixerDSPReadAnalysis(dsp, &left, &right, 2048))
+    #expect(!MixerDSPReadAnalysis(dsp, &left, &right, UInt32(count)))
     MixerDSPEnableAnalysis(dsp, true)
-    var input = [Float](repeating: 0.1, count: 4096)
+    var input = [Float](repeating: 0.1, count: count * 2)
     var output = input
     input.withUnsafeMutableBytes { i in
         output.withUnsafeMutableBytes { o in
@@ -336,10 +367,51 @@ private func renderParametric(_ settings: MixerSettings, frequency: Double, rate
         }
     }
     #expect(output == input)
-    #expect(MixerDSPReadAnalysis(dsp, &left, &right, 2048))
+    #expect(MixerDSPReadAnalysis(dsp, &left, &right, UInt32(count)))
     #expect(left.allSatisfy { $0 == 0.1 } && left == right)
     MixerDSPEnableAnalysis(dsp, false)
-    #expect(!MixerDSPReadAnalysis(dsp, &left, &right, 2048))
+    #expect(!MixerDSPReadAnalysis(dsp, &left, &right, UInt32(count)))
+}
+
+@Test func lowFrequencySpectrumPeaksAppearAtTheCorrectFrequency() {
+    for rate in [44100.0, 48000, 96000] {
+        for tone in [30.0, 60, 100] {
+            let count = SpectrumAnalyzer.count
+            let signal = (0..<count).map { Float(0.1 * sin(2 * .pi * tone * Double($0) / rate)) }
+            let bins = SpectrumAnalyzer().spectrum(left: signal, right: signal, sampleRate: rate)
+            let peak = bins.enumerated().max(by: { $0.element < $1.element })!
+            let frequency = 20 * pow(1000, (Double(peak.offset) + 0.5) / Double(bins.count))
+            print("Spectrum: \(tone) Hz at \(rate) Hz → \(frequency) Hz")
+            #expect(abs(log2(frequency / tone)) < 0.18)
+        }
+    }
+}
+
+@Test func liveSpectrumReflectsEQCutBoostAndMuteWithoutPeakHoldMasking() throws {
+    let rate = 48000.0
+    let dsp = MixerDSPCreate(rate, 1, 1)!
+    defer { MixerDSPDestroy(dsp) }
+    MixerDSPEnableAnalysis(dsp, true)
+    let analyzer = SpectrumAnalyzer()
+    let signal = (0..<48000).map { Float(0.01 * sin(2 * .pi * 1000 * Double($0) / rate)) }
+    let bin = Int(log(1000.0 / 20) / log(1000) * Double(SpectrumAnalyzer.bins))
+    _ = processSamples(signal, channels: 1, dsp: dsp)
+    let baseline = try #require(analyzer.read(dsp: dsp, sampleRate: rate)).spectrum[bin]
+    for gain in [-18.0, 18] {
+        var settings = MixerSettings()
+        settings.bands[2].gain = gain
+        let bands = settings.dspBands
+        bands.withUnsafeBufferPointer { MixerDSPConfigure(dsp, 1, false, $0.baseAddress, UInt32($0.count)) }
+        _ = processSamples(signal, channels: 1, dsp: dsp)
+        let value = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
+        print("Spectrum EQ \(gain) dB → \(value.spectrum[bin] - baseline) dB change")
+        #expect(abs(Double(value.spectrum[bin] - baseline) - gain) < 0.3)
+        #expect(value.limitingDB == 0)
+    }
+    MixerDSPConfigure(dsp, 1, true, nil, 0)
+    _ = processSamples(signal, channels: 1, dsp: dsp)
+    let muted = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
+    #expect(muted.spectrum.allSatisfy { $0 == -90 })
 }
 
 private func processSamples(_ inputSamples: [Float], channels: Int, dsp: OpaquePointer) -> [Float] {

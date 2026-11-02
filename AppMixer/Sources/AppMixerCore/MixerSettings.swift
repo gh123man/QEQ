@@ -82,6 +82,13 @@ public struct MixerSettings: Codable, Equatable, Sendable {
         set { bands[4].gain = newValue }
     }
     public var dspBands: [MixerEQBand] { bands.map(\.dspBand) }
+    public var hasEnabledEQ: Bool { enabled && bands.contains { !$0.isFlat } }
+    /// Separate app and global filter banks share the same realtime callback.
+    public func processingBands(global: MixerSettings) -> [MixerEQBand] {
+        let appBands = enabled ? bands : Self.defaultBands
+        let globalBands = global.enabled ? global.bands : Self.defaultBands
+        return (appBands + globalBands).map(\.dspBand)
+    }
     public func responseDB(at frequency: Double, sampleRate: Double) -> Double {
         let b = dspBands
         return b.withUnsafeBufferPointer { MixerEQResponse($0.baseAddress, UInt32($0.count), sampleRate, frequency) }

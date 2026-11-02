@@ -19,14 +19,18 @@ public struct MixerSnapshot: Sendable {
 
 // All mutable engine state and route lifetimes are confined to queue.
 public final class MixerEngine: @unchecked Sendable {
+    public static let globalEQID = "__qeq_global_eq__"
     private let queue = DispatchQueue(label: "local.AppMixer.engine", qos: .userInitiated)
     private var timer: DispatchSourceTimer?
     private var analysisTimer: DispatchSourceTimer?
     private var analysisApp: String?
-    private let analyzer = SpectrumAnalyzer()
+    private var analyzeAll = false
+    private var analyzers: [String: SpectrumAnalyzer] = [:]
+    private var analysisReadings: [String: AudioTelemetry] = [:]
     private var deliverAnalysis: (@Sendable (AudioTelemetry) -> Void)?
     private let controller = RouteController()
     private var settings: [String: MixerSettings] = [:]
+    private var globalEQ = MixerSettings()
     private var appList = AudioAppList()
     private var enabled = false
     private let requestedEnabled = OSAllocatedUnfairLock(initialState: false)
@@ -34,9 +38,13 @@ public final class MixerEngine: @unchecked Sendable {
     private var failure: String?
     private var deliver: (@Sendable (MixerSnapshot) -> Void)?
     public init() {}
-    public func start(settings: [String: MixerSettings], deliver: @escaping @Sendable (MixerSnapshot) -> Void) {
+    public func start(
+        settings: [String: MixerSettings], global: MixerSettings = MixerSettings(),
+        deliver: @escaping @Sendable (MixerSnapshot) -> Void
+    ) {
         queue.async { [self] in
             self.settings = settings
+            self.globalEQ = global
             self.deliver = deliver
             let timer = DispatchSource.makeTimerSource(queue: queue)
             timer.schedule(deadline: .now(), repeating: 1, leeway: .milliseconds(200))
@@ -59,33 +67,58 @@ public final class MixerEngine: @unchecked Sendable {
         queue.async { [self] in
             let value = value.sanitized()
             settings[key] = value
-            if !value.needsProcessing {
+            let analyzing = analyzeAll || analysisApp == Self.globalEQID || (key == analysisApp && value.enabled)
+            if !value.needsProcessing && !globalEQ.hasEnabledEQ && !analyzing {
                 controller.remove(key)
             } else if let route = controller.routes[key] {
-                route.update(value)
+                route.update(value, global: globalEQ)
             }
             // New routes are created at the next discovery tick, so slider drags don't queue HAL calls.
         }
     }
-    public func setAnalysisApp(_ key: String?, deliver: @escaping @Sendable (AudioTelemetry) -> Void) {
+    public func setGlobalEQ(_ value: MixerSettings) {
+        queue.async { [self] in
+            globalEQ = value.sanitized()
+            for (id, route) in controller.routes {
+                route.update(settings[id] ?? MixerSettings(), global: globalEQ)
+            }
+            // Discovery creates/removes routes on its next tick, not on each drag.
+        }
+    }
+    public func setAnalysisApp(
+        _ key: String?, includeGlobal: Bool = false, deliver: @escaping @Sendable (AudioTelemetry) -> Void
+    ) {
         queue.async { [self] in
             analysisApp = key
+            analyzeAll = includeGlobal
             deliverAnalysis = deliver
-            analyzer.reset()
+            analyzers.removeAll()
+            analysisReadings.removeAll()
             analysisTimer?.cancel()
             analysisTimer = nil
-            for (id, route) in controller.routes { route.setAnalysis(id == key) }
+            for (id, route) in controller.routes {
+                route.setAnalysis(analyzeAll || id == key || key == Self.globalEQID)
+            }
             deliver(AudioTelemetry())
+            // Opening a flat EQ needs a route for its spectrum too. Closing the
+            // panel releases that route immediately unless its audio is adjusted.
+            refresh()
             guard key != nil else { return }
             let timer = DispatchSource.makeTimerSource(queue: queue)
             timer.schedule(deadline: .now(), repeating: .milliseconds(67), leeway: .milliseconds(10))
             timer.setEventHandler { [weak self] in
                 guard let self, let key = analysisApp else { return }
-                guard let route = controller.routes[key] else {
-                    deliverAnalysis?(AudioTelemetry())
-                    return
+                let routes = controller.routes.filter { analyzeAll || key == Self.globalEQID || $0.key == key }
+                analyzers = analyzers.filter { routes[$0.key] != nil }
+                analysisReadings = analysisReadings.filter { routes[$0.key] != nil }
+                for (id, route) in routes {
+                    let analyzer = analyzers[id] ?? SpectrumAnalyzer()
+                    analyzers[id] = analyzer
+                    if let value = route.analysis(using: analyzer) { analysisReadings[id] = value }
                 }
-                if let value = route.analysis(using: analyzer) { deliverAnalysis?(value) }
+                var combined = AudioTelemetry.envelope(Array(analysisReadings.values))
+                combined.apps = analysisReadings
+                deliverAnalysis?(combined)
             }
             analysisTimer = timer
             timer.resume()
@@ -136,7 +169,7 @@ public final class MixerEngine: @unchecked Sendable {
                 apps: discovered, output: output, settings: settings,
                 enabled: enabled && !suspended, analysisApp: analysisApp,
                 now: ProcessInfo.processInfo.systemUptime,
-                shouldContinue: { self.requestedEnabled.withLock { $0 } })
+                shouldContinue: { self.requestedEnabled.withLock { $0 } }, global: globalEQ, analyzeAll: analyzeAll)
             if !requestedEnabled.withLock({ $0 }) {
                 enabled = false
                 stopRoutes()

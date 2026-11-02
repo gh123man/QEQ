@@ -11,7 +11,7 @@ static_assert(std::atomic<double>::is_always_lock_free);
 static_assert(std::atomic<float>::is_always_lock_free);
 static_assert(std::atomic<bool>::is_always_lock_free);
 static_assert(std::atomic<uint64_t>::is_always_lock_free);
-constexpr int bandCount=5, paramCount=26, analysisCount=2048;
+constexpr int bandCount=10, paramCount=1+bandCount*5, analysisCount=MixerAnalysisFrameCount;
 Coeff filter(double rate, double hz, double db, double q, int kind) {
     if (kind<3 && std::abs(db)<0.00001) return {};
     const double A=std::pow(10., db/40.), w=2*M_PI*std::min(hz, rate*.45)/rate;
@@ -75,7 +75,7 @@ double MixerEQResponse(const MixerEQBand *bands,uint32_t count,double rate,doubl
     if(!std::isfinite(rate)||rate<8000||!std::isfinite(hz)) return 0;
     const double w=2*M_PI*std::clamp(hz,1.,rate*.499)/rate;
     double power=1;
-    for(uint32_t i=0;bands && i<std::min(count,5u);i++) {
+    for(uint32_t i=0;bands && i<std::min(count,(uint32_t)bandCount);i++) {
         const auto c=coefficients(rate,bands[i]);
         const double nr=c.b0+c.b1*std::cos(w)+c.b2*std::cos(2*w), ni=-c.b1*std::sin(w)-c.b2*std::sin(2*w);
         const double dr=1+c.a1*std::cos(w)+c.a2*std::cos(2*w), di=-c.a1*std::sin(w)-c.a2*std::sin(2*w);
@@ -87,7 +87,7 @@ void MixerDSPConfigure(MixerDSP *d,float volume,bool muted,const MixerEQBand *ba
     if(!d) return;
     volume=std::isfinite(volume)?std::clamp(volume,0.f,1.f):1.f;
     Coeff filters[bandCount];
-    for(uint32_t i=0;bands && i<std::min(count,5u);i++) filters[i]=coefficients(d->rate,bands[i]);
+    for(uint32_t i=0;bands && i<std::min(count,(uint32_t)bandCount);i++) filters[i]=coefficients(d->rate,bands[i]);
     d->version.fetch_add(1);
     d->parameters[0].store(muted?0:volume);
     for(int b=0;b<bandCount;b++) {

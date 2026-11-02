@@ -1,115 +1,156 @@
+import AppMixerAppSupport
 import AppMixerCore
 import SwiftUI
 
 struct ParametricEQView: View {
     @ObservedObject var model: MixerModel
     let appID: String
+    var compact = false
     @State private var selected = 0
     private var settings: MixerSettings { model.value(appID) }
     private var band: EQBand { settings.bands[selected] }
-    private var processing: Bool { model.enabled && settings.enabled && model.snapshot.active.contains(appID) }
+    private var isGlobal: Bool { appID == MixerModel.globalEQID }
+    private var telemetry: AudioTelemetry {
+        isGlobal ? model.telemetry : model.telemetry.apps[appID] ?? AudioTelemetry()
+    }
+    private var spectrumApps: [AudioApplication] {
+        Array(model.snapshot.apps.filter { model.telemetry.apps[$0.id]?.spectrum.isEmpty == false }.prefix(6))
+    }
+    private func spectrumColor(_ id: String) -> Color {
+        let palette: [Color] = [.orange, .green, .pink, .purple, .cyan, .yellow]
+        return palette[(spectrumApps.firstIndex { $0.id == id } ?? 0) % palette.count]
+    }
+    private var processing: Bool {
+        model.enabled
+            && (isGlobal ? !model.snapshot.active.isEmpty : settings.enabled && model.snapshot.active.contains(appID))
+    }
     private var maxFrequency: Double { min(20000, model.snapshot.sampleRate * 0.45) }
     private let colors: [Color] = [.orange, .yellow, .teal, .blue, .purple]
 
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 5) {
-                Text("Parametric EQ").font(.system(size: 11, weight: .medium))
+                Text(compact ? "Spectrum" : "Parametric EQ").font(.system(size: 11, weight: .medium))
                 Spacer()
-                if processing && !model.telemetry.spectrum.isEmpty {
-                    Circle().fill(.teal).frame(width: 5, height: 5)
-                    Text("Live output").font(.system(size: 9)).foregroundStyle(.secondary)
-                    Text(
-                        model.telemetry.peak > 0.00003
-                            ? String(format: "%.0f dBFS", 20 * log10(model.telemetry.peak)) : "−∞ dBFS"
-                    )
-                    .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).frame(
-                        width: 53, alignment: .trailing)
+                if processing && !telemetry.spectrum.isEmpty {
+                    Circle().fill(Color.accentColor).frame(width: 5, height: 5)
+                    Text(isGlobal ? "App spectra" : "Live output").font(.system(size: 9)).foregroundStyle(.secondary)
+                        .help(
+                            isGlobal
+                                ? "Strongest app in each frequency bin; not a measurement of the summed system output."
+                                : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
+                        )
+                    if compact && telemetry.limitingDB > 0.1 {
+                        Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
+                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)
+                            .help(
+                                "Automatic clipping protection is reducing gain. Lower app volume or EQ boosts for more headroom."
+                            )
+                    } else {
+                        Text(
+                            telemetry.peak > 0.00003
+                                ? String(format: "%.0f dBFS", 20 * log10(telemetry.peak)) : "−∞ dBFS"
+                        )
+                        .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).frame(
+                            width: 53, alignment: .trailing)
+                    }
                 } else {
-                    Text(processing ? "Waiting for signal" : "Preview · spectrum when processing").font(
+                    Text(processing ? "Waiting for signal" : "Preview · enable processing for spectrum").font(
                         .system(size: 9)
                     ).foregroundStyle(.secondary)
                 }
             }
-            graph.frame(height: 190)
-            HStack(spacing: 5) {
-                ForEach(0..<5) { index in
-                    Button {
-                        selected = index
-                    } label: {
-                        HStack(spacing: 4) {
-                            Circle().fill(settings.bands[index].enabled ? colors[index] : .secondary).frame(
-                                width: 5, height: 5)
-                            Text("\(index + 1)")
-                        }.font(.system(size: 10, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
+            graph.frame(height: compact ? 110 : 190)
+            if isGlobal && processing && !spectrumApps.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(spectrumApps) { app in
+                            HStack(spacing: 4) {
+                                Capsule().fill(spectrumColor(app.id)).frame(width: 12, height: 2)
+                                Text(app.name).lineLimit(1)
+                            }.font(.system(size: 9)).foregroundStyle(.secondary)
+                        }
+                    }
+                }.frame(height: 13)
+            }
+            if !compact {
+                HStack(spacing: 5) {
+                    ForEach(0..<5) { index in
+                        Button {
+                            selected = index
+                        } label: {
+                            HStack(spacing: 4) {
+                                Circle().fill(settings.bands[index].enabled ? colors[index] : .secondary).frame(
+                                    width: 5, height: 5)
+                                Text("\(index + 1)")
+                            }.font(.system(size: 10, weight: .semibold)).frame(maxWidth: .infinity).padding(
+                                .vertical, 6
+                            )
                             .background(
                                 selected == index ? colors[index].opacity(0.16) : Color.secondary.opacity(0.06),
                                 in: RoundedRectangle(cornerRadius: 5))
-                    }.buttonStyle(.plain).accessibilityLabel("Select EQ band \(index + 1)")
+                        }.buttonStyle(.plain).accessibilityLabel("Select EQ band \(index + 1)")
+                    }
                 }
-            }
-            HStack {
-                Toggle("Band \(selected + 1)", isOn: binding(\.enabled)).toggleStyle(.checkbox).font(.system(size: 11))
-                Spacer()
-                Picker(
-                    "Filter",
-                    selection: Binding(
-                        get: { band.type },
-                        set: { type in
-                            edit {
-                                $0.type = type
-                                $0.q = type.isShelf ? 1 : 0.70710678
-                            }
-                        })
-                ) {
-                    ForEach(EQFilter.allCases, id: \.self) { Text($0.label).tag($0) }
-                }.labelsHidden().frame(width: 125).controlSize(.small)
-            }
-            HStack(spacing: 12) {
-                numberControl(
-                    "Frequency", unit: "Hz", value: binding(\.frequency), range: 20...maxFrequency, decimals: 0)
-                numberControl("Gain", unit: "dB", value: binding(\.gain), range: -18...18, decimals: 1).disabled(
-                    !band.type.hasGain)
-                numberControl(
-                    band.type.isShelf ? "Slope" : "Q", unit: "", value: binding(\.q),
-                    range: 0.1...(band.type.isShelf ? 1 : 10), decimals: 2)
-            }
-            HStack(spacing: 8) {
-                Text("Width").font(.system(size: 10)).foregroundStyle(.secondary).frame(width: 35, alignment: .leading)
-                Slider(
-                    value: Binding(get: { log10(band.q) }, set: { value in edit { $0.q = pow(10, value) } }),
-                    in: -1...(band.type.isShelf ? 0 : 1)
-                )
-                .accessibilityLabel(band.type.isShelf ? "Shelf slope" : "Band Q")
-                Text(band.type.isShelf ? "Gentle → steep" : "Broad → narrow").font(.system(size: 9)).foregroundStyle(
-                    .tertiary)
-            }
-            HStack {
-                Menu("Presets") {
-                    Button("Cut bass") {
-                        model.edit(appID) {
-                            $0.bands = MixerSettings.defaultBands
-                            $0.bass = -12
-                        }
-                    }
-                    Button("Voice clarity") {
-                        model.edit(appID) {
-                            $0.bands = MixerSettings.defaultBands
-                            $0.bands[0] = EQBand(type: .highPass, frequency: 100)
-                            $0.bands[3].gain = 3
-                        }
-                    }
-                    Button("Flat EQ") { model.edit(appID) { $0.bands = MixerSettings.defaultBands } }
-                }.menuStyle(.borderlessButton).fixedSize()
-                Spacer()
-                let limiting = processing && model.telemetry.limitingDB > 0.1
-                Text(limiting ? String(format: "Limiting −%.1f dB", model.telemetry.limitingDB) : "Peak protection")
-                    .foregroundStyle(limiting ? Color.orange : Color.secondary)
-                    .help(
-                        "Only reduces gain when output peaks exceed full scale, with no added buffering. Lower app volume if limiting is frequent. The curve shows EQ before volume and peak protection."
+                HStack {
+                    Toggle("Band \(selected + 1)", isOn: binding(\.enabled)).toggleStyle(.checkbox).font(
+                        .system(size: 11))
+                    Spacer()
+                    Picker(
+                        "Filter",
+                        selection: Binding(
+                            get: { band.type },
+                            set: { type in
+                                edit {
+                                    $0.type = type
+                                    $0.q = type.isShelf ? 1 : 0.70710678
+                                }
+                            })
+                    ) {
+                        ForEach(EQFilter.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }.labelsHidden().frame(width: 125).controlSize(.small)
+                }
+                HStack(spacing: 12) {
+                    numberControl(
+                        "Frequency", unit: "Hz", value: binding(\.frequency), range: 20...maxFrequency, decimals: 0)
+                    numberControl("Gain", unit: "dB", value: binding(\.gain), range: -18...18, decimals: 1).disabled(
+                        !band.type.hasGain)
+                    numberControl(
+                        band.type.isShelf ? "Slope" : "Q", unit: "", value: binding(\.q),
+                        range: 0.1...(band.type.isShelf ? 1 : 10), decimals: 2)
+                }
+                HStack(spacing: 8) {
+                    Text("Width").font(.system(size: 10)).foregroundStyle(.secondary).frame(
+                        width: 35, alignment: .leading)
+                    Slider(
+                        value: Binding(get: { log10(band.q) }, set: { value in edit { $0.q = pow(10, value) } }),
+                        in: -1...(band.type.isShelf ? 0 : 1)
                     )
-                Button("Reset app") { model.edit(appID) { $0 = MixerSettings() } }
-            }.font(.system(size: 10)).buttonStyle(.borderless)
+                    .accessibilityLabel(band.type.isShelf ? "Shelf slope" : "Band Q")
+                    Text(band.type.isShelf ? "Gentle → steep" : "Broad → narrow").font(.system(size: 9))
+                        .foregroundStyle(
+                            .tertiary)
+                }
+                HStack {
+                    Menu("Presets") {
+                        ForEach(EQPreset.allCases) { preset in
+                            Button(preset.rawValue) { model.edit(appID) { $0.bands = preset.bands } }
+                        }
+                    }.menuStyle(.borderlessButton).fixedSize()
+                    Spacer()
+                    if processing && telemetry.limitingDB > 0.1 {
+                        Label(
+                            String(format: "Limiting −%.1f dB", telemetry.limitingDB),
+                            systemImage: "waveform.badge.minus"
+                        )
+                        .foregroundStyle(Color.orange)
+                        .help(
+                            "Automatic clipping protection is reducing output gain by this amount. Lower app volume or EQ boosts if this happens often. The EQ curve is shown before volume and limiting."
+                        )
+                    }
+                    Button(isGlobal ? "Reset EQ" : "Reset app") { model.edit(appID) { $0 = MixerSettings() } }
+                }.font(.system(size: 10)).buttonStyle(.borderless)
+            }
         }
     }
     private func edit(_ change: (inout EQBand) -> Void) { model.edit(appID) { change(&$0.bands[selected]) } }
@@ -137,13 +178,25 @@ struct ParametricEQView: View {
     }
     private var graph: some View {
         GeometryReader { geometry in
-            let rect = CGRect(x: 29, y: 14, width: geometry.size.width - 43, height: geometry.size.height - 37)
+            let rect = CGRect(x: 29, y: 20, width: geometry.size.width - 65, height: geometry.size.height - 43)
             let upper = maxFrequency
             ZStack {
                 RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.055, green: 0.067, blue: 0.078))
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
+                    for db in [-90.0, -60, -30, 0] {
+                        let levelY = rect.maxY - (db + 90) / 90 * rect.height
+                        context.draw(
+                            Text(String(format: "%.0f", db)).font(.system(size: 8, design: .monospaced))
+                                .foregroundStyle(Color.accentColor), at: CGPoint(x: rect.maxX + 17, y: levelY))
+                    }
+                    context.draw(
+                        Text("EQ dB").font(.system(size: 8)).foregroundStyle(.white.opacity(0.6)),
+                        at: CGPoint(x: rect.minX, y: 7), anchor: .leading)
+                    context.draw(
+                        Text("Output dBFS").font(.system(size: 8)).foregroundStyle(Color.accentColor),
+                        at: CGPoint(x: rect.maxX, y: 7), anchor: .trailing)
                     for db in [-18.0, -9, 0, 9, 18] {
                         var line = Path()
                         line.move(to: CGPoint(x: rect.minX, y: y(db)))
@@ -163,8 +216,8 @@ struct ParametricEQView: View {
                             Text(label).font(.system(size: 8, design: .monospaced)).foregroundStyle(
                                 .white.opacity(0.45)), at: CGPoint(x: x(hz), y: rect.maxY + 12))
                     }
-                    if processing, !model.telemetry.spectrum.isEmpty {
-                        let spectrum = model.telemetry.spectrum
+                    if processing, !telemetry.spectrum.isEmpty {
+                        let spectrum = telemetry.spectrum
                         var area = Path()
                         area.move(to: CGPoint(x: rect.minX, y: rect.maxY))
                         for (index, db) in spectrum.enumerated() {
@@ -175,7 +228,20 @@ struct ParametricEQView: View {
                         }
                         area.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
                         area.closeSubpath()
-                        context.fill(area, with: .color(.teal.opacity(0.16)))
+                        context.fill(area, with: .color(Color.accentColor.opacity(0.16)))
+                        if isGlobal {
+                            for app in spectrumApps {
+                                guard let bins = model.telemetry.apps[app.id]?.spectrum else { continue }
+                                var line = Path()
+                                for (index, db) in bins.enumerated() {
+                                    let point = CGPoint(
+                                        x: rect.minX + (Double(index) + 0.5) / Double(bins.count) * rect.width,
+                                        y: rect.maxY - CGFloat(max(0, min(1, (db + 90) / 90))) * rect.height)
+                                    if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
+                                }
+                                context.stroke(line, with: .color(spectrumColor(app.id).opacity(0.85)), lineWidth: 1)
+                            }
+                        }
                     }
                     var curve = Path()
                     for index in 0...240 {
@@ -187,38 +253,53 @@ struct ParametricEQView: View {
                     context.stroke(
                         curve, with: .color(.white.opacity(processing ? 0.9 : 0.6)),
                         style: StrokeStyle(lineWidth: 1.6, dash: processing ? [] : [4, 3]))
-                    context.draw(
-                        Text("EQ dB · spectrum −90…0 dBFS").font(.system(size: 8)).foregroundStyle(.white.opacity(0.4)),
-                        at: CGPoint(x: rect.maxX - 4, y: rect.minY + 6), anchor: .topTrailing)
                 }
-                ForEach(0..<5) { index in
-                    let b = settings.bands[index]
-                    let x = rect.minX + log(min(upper, max(20, b.frequency)) / 20) / log(upper / 20) * rect.width
-                    let y = rect.midY - (b.type.hasGain ? b.gain : 0) / 36 * rect.height
-                    Text("\(index + 1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.black)
-                        .frame(width: selected == index ? 21 : 17, height: selected == index ? 21 : 17)
-                        .background(b.enabled ? colors[index] : .gray, in: Circle())
-                        .overlay(Circle().strokeBorder(.white.opacity(selected == index ? 0.8 : 0), lineWidth: 1.5))
-                        .contentShape(Circle().size(width: 28, height: 28))
-                        .position(x: x, y: y)
-                        .onTapGesture { selected = index }
-                        .gesture(
-                            DragGesture(minimumDistance: 1, coordinateSpace: .named("eqPlot")).onChanged { value in
-                                selected = index
-                                let fraction = min(1, max(0, (value.location.x - rect.minX) / rect.width))
-                                let gain = min(18, max(-18, (rect.midY - value.location.y) / rect.height * 36))
-                                model.edit(appID) {
-                                    $0.bands[index].frequency = (20 * pow(upper / 20, fraction)).rounded()
-                                    if $0.bands[index].type.hasGain {
-                                        $0.bands[index].gain = (gain * 10).rounded() / 10
+                if !compact {
+                    ForEach(0..<5) { index in
+                        let b = settings.bands[index]
+                        let x = rect.minX + log(min(upper, max(20, b.frequency)) / 20) / log(upper / 20) * rect.width
+                        let y = rect.midY - (b.type.hasGain ? b.gain : 0) / 36 * rect.height
+                        Text("\(index + 1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.black)
+                            .frame(width: selected == index ? 21 : 17, height: selected == index ? 21 : 17)
+                            .background(b.enabled ? colors[index] : .gray, in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(selected == index ? 0.8 : 0), lineWidth: 1.5))
+                            .contentShape(Circle().size(width: 28, height: 28))
+                            .position(x: x, y: y)
+                            .gesture(
+                                TapGesture(count: 2).exclusively(before: TapGesture()).onEnded { value in
+                                    selected = index
+                                    if case .first = value { resetBand(index) }
+                                }
+                            )
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 1, coordinateSpace: .named("eqPlot")).onChanged { value in
+                                    selected = index
+                                    let fraction = min(1, max(0, (value.location.x - rect.minX) / rect.width))
+                                    let gain = min(18, max(-18, (rect.midY - value.location.y) / rect.height * 36))
+                                    model.edit(appID) {
+                                        $0.bands[index].frequency = (20 * pow(upper / 20, fraction)).rounded()
+                                        if $0.bands[index].type.hasGain {
+                                            $0.bands[index].gain = (gain * 10).rounded() / 10
+                                        }
                                     }
                                 }
-                            }
-                        )
-                        .accessibilityLabel(
-                            "EQ band \(index + 1), \(Int(b.frequency)) Hz, \(b.gain, specifier: "%.1f") dB")
+                            )
+                            .accessibilityLabel(
+                                "EQ band \(index + 1), \(Int(b.frequency)) Hz, \(b.gain, specifier: "%.1f") dB"
+                            )
+                            .accessibilityAction(named: "Reset band") { resetBand(index) }
+                            .help("Drag to adjust. Double-click to reset this band.")
+                            .contextMenu { Button("Reset band") { resetBand(index) } }
+                    }
                 }
             }.coordinateSpace(name: "eqPlot")
+                .help(
+                    "Frequency is logarithmic: equal distance means equal frequency ratio. Left axis: EQ gain. Right axis: actual output level. A −18 dB cut reduces amplitude by about 87%; it does not mute that frequency. The spectrum uses a 16,384-sample analysis window, separate from playback."
+                )
         }
+    }
+    private func resetBand(_ index: Int) {
+        selected = index
+        model.edit(appID) { $0.bands[index] = MixerSettings.defaultBands[index] }
     }
 }

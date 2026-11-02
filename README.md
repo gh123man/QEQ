@@ -4,19 +4,19 @@
 
 <h1 align="center">QEQ</h1>
 <p align="center"><strong>Quick EQ</strong><br>Per-app mixer and equalizer for macOS.</p>
-<h2 align="center"><a href="https://github.com/gh123man/app-mixer/releases">Download</a></h2>
+<h2 align="center"><a href="https://github.com/gh123man/QEQ/releases">Download</a></h2>
 <p align="center">macOS 14.4+ · Apple Silicon & Intel · Signed and notarized releases</p>
 
 <p align="center">
   <img src="docs/media/mixer.png" alt="Per-app volume and bypass controls" width="360">
-  <img src="docs/media/equalizer.png" alt="Five-band parametric EQ with a bass-cut preview" width="360">
+  <img src="docs/media/global-equalizer.png" alt="Global five-band parametric EQ" width="360">
 </p>
 <p align="center"><sub>Native interface shown with sample app settings.</sub></p>
 
 ## Features
 
-- Independent app volume, mute, and five-band parametric EQ.
-- Draggable EQ curve, exact controls, presets, and live output spectrum.
+- Global and per-app five-band EQ, independent volume, and quick mute.
+- Draggable curves, 11 presets, and layered live app spectra.
 - Per-app bypass and one switch to restore system audio.
 - A menu bar panel that fits your app list, scrolling only when needed.
 - Direct audio processing without added playback buffers or installed drivers.

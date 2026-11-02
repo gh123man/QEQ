@@ -8,9 +8,9 @@ A small, native macOS menu bar mixer with independent app volume, mute, and five
 ./run.sh
 ```
 
-Click the three-slider menu bar icon. Start playback in Zoom, Spotify, or another app to make it appear in the mixer. Apps that only register an audio client stay hidden until they actually start output or have saved adjustments. Once an app has played, its controls stay visible while its audio clients remain open, including when paused. Open **EQ → Presets → Cut bass** on Zoom, then turn on the mixer. Approve macOS's system-audio permission when requested. Spotify stays untouched unless you change its controls too.
+Click the three-slider menu bar icon. Start playback in Zoom, Spotify, or another app to make it appear in the mixer. Apps that only register an audio client stay hidden until they actually start output or have saved adjustments. Once an app has played, its controls stay visible while its audio clients remain open, including when paused. Open **EQ → Presets → Cut bass** on Zoom, then turn on the mixer. Approve macOS's system-audio permission when requested. Spotify stays untouched unless you change its controls or Global EQ.
 
-The top-right switch is the global bypass. Switching it off or quitting destroys the taps and private aggregate devices, restoring the original audio paths. Each app’s switch bypasses its volume and EQ while preserving its controls. **Reset app** clears its settings and restores the direct path. Settings are saved by app bundle ID; each launch starts bypassed so relaunching cannot unexpectedly alter audio.
+The top-right switch is the global bypass. Switching it off or quitting destroys the taps and private aggregate devices, restoring the original audio paths. Each app’s switch bypasses its volume and EQ while preserving its controls. **Reset app** clears its settings. Global EQ still applies to every playing app on the selected output, including apps with their own processing bypassed. The direct path is restored when no EQ/volume changes or visible spectrum need a route. Settings are saved by app bundle ID; each launch starts bypassed so relaunching cannot unexpectedly alter audio.
 
 The local app is at `AppMixer/.dist/QEQ.app`. `./run.sh --no-build` launches it without rebuilding. `./run.sh --clean` rebuilds it. XcodeGen and Xcode are needed to build; the app bundle runs on its own.
 
@@ -18,18 +18,18 @@ The local app is at `AppMixer/.dist/QEQ.app`. `./run.sh --no-build` launches it 
 
 Only `NSAudioCaptureUsageDescription` is declared. macOS calls this **system audio recording**, even though QEQ does not save or transmit audio. Processing happens in memory on the audio callback. There is no microphone capture, ScreenCaptureKit screen recording, Accessibility, Automation, administrator helper, network access, or installed audio driver. Physical microphone/line inputs contributed by an output device are explicitly disabled before starting; if isolation fails, the app refuses to start that route.
 
-Permission is first requested when an adjusted app is intercepted, not at launch. If access is denied, allow QEQ in **System Settings → Privacy & Security → Screen & System Audio Recording** (the exact panel label varies by macOS), then retry or relaunch. The local build is ad-hoc signed with the stable development identifier `local.AppMixer`; it is not notarized for distribution. macOS may request permission again after a rebuild.
+Permission is first requested when processing or live spectrum needs an app audio tap, not at launch. If access is denied, allow QEQ in **System Settings → Privacy & Security → Screen & System Audio Recording** (the exact panel label varies by macOS), then retry or relaunch. The local build is ad-hoc signed with the stable development identifier `local.AppMixer`; it is not notarized for distribution. macOS may request permission again after a rebuild.
 
 ## Latency and scope
 
-- One device-scoped tap and private aggregate per adjusted app. The output device is the clock source; input is processed directly into output within the same Core Audio IOProc.
+- One device-scoped tap and private aggregate per playing app that needs processing or a visible spectrum. App and global EQ use two five-band filter banks in the same callback, before volume and sample-peak protection. The output device is the clock source; input is processed directly into output within the same Core Audio IOProc.
 - No additional application ring buffer, scheduled AVAudioPlayer buffers, FFT window in the playback path, lookahead, or network round trip.
 - The realtime C++ callback does not allocate, log, block, or acquire locks. Coefficients are calculated on a serial control queue and transferred using lock-free atomics. Changes ramp over 10 ms to reduce clicks; this does not delay audio by 10 ms.
 - The footer reports the hardware **I/O buffer duration**, not measured end-to-end latency. True zero latency is impossible. Bluetooth, device drivers, and Core Audio add their own delay. Use built-in speakers or wired headphones for latency testing.
 - Mono/stereo Float32 output devices with a single output stream are supported. Multichannel/multistream devices are rejected explicitly. This version processes the **current system output**; apps explicitly routed to a different output should be set to the system output first.
 - EQ: five configurable bands, 20 Hz–20 kHz (limited to 45% of sample rate), ±18 dB. Bell, low/high shelf, and 12 dB/octave low/high cut filters. Bell/cut Q spans 0.1–10; shelf slope spans 0.1–1. Each band can be bypassed. Boosts raise their selected frequencies without fixed full-band attenuation. Stereo-linked sample-peak protection reduces gain only when output would exceed full scale, then releases over 50 ms; it adds no lookahead or playback buffering. The live “Limiting” indicator shows reduction. Lower app volume when more headroom is needed. This is sample-peak protection, not an oversampled true-peak limiter. Volume is 0–100%.
-- Drag numbered graph handles to change frequency/gain. Click a band, enter exact frequency/gain/Q values, or use the width slider. White is the filter response (EQ dB, before app volume and peak protection); a dashed line indicates a preview while bypassed. Teal is the live processed-output spectrum (−90…0 dBFS).
-- The optional 2048-sample Hann-window spectrum uses Accelerate off the audio thread at ~15 fps. Atomic snapshots never delay playback. Stereo powers are combined without phase cancellation. Sampling/FFT runs only while an EQ panel is visible and that app already has a processing route. Flat/bypassed apps are not intercepted just to animate the graph.
+- Drag numbered graph handles to change frequency/gain. Click a band, enter exact frequency/gain/Q values, or use the width slider. White is the filter response (EQ dB, before app volume and peak protection); a dashed line indicates a preview while bypassed. The system accent color fills the live processed-output spectrum (−90…0 dBFS). Double-click a numbered handle to restore that band’s defaults.
+- The optional 16,384-sample Hann-window spectrum uses Accelerate off the audio thread at ~15 fps. Atomic snapshots never delay playback. At 48 kHz the analysis window covers about 341 ms of recent sound; this affects visual settling, not playback latency. Frequency bins use interpolated boundaries, and there is no extra peak hold to conceal EQ cuts or mute. Both the EQ-gain (left) and output-dBFS (right) scales are labeled; the frequency axis is logarithmic. Stereo powers are combined without phase cancellation. While the popup is open and the main mixer is enabled, playing apps acquire neutral routes as needed for analysis, even with flat EQ. Closing it releases analysis-only routes. The Global EQ graph overlays up to six app spectra with matching labels; its filled envelope is the strongest app in each frequency bin, not a phase-aligned measurement of the final mixed output. Per-app spectra include both app and global processing. Global bypass always releases all routes.
 - Chrome/Electron helper clients resolve to their outer application’s name, icon, and bundle ID. Legacy helper-key settings migrate to that app; existing parent settings take precedence.
 - App discovery runs once per second. Helpers nested in a containing app are grouped with it. Saved/paused apps remain visible but acquire no route until playing to the selected output. Pausing releases the route. New audio processes and output changes rebuild affected routes; switching outputs may cause a brief transition. Pause/resume and sleep/wake are handled.
 - Some protected/DRM audio may not be available to public process taps. Browser tabs share their browser's app control. No microphone EQ or input processing is provided.
@@ -70,22 +70,29 @@ The single-callback private aggregate topology builds on [CoreAudioTapKit](https
 
 ## Repository tooling and releases
 
-The private source repository is [gh123man/app-mixer](https://github.com/gh123man/app-mixer).
+The private source repository is [gh123man/QEQ](https://github.com/gh123man/QEQ).
 
 - `./AppMixer/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
 - `xcrun swift-format format --in-place --recursive AppMixer/App/Sources AppMixer/Sources AppMixer/Tests AppMixer/Package.swift` applies the checked-in formatting rules.
 - GitHub Actions validates pull requests and pushes to `main` on Intel, complementing local Apple Silicon tests. Headless CI sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two physical-output tests; local tests include them by default.
 - `AppMixer/release.json` records each version, build number, bundle identifier, and required signing/notarization policy. Notes live in `AppMixer/ReleaseNotes/`.
 
-Update the release record and notes, run checks, commit and push to main, then wait for CI to pass:
+Before each release, update the record and notes, then regenerate the README screenshots from the real app:
+
+```sh
+./AppMixer/scripts/cut_release.sh --prepare
+./AppMixer/scripts/check.sh
+```
+
+Review and commit the application changes, `docs/media/*.png`, and `docs/media/screenshots.json`. Push main and wait for CI, then run:
 
 ```sh
 ./AppMixer/scripts/cut_release.sh --publish
 ```
 
-The command requires clean, pushed main with passing CI and the six configured Apple secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
+The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the six configured Apple secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
 
-The workflow publishes a private prerelease with ZIP, DMG, SHA256SUMS, and a manifest containing the source commit and accepted notarization submission IDs. It refuses to replace an existing release. For a failed run, use GitHub's rerun command, or dispatch the workflow with its existing tag. Signing material is removed in an always-run cleanup step; only release artifacts and notarization diagnostics are uploaded.
+The workflow renders screenshots again from the tagged source, checks the layouts, and publishes their ZIP alongside the app ZIP, DMG, SHA256SUMS, and a manifest containing the source commit and accepted notarization submission IDs. It refuses to replace an existing release. For a failed run, use GitHub's rerun command, or dispatch the workflow with its existing tag. Signing material is removed in an always-run cleanup step; only release artifacts and notarization diagnostics are uploaded.
 
 Required repository Actions secrets (same names as OpenSnek):
 
@@ -105,10 +112,11 @@ Use the footer menu → **Copy diagnostics** for the macOS/app version, output f
 ## Screenshots and icon
 
 ```sh
-AppMixer/.dist/QEQ.app/Contents/MacOS/QEQ --render-screenshots "$PWD/docs/media"
+python3 AppMixer/scripts/screenshots.py
+python3 AppMixer/scripts/screenshots.py --check
 ./AppMixer/scripts/generate_appicon.sh
 ```
 
-The screenshot command renders the real SwiftUI views with labeled fixture settings in an offscreen app window. It never starts the audio engine, reads saved settings, or captures the screen. It also checks empty, populated, expanded-EQ, long-list, smaller-screen and removal layouts. Screenshot fixtures are illustrative; the EQ view deliberately shows a response preview rather than fabricated live audio.
+The screenshot command renders the real SwiftUI views with labeled fixture settings in an offscreen app window. It never starts the audio engine, reads saved settings, or captures the screen. It also checks empty, populated, app/global EQ, long-list, smaller-screen and removal layouts. The source and image fingerprints in `docs/media/screenshots.json` prevent stale README screenshots from shipping. CI renders from its just-built app using `--skip-build`; normal preparation builds first. Screenshot fixtures are illustrative; the EQ view deliberately shows a response preview rather than fabricated live audio.
 
 The icon was created with the built-in image-generation tool. The source asset and final prompt are in `AppMixer/Branding/`. The generator script only creates the standard macOS icon sizes from that source. Internal module names and `local.AppMixer` bundle identity are retained so existing settings remain available.

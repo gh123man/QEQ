@@ -53,7 +53,7 @@ struct ScreenshotRenderer {
                 to: directory.appendingPathComponent(name + ".png"))
             print("\(name): \(Int(size.width)) × \(Int(size.height)) pt")
         }
-        try capture("empty", maximum: 300)
+        try capture("empty", maximum: 520)
         func app(_ id: String, _ name: String, _ path: String) -> AudioApplication {
             AudioApplication(
                 id: id, name: name, path: FileManager.default.fileExists(atPath: path) ? path : nil, playing: true)
@@ -71,13 +71,17 @@ struct ScreenshotRenderer {
         model.settings = [zoom.id: zoomEQ, music.id: musicEQ]
         model.snapshot.active = [zoom.id, music.id]
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("mixer")
-        try capture("mixer", maximum: 500)
+        try capture("mixer", maximum: 720)
         model.snapshot.apps = [zoom]
         model.selectedEQ = zoom.id
         // Deliberately show the response preview, not fabricated live spectrum.
         model.enabled = false
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("equalizer")
         try capture("equalizer", maximum: 720)
+        model.globalEQ.bands = EQPreset.warm.bands
+        model.selectedEQ = MixerModel.globalEQID
+        host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("global-equalizer")
+        try capture("global-equalizer", maximum: 720)
         model.snapshot.apps = (0..<15).map {
             AudioApplication(id: "sample-\($0)", name: "Sample app \($0 + 1)", playing: true)
         }
@@ -90,6 +94,6 @@ struct ScreenshotRenderer {
         guard abs(smallScreenSize.height - 460) <= 1 else { throw NSError(domain: "QEQ layout", code: 3) }
         print("small-screen cap: \(Int(smallScreenSize.height)) pt")
         model.snapshot.apps = []
-        try capture("empty-after-removal", maximum: 300)
+        try capture("empty-after-removal", maximum: 520)
     }
 }

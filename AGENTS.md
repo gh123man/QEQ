@@ -33,7 +33,7 @@ swift test --package-path AppMixer
 
 ## Signed and notarized RCs
 
-Update `AppMixer/release.json` and matching release notes before committing. After local checks, push main and wait for CI. `cut_release.sh --publish` runs local tests and tags that commit; GitHub's Release DMG workflow uses the six Apple secrets to sign with Developer ID, notarize and staple both app and DMG, verify Gatekeeper acceptance, then publish a private prerelease. Do not publish unnotarized fallbacks or overwrite an existing release. Never commit or print signing secrets. Keep hardware tests enabled locally; only headless CI sets `APP_MIXER_HARDWARE_TESTS=0`.
+Update `AppMixer/release.json` and matching release notes before committing. Run `cut_release.sh --prepare` to rebuild and refresh native README screenshots; commit `docs/media/*.png` and `screenshots.json` with the source. CI and tagging reject stale screenshot fingerprints. After local checks, push main and wait for CI. `cut_release.sh --publish` runs local tests and tags that commit; GitHub's Release DMG workflow renders/attaches screenshots and uses the six Apple secrets to sign with Developer ID, notarize and staple both app and DMG, verify Gatekeeper acceptance, then publish a private prerelease. Do not publish unnotarized fallbacks or overwrite an existing release. Never commit or print signing secrets. Keep hardware tests enabled locally; only headless CI sets `APP_MIXER_HARDWARE_TESTS=0`.
 
 ## Branding and UI captures
 

@@ -23,13 +23,20 @@ def require(condition, message):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--publish', action='store_true', help='Push the release tag to start the GitHub workflow')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--publish', action='store_true', help='Push the release tag to start the GitHub workflow')
+    mode.add_argument('--prepare', action='store_true', help='Rebuild and refresh README screenshots before committing')
     args = parser.parse_args()
+    if args.prepare:
+        run('python3', 'AppMixer/scripts/screenshots.py')
+        print('Screenshots refreshed. Update release.json and notes, run check.sh, then commit/push and wait for CI before --publish.')
+        return
     config = json.loads((ROOT / 'AppMixer/release.json').read_text())
     version = config['version']
     require(re.fullmatch(r'\d+\.\d+\.\d+-rc\.\d+', version), 'Expected an RC version')
     require(config['signing'] == 'Developer ID Application' and config['notarized'] is True,
             'Release policy must require Developer ID signing and notarization')
+    run('python3', 'AppMixer/scripts/screenshots.py', '--check')
     require(not run('git', 'status', '--porcelain', capture=True), 'Working tree must be clean')
     require(run('git', 'branch', '--show-current', capture=True) == 'main', 'Release from main')
     run('git', 'fetch', 'origin', 'main', '--tags')

@@ -48,7 +48,18 @@ jobs:
       - name: Install declared tools
         run: brew bundle
       - name: Validate source and universal build
-        run: ./AppMixer/scripts/check.sh
+        run: |
+          python3 AppMixer/scripts/screenshots.py --check
+          ./AppMixer/scripts/check.sh
+      - name: Render screenshots from the release source
+        run: python3 AppMixer/scripts/screenshots.py --skip-build --output AppMixer/.release/screenshots
+      - name: Upload rendered screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: QEQ-screenshots-${{ env.RELEASE_REF_NAME }}
+          path: AppMixer/.release/screenshots/*
+          include-hidden-files: true
+          if-no-files-found: error
       - name: Prepare temporary signing keychain
         env:
           APPLE_DEVELOPER_ID_APP_CERT_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_BASE64 }}

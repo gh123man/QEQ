@@ -1,5 +1,14 @@
 # Changelog
 
+## In development
+
+- Add Global EQ above the app list, with an always-visible spectrum and layered app traces.
+- Start spectrum analysis on opening the panel, including flat EQ, while preserving global bypass.
+- Add 11 EQ presets, double-click band reset, system accent color, prominent app mute buttons, and a power-icon Quit button.
+- Show the limiter indicator only while reducing gain.
+- Correct low-frequency spectrum positioning and remove peak hold that concealed cuts; label output and EQ scales separately.
+- Regenerate and verify README screenshots during release preparation; attach freshly rendered screenshots to releases.
+
 ## 0.1.0-rc.3 — 2026-11-02
 
 - Rebrand as QEQ (Quick EQ), with a new app icon, concise README, and screenshots.

@@ -7,7 +7,7 @@ protocol AudioRoute: AnyObject {
     var output: OutputDevice { get }
     var peak: Float { get }
     var lastFrames: UInt64 { get }
-    func update(_ settings: MixerSettings)
+    func update(_ settings: MixerSettings, global: MixerSettings)
     func setAnalysis(_ enabled: Bool)
     func analysis(using analyzer: SpectrumAnalyzer) -> AudioTelemetry?
     func checkHealth() throws
@@ -28,10 +28,10 @@ final class RouteController {
         let message: String
     }
     private var retries: [String: Retry] = [:]
-    private let create: (AudioApplication, OutputDevice, MixerSettings) throws -> any AudioRoute
+    private let create: (AudioApplication, OutputDevice, MixerSettings, MixerSettings) throws -> any AudioRoute
     init(
-        create: @escaping (AudioApplication, OutputDevice, MixerSettings) throws -> any AudioRoute = {
-            try AppAudioRoute(app: $0, output: $1, settings: $2)
+        create: @escaping (AudioApplication, OutputDevice, MixerSettings, MixerSettings) throws -> any AudioRoute = {
+            try AppAudioRoute(app: $0, output: $1, settings: $2, global: $3)
         }
     ) { self.create = create }
 
@@ -53,7 +53,7 @@ final class RouteController {
     func reconcile(
         apps: [AudioApplication], output: OutputDevice, settings: [String: MixerSettings],
         enabled: Bool, analysisApp: String?, now: TimeInterval,
-        shouldContinue: () -> Bool = { true }
+        shouldContinue: () -> Bool = { true }, global: MixerSettings = MixerSettings(), analyzeAll: Bool = false
     ) {
         messages.removeAll()
         errors.removeAll()
@@ -62,7 +62,11 @@ final class RouteController {
             return
         }
         var wanted: [String: AudioApplication] = [:]
-        for app in apps where (settings[app.id] ?? MixerSettings()).needsProcessing {
+        for app in apps {
+            let value = settings[app.id] ?? MixerSettings()
+            let analyzing =
+                analyzeAll || analysisApp == MixerEngine.globalEQID || (app.id == analysisApp && value.enabled)
+            guard value.needsProcessing || global.hasEnabledEQ || analyzing else { continue }
             guard app.playing, !app.processes.isEmpty else {
                 messages[app.id] = "Waiting for playback"
                 continue
@@ -86,6 +90,7 @@ final class RouteController {
                 return
             }
             if let route = routes[app.id] {
+                route.setAnalysis(analyzeAll || app.id == analysisApp || analysisApp == MixerEngine.globalEQID)
                 do {
                     try route.checkHealth()
                     continue
@@ -100,8 +105,8 @@ final class RouteController {
                 continue
             }
             do {
-                let route = try create(app, output, settings[app.id] ?? MixerSettings())
-                route.setAnalysis(app.id == analysisApp)
+                let route = try create(app, output, settings[app.id] ?? MixerSettings(), global)
+                route.setAnalysis(analyzeAll || app.id == analysisApp || analysisApp == MixerEngine.globalEQID)
                 routes[app.id] = route
                 // Keep attempt count until this route has actually delivered audio.
             } catch { fail(app: app, output: output, now: now, error: error) }

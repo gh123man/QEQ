@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -120,7 +121,10 @@ def main():
                                if line.startswith(('Authority=', 'TeamIdentifier=', 'Timestamp=', 'CDHash='))])
     manifest_path = artifacts / 'release-manifest.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
-    paths = [archive, dmg, manifest_path]
+    screenshots = PACKAGE / '.release/screenshots'
+    run('python3', 'AppMixer/scripts/screenshots.py', '--check', '--output', str(screenshots))
+    screenshot_archive = Path(shutil.make_archive(str(artifacts / f'QEQ-{version}-screenshots'), 'zip', screenshots))
+    paths = [archive, dmg, manifest_path, screenshot_archive]
     (artifacts / 'SHA256SUMS').write_text(''.join(
         f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in paths))
     print(f'Notarized and stapled release artifacts: {artifacts}')

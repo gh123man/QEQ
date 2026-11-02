@@ -7,6 +7,8 @@ import SwiftUI
 final class MixerModel: ObservableObject {
     @Published var snapshot = MixerSnapshot()
     @Published var settings: [String: MixerSettings] = [:]
+    @Published var globalEQ = MixerSettings()
+    static let globalEQID = MixerEngine.globalEQID
     @Published var enabled = false
     @Published var changing = false
     @Published var selectedEQ: String?
@@ -26,7 +28,14 @@ final class MixerModel: ObservableObject {
         {
             settings = saved.mapValues { $0.sanitized() }
         }
-        engine.start(settings: settings) { [weak self] value in
+        if let data = UserDefaults.standard.data(forKey: "globalEQ"),
+            let saved = try? JSONDecoder().decode(MixerSettings.self, from: data)
+        {
+            globalEQ = saved.sanitized()
+            globalEQ.volume = 1
+            globalEQ.muted = false
+        }
+        engine.start(settings: settings, global: globalEQ) { [weak self] value in
             Task { @MainActor in
                 if let self, !value.migratedIDs.isEmpty {
                     for (old, new) in value.migratedIDs {
@@ -56,20 +65,27 @@ final class MixerModel: ObservableObject {
             "\(app.name): playing=\(app.playing), clients=\(app.processes), outputs=\(app.outputDevices.map { String(describing: $0.sorted()) } ?? "unknown"), enabled=\(value(app.id).enabled), adjusted=\(value(app.id).needsProcessing), frames=\(snapshot.callbackFrames[app.id] ?? 0), status=\(snapshot.routeMessages[app.id] ?? "normal")"
         }.joined(separator: "\n")
         return
-            "QEQ \(version)\n\(ProcessInfo.processInfo.operatingSystemVersionString)\nOutput: \(snapshot.outputName), \(snapshot.sampleRate) Hz\n\(snapshot.timing)\nMixer enabled: \(enabled)\n\(snapshot.error ?? "No errors")\n\(apps)"
+            "QEQ \(version)\n\(ProcessInfo.processInfo.operatingSystemVersionString)\nOutput: \(snapshot.outputName), \(snapshot.sampleRate) Hz\n\(snapshot.timing)\nMixer enabled: \(enabled)\nGlobal EQ active: \(globalEQ.hasEnabledEQ)\n\(snapshot.error ?? "No errors")\n\(apps)"
     }
     func toggle(_ value: Bool) {
         enabled = value
         changing = true
         engine.setEnabled(value)
     }
-    func value(_ id: String) -> MixerSettings { settings[id] ?? MixerSettings() }
+    func value(_ id: String) -> MixerSettings { id == Self.globalEQID ? globalEQ : settings[id] ?? MixerSettings() }
     func edit(_ id: String, _ edit: (inout MixerSettings) -> Void) {
         var value = value(id)
         edit(&value)
         value = value.sanitized()
-        settings[id] = value
-        engine.update(id, settings: value)
+        if id == Self.globalEQID {
+            value.volume = 1
+            value.muted = false
+            globalEQ = value
+            engine.setGlobalEQ(value)
+        } else {
+            settings[id] = value
+            engine.update(id, settings: value)
+        }
         saveWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.save() }
         saveWork = work
@@ -79,6 +95,9 @@ final class MixerModel: ObservableObject {
         guard !preview else { return }
         if let data = try? JSONEncoder().encode(settings.filter { $0.value.shouldPersist }) {
             UserDefaults.standard.set(data, forKey: "appSettings")
+        }
+        if let data = try? JSONEncoder().encode(globalEQ) {
+            UserDefaults.standard.set(data, forKey: "globalEQ")
         }
     }
     func selectEQ(_ id: String) {
@@ -90,7 +109,8 @@ final class MixerModel: ObservableObject {
         refreshAnalysis()
     }
     private func refreshAnalysis() {
-        engine.setAnalysisApp(panelVisible ? selectedEQ : nil) { [weak self] value in
+        engine.setAnalysisApp(panelVisible ? (selectedEQ ?? Self.globalEQID) : nil, includeGlobal: panelVisible) {
+            [weak self] value in
             Task { @MainActor in self?.telemetry = value }
         }
     }

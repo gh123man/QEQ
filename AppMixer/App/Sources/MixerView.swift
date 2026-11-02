@@ -59,6 +59,7 @@ struct MixerView: View {
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
+                    globalCard
                     if apps.isEmpty {
                         VStack(spacing: 8) {
                             Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(
@@ -92,17 +93,60 @@ struct MixerView: View {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(model.diagnostics, forType: .string)
                         }
-                        Divider()
-                        Button("Quit QEQ") { NSApp.terminate(nil) }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
                     .menuStyle(.borderlessButton).fixedSize().help("QEQ options")
+                    Button {
+                        NSApp.terminate(nil)
+                    } label: {
+                        Image(systemName: "power").frame(width: 24, height: 24)
+                    }.buttonStyle(.plain).help("Quit QEQ").accessibilityLabel("Quit QEQ")
                 }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
             }.trackHeight("footer")
-        }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.teal)
+        }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.accentColor)
             .background(Color(nsColor: .windowBackgroundColor))
             .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
+    }
+    private var globalCard: some View {
+        let selected = model.selectedEQ == MixerModel.globalEQID
+        return VStack(spacing: 9) {
+            HStack(spacing: 9) {
+                Image(systemName: "slider.horizontal.3").font(.system(size: 19)).frame(width: 25)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Global EQ").font(.system(size: 12, weight: .medium))
+                    Text(model.globalEQ.enabled ? "All apps on this output" : "Global EQ bypassed")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    model.selectEQ(MixerModel.globalEQID)
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("EQ")
+                        Image(systemName: selected ? "chevron.up" : "chevron.down").font(.system(size: 8))
+                    }.font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(
+                            selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 5))
+                }.buttonStyle(.plain).accessibilityLabel("Global equalizer")
+                Toggle(
+                    "Global EQ",
+                    isOn: Binding(
+                        get: { model.globalEQ.enabled },
+                        set: { enabled in
+                            model.edit(MixerModel.globalEQID) { $0.enabled = enabled }
+                        })
+                ).toggleStyle(.switch).controlSize(.mini).labelsHidden()
+                    .help("Bypass Global EQ while keeping each app's settings.")
+            }
+            ParametricEQView(model: model, appID: MixerModel.globalEQID, compact: !selected)
+        }.padding(11).background(
+            Color(nsColor: .controlBackgroundColor).opacity(0.65),
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
     }
     private func appCard(_ app: AudioApplication) -> some View {
         let settings = model.value(app.id)
@@ -122,6 +166,20 @@ struct MixerView: View {
                 }
                 Spacer()
                 Button {
+                    model.edit(app.id) {
+                        $0.muted.toggle()
+                        if $0.muted { $0.enabled = true }
+                    }
+                } label: {
+                    Image(systemName: settings.muted ? "speaker.slash.fill" : "speaker.wave.2")
+                        .foregroundStyle(settings.muted ? Color.accentColor : .secondary)
+                        .frame(width: 28, height: 24)
+                        .background(
+                            settings.muted ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 5))
+                }.buttonStyle(.plain).help(settings.muted ? "Unmute \(app.name)" : "Mute \(app.name)")
+                    .accessibilityLabel(settings.muted ? "Unmute \(app.name)" : "Mute \(app.name)")
+                Button {
                     model.selectEQ(app.id)
                 } label: {
                     HStack(spacing: 4) {
@@ -130,7 +188,7 @@ struct MixerView: View {
                     }
                     .font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                     .background(
-                        selected ? Color.teal.opacity(0.14) : Color.secondary.opacity(0.08),
+                        selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
                         in: RoundedRectangle(cornerRadius: 5))
                 }.buttonStyle(.plain).accessibilityLabel("Equalizer for \(app.name)")
                 Toggle(
@@ -139,15 +197,9 @@ struct MixerView: View {
                         get: { model.value(app.id).enabled }, set: { new in model.edit(app.id) { $0.enabled = new } })
                 )
                 .toggleStyle(.switch).controlSize(.mini).labelsHidden()
-                .help("Bypass this app's volume and EQ while keeping its settings.")
+                .help("Bypass this app's volume and EQ while keeping its settings. Global EQ still applies.")
             }
             HStack(spacing: 9) {
-                Button {
-                    model.edit(app.id) { $0.muted.toggle() }
-                } label: {
-                    Image(systemName: settings.muted ? "speaker.slash.fill" : "speaker.wave.2")
-                        .foregroundStyle(settings.muted ? Color.orange : .secondary).frame(width: 18)
-                }.buttonStyle(.plain).help(settings.muted ? "Unmute \(app.name)" : "Mute \(app.name)")
                 Slider(
                     value: Binding(
                         get: { model.value(app.id).volume }, set: { value in model.edit(app.id) { $0.volume = value } }),
@@ -168,10 +220,13 @@ struct MixerView: View {
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
     }
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String {
-        if !settings.enabled { return "App bypassed" }
+        if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return "App bypassed" }
         if !model.enabled { return "System bypass" }
         if let message = model.snapshot.routeMessages[app.id] { return message }
-        if model.snapshot.active.contains(app.id) { return settings.muted ? "Muted" : "Processing" }
+        if model.snapshot.active.contains(app.id) {
+            if !settings.enabled { return "Global EQ only" }
+            return settings.muted ? "Muted" : "Processing"
+        }
         if settings.isFlat { return app.playing ? "Playing · original audio" : "Idle · original audio" }
         return "Starting…"
     }

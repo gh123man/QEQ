@@ -25,4 +25,6 @@ jobs:
           swift --version
           xcodegen --version
       - name: Format, tests, and universal app build
-        run: ./AppMixer/scripts/check.sh
+        run: |
+          python3 AppMixer/scripts/screenshots.py --check
+          ./AppMixer/scripts/check.sh

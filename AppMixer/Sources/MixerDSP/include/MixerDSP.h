@@ -8,7 +8,8 @@ typedef struct MixerDSP MixerDSP;
 typedef struct { uint32_t type; float frequency, gain, q; bool enabled; } MixerEQBand;
 void MixerDSPConfigure(MixerDSP *dsp, float volume, bool muted, const MixerEQBand *bands, uint32_t count);
 double MixerEQResponse(const MixerEQBand *bands, uint32_t count, double rate, double frequency);
-// Analysis observes a copy; it never queues or delays playback. 2048 samples/channel.
+// Analysis observes a copy; it never queues or delays playback.
+enum { MixerAnalysisFrameCount = 16384 };
 void MixerDSPEnableAnalysis(MixerDSP *dsp, bool enabled);
 bool MixerDSPReadAnalysis(const MixerDSP *dsp, float *left, float *right, uint32_t count);
 MixerDSP *MixerDSPCreate(double sampleRate, uint32_t channels, uint32_t tapBuffers);

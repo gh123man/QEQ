@@ -15,13 +15,15 @@ final class AppAudioRoute: AudioRoute {
     private(set) var lastFrames: UInt64 = 0
     private(set) var lastProgress = ProcessInfo.processInfo.systemUptime
 
-    init(app: AudioApplication, output: OutputDevice, settings: MixerSettings) throws {
+    init(app: AudioApplication, output: OutputDevice, settings: MixerSettings, global: MixerSettings = MixerSettings())
+        throws
+    {
         processes = app.processes
         self.output = output
-        try start(app: app, settings: settings)
+        try start(app: app, settings: settings, global: global)
     }
 
-    private func start(app: AudioApplication, settings: MixerSettings) throws {
+    private func start(app: AudioApplication, settings: MixerSettings, global: MixerSettings) throws {
         do {
             let description = CATapDescription(processes: app.processes, deviceUID: output.uid, stream: 0)
             description.name = "QEQ · \(app.name)"
@@ -77,7 +79,7 @@ final class AppAudioRoute: AudioRoute {
                 throw AudioFailure(message: "Unsupported audio format.")
             }
             dsp = processor
-            update(settings)
+            update(settings, global: global)
             try checkAudio(MixerDSPRegister(aggregate, processor, &proc), "Create realtime processor")
             // Strictly disable physical input streams BEFORE starting; never request microphone access.
             if physicalInputs > 0 { try disablePhysicalInputs(physicalInputs, total: totalInputs) }
@@ -87,11 +89,13 @@ final class AppAudioRoute: AudioRoute {
             throw error
         }
     }
-    func update(_ settings: MixerSettings) {
+    func update(_ settings: MixerSettings, global: MixerSettings) {
         if let dsp {
-            let bands = settings.dspBands
+            let bands = settings.processingBands(global: global)
             bands.withUnsafeBufferPointer {
-                MixerDSPConfigure(dsp, Float(settings.volume), settings.muted, $0.baseAddress, UInt32($0.count))
+                MixerDSPConfigure(
+                    dsp, settings.enabled ? Float(settings.volume) : 1,
+                    settings.enabled && settings.muted, $0.baseAddress, UInt32($0.count))
             }
         }
     }
