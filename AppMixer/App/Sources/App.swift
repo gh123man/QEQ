@@ -13,7 +13,8 @@ final class MixerModel: ObservableObject {
     @Published var changing = false
     @Published var selectedEQ: String?
     @Published var telemetry = AudioTelemetry()
-    @Published var maximumPanelHeight: CGFloat = 720
+    static let panelHeightLimit: CGFloat = 1000
+    @Published var maximumPanelHeight: CGFloat = MixerModel.panelHeightLimit
     private let preview: Bool
     private var panelVisible = false
     private let engine = MixerEngine()
@@ -183,7 +184,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func showPopover() {
         guard let button = item.button else { return }
         model.maximumPanelHeight = min(
-            720, max(280, (button.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
+            MixerModel.panelHeightLimit,
+            max(280, (button.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
         model.setPanelVisible(true)
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

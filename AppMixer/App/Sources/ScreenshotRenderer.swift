@@ -109,17 +109,17 @@ struct ScreenshotRenderer {
         }
         simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("mixer")
-        try capture("mixer", maximum: 720)
+        try capture("mixer", maximum: MixerModel.panelHeightLimit)
         model.snapshot.apps = [zoom]
         model.selectedEQ = zoom.id
         simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("equalizer")
-        try capture("equalizer", maximum: 720)
+        try capture("equalizer", maximum: MixerModel.panelHeightLimit)
         model.globalEQ.bands = EQPreset.warm.bands
         model.selectedEQ = MixerModel.globalEQID
         simulateSpectra()
         host.rootView = MixerView(model: model).environment(\.controlActiveState, .active).id("global-equalizer")
-        try capture("global-equalizer", maximum: 720)
+        try capture("global-equalizer", maximum: MixerModel.panelHeightLimit)
         model.snapshot.apps = (0..<15).map {
             AudioApplication(id: "sample-\($0)", name: "Sample app \($0 + 1)", playing: true)
         }
@@ -127,7 +127,9 @@ struct ScreenshotRenderer {
         model.enabled = false
         model.telemetry = AudioTelemetry()
         let longSize = layout()
-        guard abs(longSize.height - 720) <= 1 else { throw NSError(domain: "QEQ layout", code: 2) }
+        guard abs(longSize.height - MixerModel.panelHeightLimit) <= 1 else {
+            throw NSError(domain: "QEQ layout", code: 2)
+        }
         print("long list capped: \(Int(longSize.height)) pt")
         model.maximumPanelHeight = 460
         let smallScreenSize = layout()

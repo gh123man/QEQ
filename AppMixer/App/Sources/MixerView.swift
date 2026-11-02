@@ -50,14 +50,6 @@ struct MixerView: View {
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
-                    if model.selectedEQ == MixerModel.globalEQID {
-                        ParametricEQView(
-                            model: model, appID: MixerModel.globalEQID,
-                            controlsOnly: true, selection: $globalBand
-                        )
-                        .padding(.horizontal, 4).padding(.vertical, 10)
-                        Divider()
-                    }
                     if apps.isEmpty {
                         VStack(spacing: 8) {
                             Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(
@@ -157,6 +149,13 @@ struct MixerView: View {
             ParametricEQView(
                 model: model, appID: MixerModel.globalEQID, compact: true,
                 overviewHandles: selected, selection: $globalBand)
+            if selected {
+                ParametricEQView(
+                    model: model, appID: MixerModel.globalEQID,
+                    controlsOnly: true, selection: $globalBand
+                )
+                .padding(.horizontal, 16).padding(.top, 4)
+            }
         }.padding(.bottom, 10)
     }
     private func appCard(_ app: AudioApplication) -> some View {
