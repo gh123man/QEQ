@@ -12,7 +12,10 @@ final class PerformanceRecorder {
     private var previousTime = 0.0
     private var tick = 0
 
-    func start(path: String, model: MixerModel, isVisible: @escaping () -> Bool, setVisible: @escaping (Bool) -> Void) {
+    func start(
+        path: String, model: MixerModel, isVisible: @escaping @MainActor @Sendable () -> Bool,
+        setVisible: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
         guard FileManager.default.createFile(atPath: path, contents: nil),
             let file = FileHandle(forWritingAtPath: path)
         else {

@@ -8,8 +8,8 @@ Release microbenchmarks on this Mac (48 kHz stereo; warm-up excluded):
 
 | Work | Before | After |
 | --- | ---: | ---: |
-| Audio-app discovery | 7.90 ms | 5.51 ms with warm metadata cache |
-| 16,384-frame stereo FFT + 96 spectrum bins | 0.127 ms | 0.073 ms |
+| Audio-app discovery | 7.90 ms | 4.73 ms with warm metadata cache |
+| 16,384-frame stereo FFT + 96 spectrum bins | 0.127 ms | 0.069–0.073 ms |
 | 241-point EQ response curve | 0.024 ms | unchanged |
 | 10-band DSP, 256 stereo frames | 0.004 ms | unchanged |
 | Same DSP with analysis capture | 0.005 ms | unchanged |
@@ -20,10 +20,22 @@ Changes:
 
 - Stop the 15 Hz analysis timer when the popup has no route to visualize. Discovery restarts it when playback begins; bypass and closing the popup stop it.
 - Skip identical spectrum and UI publications, including steady silence.
+- Read running-app bundle IDs once per discovery pass instead of querying LaunchServices for every helper/parent pairing.
 - Cache app icons while their rows are present. Cache resolved process display metadata for up to 30 seconds; invalidate on process/PID/bundle changes and retry unresolved helpers immediately. Playback state and device routing are never cached.
 - Reuse FFT work buffers, vectorize window multiplication, and compute the Hann window and normalization once. Frequency bins, stereo power, and displayed dB values retain their existing semantics.
 
 One-second discovery, route recovery, DSP coefficients, smoothing, limiter, audio buffers and permissions are unchanged. More invasive DSP changes are not justified by these measurements. Full local correctness/hardware tests and the universal app build pass, including pause/resume, bypass and reopen regression coverage for the analysis timer.
+
+## Running-app idle result
+
+The first optimized build (`7fa2127`, before the final bundle-ID lookup improvement) completed its native 30-second profiling pass on this Mac, with zero playing apps, zero active routes and zero output peak in every sample. Excluding the two-second warm-up after each popup transition:
+
+| Popup | Mean CPU, one core = 100% | Range | Samples |
+| --- | ---: | ---: | ---: |
+| Closed | 1.11% | 1.09–1.12% | 4 × 2 seconds |
+| Open | 1.48% | 0.90–3.97% | 8 × 2 seconds |
+
+This is a short **post-change** idle measurement, not an idle before/after comparison. The initial sample had an active route and is not comparable. Playback measurements are synthetic by user preference; actual source/device playback CPU has not been remeasured. The remaining once-per-second hardware discovery is a future candidate for event-driven notifications, with the current polling kept for route/device recovery reliability.
 
 ## Reproduce
 

@@ -103,7 +103,11 @@ enum HAL {
         identityCache?.retain(processes: processes)
         let now = ProcessInfo.processInfo.systemUptime
         var grouped: [String: AudioApplication] = [:]
-        let runningApps = NSWorkspace.shared.runningApplications
+        // NSRunningApplication getters can perform synchronous LaunchServices IPC.
+        // Snapshot IDs once per discovery, not once per potential helper/parent pair.
+        let runningApps = NSWorkspace.shared.runningApplications.compactMap { app in
+            app.bundleIdentifier.map { (id: $0, app: app) }
+        }
         for object in processes {
             guard let rawPID = try? uint(object, kAudioProcessPropertyPID) else { continue }
             let pid = pid_t(bitPattern: rawPID)

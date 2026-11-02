@@ -18,19 +18,19 @@ struct AppIdentity {
     }
     static func resolve(
         bundleURL: URL?, executableURL: URL?, bundleID: String, fallbackName: String,
-        runningApps: [NSRunningApplication]
+        runningApps: [(id: String, app: NSRunningApplication)]
     ) -> Self {
         var url = containingApp(bundleURL) ?? containingApp(executableURL)
         // Some browser helpers expose only a bundle ID. Use the longest actual
         // running parent ID with a component boundary, never a display-name guess.
         if url == nil,
-            let owner = runningApps.filter({ app in
-                guard let id = app.bundleIdentifier else { return false }
+            let owner = runningApps.filter({ candidate in
                 // activationPolicy queries LaunchServices. Reject unrelated IDs before that IPC.
-                return (bundleID == id || bundleID.hasPrefix(id + ".")) && app.activationPolicy == .regular
-            }).max(by: { ($0.bundleIdentifier?.count ?? 0) < ($1.bundleIdentifier?.count ?? 0) })
+                return (bundleID == candidate.id || bundleID.hasPrefix(candidate.id + "."))
+                    && candidate.app.activationPolicy == .regular
+            }).max(by: { $0.id.count < $1.id.count })
         {
-            url = containingApp(owner.bundleURL)
+            url = containingApp(owner.app.bundleURL)
         }
         // Read the outer app's plist directly: NSBundle can reuse an already-loaded
         // helper bundle by identity. Its metadata must not leak into the parent row.
