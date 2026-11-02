@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Rename the master switch to Enabled, default it to on, and remember the user's on/off choice across launches.
+- Show the master switch without a visible label, default it to on, and remember the user's on/off choice across launches.
 - Keep global spectrum colors stable per app and derive their hue from each app's icon, with a deterministic fallback for missing or monochrome icons.
 - Increase the popup height limit from 720 to 1,000 points, capped to the available screen height, to give scrolling app controls more room.
 - Keep expanded Global EQ controls attached to the graph above the app list, and remove search to free vertical space.
