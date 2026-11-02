@@ -196,7 +196,7 @@ struct ParametricEQView: View {
             let rect = CGRect(x: 29, y: 20, width: geometry.size.width - 65, height: geometry.size.height - 43)
             let upper = maxFrequency
             ZStack {
-                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color.primary.opacity(0.045))
+                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color(nsColor: .textBackgroundColor))
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }

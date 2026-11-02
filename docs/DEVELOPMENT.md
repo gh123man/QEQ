@@ -20,7 +20,7 @@ Only `NSAudioCaptureUsageDescription` is declared. macOS calls this **system aud
 
 Permission is first requested when processing or live spectrum needs an app audio tap, not at launch. If access is denied, allow QEQ in **System Settings → Privacy & Security → Screen & System Audio Recording** (the exact panel label varies by macOS), then retry or relaunch. The local build is ad-hoc signed with the stable development identifier `local.AppMixer`; it is not notarized for distribution. macOS may request permission again after a rebuild.
 
-The popup uses AppKit’s popover material for system backdrop blur and the Reduce Transparency fallback. App cards and plots use subtle translucent fills; graph labels and response curves adapt to light and dark appearances.
+The popup uses AppKit’s popover material for system backdrop blur and the Reduce Transparency fallback. App cards use subtle translucent fills. Spectrum plots have opaque system backgrounds; plot backgrounds, labels, and response curves adapt to light and dark appearances.
 
 ## Latency and scope
 

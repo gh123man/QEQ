@@ -3,7 +3,7 @@
     "QEQ/App/Sources/App.swift": "0847cd13bf4dbaa0a811a908aa8be94e8d886e98f7800db12d586da1fad072b2",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
     "QEQ/App/Sources/MixerView.swift": "db37cfe0287b7b4e93feadbad71e69f87c2ac445ee5b7751039ab0032fcdce5c",
-    "QEQ/App/Sources/ParametricEQView.swift": "fba29877825bfbdc9a75fd05bcee4ecdf92c52093818145b0661b1cf712fe7d0",
+    "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/ScreenshotRenderer.swift": "1369f1e67c669bfd171201aac51543ae126eb8f7d81b353af5c266f8312d9271",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
     "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
@@ -21,10 +21,10 @@
     "QEQ/scripts/screenshots.py": "33f2a726352afa9de8f2fa26b3036e9bc56800323a08f06fa77499bacb1c6429"
   },
   "images": {
-    "empty.png": "62091540307ee65c5f8667cd9c882f6ea31d3d58d0dff763851b79dfc125c2ca",
-    "mixer.png": "4821878ea92cfbe3b9519b6fbd916c63eb9b7d813659bd769d92a4ffbe62b7aa",
-    "equalizer.png": "f0b6bddda51877593a33408ac6b0d4fd09022ba330f9bbffecef401d3c22fd9d",
-    "global-equalizer.png": "ba2d7c0435f4a1f1ece738126a6497f88972709b71bcf009b6d4c20e1cfe3092",
-    "empty-after-removal.png": "e0b262601a343540f591917ff788bea176d2f69d5ebe918bec15ddba8127126c"
+    "empty.png": "8cac6afa2b2a73e094ca01521990826cc06935ec8bbf1aa35a0f96e222fa32c8",
+    "mixer.png": "f959c25f9f7bd4e6f269f983efd7d845c2414e7998cef638c3a5766c90f0c5c9",
+    "equalizer.png": "04548a08dadc8ab0fda878b56f794efed35f706dd7fe95885e47a762ac68440b",
+    "global-equalizer.png": "a5ea61ecf49ea59476a03ac884e769fd25e72cc8d411663cd3753e6ce6f811a8",
+    "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9"
   }
 }
