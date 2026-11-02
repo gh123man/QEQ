@@ -33,7 +33,7 @@ struct MixerView: View {
                             NSPasteboard.general.setString(model.diagnostics, forType: .string)
                         }
                         Divider()
-                        Button("Quit QEQ") { NSApp.terminate(nil) }
+                        Button("Quit") { NSApp.terminate(nil) }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -129,7 +129,7 @@ struct MixerView: View {
                     model: model, appID: MixerModel.globalEQID, compact: true,
                     overviewHandles: selected, selection: $globalBand
                 )
-                .modifier(EQContentFade())
+                .modifier(EQContentReveal())
             }
             if selected {
                 ParametricEQView(
@@ -137,7 +137,7 @@ struct MixerView: View {
                     controlsOnly: true, selection: $globalBand
                 )
                 .padding(.horizontal, 16).padding(.top, 4)
-                .modifier(EQContentFade())
+                .modifier(EQContentReveal())
             }
         }.padding(.bottom, 10)
     }
@@ -208,10 +208,10 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
-                    .modifier(EQContentFade())
+                    .modifier(EQContentReveal())
             } else {
                 activityMeter(app)
-                    .modifier(EQContentFade())
+                    .modifier(EQContentReveal())
             }
         }.padding(11).background(
             Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
@@ -257,14 +257,17 @@ struct MixerView: View {
     }
 }
 
-/// Fade only the pixels of incoming content, after it has its final layout.
-/// Unlike an insertion/removal transition, this never keeps two layouts alive.
-private struct EQContentFade: ViewModifier {
+/// Slide and fade content inside its final bounds, without moving its siblings.
+/// Clipping contains the motion; the popup and scroll layout never interpolate.
+private struct EQContentReveal: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
 
     func body(content: Content) -> some View {
-        content.opacity(reduceMotion || visible ? 1 : 0)
+        content
+            .offset(y: reduceMotion || visible ? 0 : -24)
+            .opacity(reduceMotion || visible ? 1 : 0)
+            .clipped()
             .task(id: reduceMotion) {
                 guard !reduceMotion else {
                     visible = true
@@ -278,7 +281,7 @@ private struct EQContentFade: ViewModifier {
                 } catch {
                     return
                 }
-                withAnimation(.easeInOut(duration: 0.24)) { visible = true }
+                withAnimation(.easeOut(duration: 0.28)) { visible = true }
             }
             .onDisappear { visible = false }
     }
