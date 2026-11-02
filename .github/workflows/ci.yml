@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 20
     env:
       APP_MIXER_HARDWARE_TESTS: '0'

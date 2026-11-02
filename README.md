@@ -74,7 +74,7 @@ The private source repository is [gh123man/app-mixer](https://github.com/gh123ma
 
 - `./AppMixer/scripts/check.sh` checks Swift formatting and shell syntax, runs the full test suite, and builds the universal app.
 - `xcrun swift-format format --in-place --recursive AppMixer/App/Sources AppMixer/Sources AppMixer/Tests AppMixer/Package.swift` applies the checked-in formatting rules.
-- GitHub Actions runs the same checks on pull requests and pushes to `main`. It sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two tests that need a physical output device. Local tests include them by default.
+- GitHub Actions runs the same checks on a macOS Intel runner (complementing local Apple Silicon tests) on pull requests and pushes to `main`. It sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two tests that need a physical output device. Local tests include them by default.
 - `AppMixer/release.json` tracks the version, build number, bundle identifier, and signing policy. Release notes live in `AppMixer/ReleaseNotes/`.
 
 To cut an internal RC, update the release record and notes, run checks, commit and push to `main`, and wait for CI to pass. Then choose an **Apple Development** identity from `security find-identity -v -p codesigning` and run:
