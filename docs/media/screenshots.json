@@ -1,7 +1,7 @@
 {
   "sources": {
     "AppMixer/App/Sources/App.swift": "c064082ae0f2372178afa3341413d2d99f72e8dac7a181e3f489478b925924fc",
-    "AppMixer/App/Sources/MixerView.swift": "8db5c301c2d8a5e00427f7e24cd0f14eed0e2d7cc62c90944dc4b7e93e226095",
+    "AppMixer/App/Sources/MixerView.swift": "495185a17c8f8ac9b30dd9e11e60dac8c406efe7afe48218000bef9097a7c71a",
     "AppMixer/App/Sources/ParametricEQView.swift": "8eb3324da5b01517b7b82827ee7000854931b95f7e282f321f85668a160b4178",
     "AppMixer/App/Sources/ScreenshotRenderer.swift": "dceea7e68a39960a2c160bc38e4e587896b44de7d25feaef6e4981fe2b5f3933",
     "AppMixer/Sources/AppMixerAppSupport/AppAudioRoute.swift": "9530d7346e20242e57b9fd993f72488d613a8dc82882b790c5811a5d57141743",
@@ -20,10 +20,10 @@
     "AppMixer/scripts/screenshots.py": "b1b7b6681fad9e27ad64991dd284784b964eddebe0d3e14f78ab0740fa2239bb"
   },
   "images": {
-    "empty.png": "321d0641ae7f289b5a9ce661e00cf7983f0c1d12bb12ac399e677c83d2d974be",
-    "mixer.png": "92d67100f16e4de86f1177a79c91752fab7a9e238bf1c449ac52b15296a8f9b8",
-    "equalizer.png": "26ef4cfe609ed001a86cec110c2e5cb6cebdd3384eed4731edb19769cb7dd936",
-    "global-equalizer.png": "46eff9778f9ad5bd65702bf5d2d72931a2e4e8b964175868a092fe5796e150b3",
-    "empty-after-removal.png": "ba8bda3a76eaa91836fa53825ef98f7a79798c8053df984e68b5c9dde2ca6785"
+    "empty.png": "a000b0accbc7d337ac436995595da94d863145aef822256e5028f3a210102d75",
+    "mixer.png": "2d0867124291ec999d111040ac7226def02d982361cd690d9446b795c6d4f602",
+    "equalizer.png": "9b60f7ed308c2ada144b0f55e0d18c4462595a5c276d9aed50cbf3e49a6fbfa9",
+    "global-equalizer.png": "cad59f7699eb67de7623929f546118122a18b89bbced2f9ea7b6391b8d015faf",
+    "empty-after-removal.png": "a99bc6b9db1cdb805b8cda9a9294e0c251e5490ee01333f8515af1c2b582e584"
   }
 }

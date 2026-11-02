@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Collapse only the global visualizer while an app's EQ is expanded, keeping its header, bypass, and EQ button available. Animate EQ disclosures with short fades and rotating chevrons, respecting Reduce Motion.
+- Remove the bottom status bar and place the options menu and Quit button beside the master switch.
+
+- Collapse only the global visualizer while an app's EQ is expanded, keeping its header, bypass, and EQ button available. Keep viewport layout synchronous and bounded during EQ changes; animate only incoming content opacity and chevrons, respecting Reduce Motion.
 - Show the master switch without a visible label, default it to on, and remember the user's on/off choice across launches.
 - Keep global spectrum colors stable per app and derive their hue from each app's icon, with a deterministic fallback for missing or monochrome icons.
 - Increase the popup height limit from 720 to 1,000 points, capped to the available screen height, to give scrolling app controls more room.

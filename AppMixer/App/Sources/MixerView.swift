@@ -11,6 +11,11 @@ struct MixerView: View {
     private var isAppEQExpanded: Bool {
         model.snapshot.apps.contains { $0.id == model.selectedEQ }
     }
+    private var panelHeight: CGFloat {
+        min(
+            model.maximumPanelHeight,
+            measured["header", default: 100] + measured["apps", default: 110])
+    }
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -22,6 +27,20 @@ struct MixerView: View {
                     Toggle("Enabled", isOn: Binding(get: { model.enabled }, set: { model.toggle($0) }))
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                         .help("Off restores original audio for every app.")
+                    Menu {
+                        Button("Copy diagnostics") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(model.diagnostics, forType: .string)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .menuStyle(.borderlessButton).fixedSize().help("QEQ options").accessibilityLabel("QEQ options")
+                    Button {
+                        NSApp.terminate(nil)
+                    } label: {
+                        Image(systemName: "power").frame(width: 24, height: 24)
+                    }.buttonStyle(.plain).help("Quit QEQ").accessibilityLabel("Quit QEQ")
                 }.padding(.horizontal, 16).padding(.vertical, 12)
                 Divider()
                 if let error = model.snapshot.error {
@@ -46,7 +65,7 @@ struct MixerView: View {
                 }
                 globalSection
                 Divider()
-            }.trackHeight("header")
+            }.fixedSize(horizontal: false, vertical: true).trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
                     if model.snapshot.apps.isEmpty {
@@ -60,44 +79,18 @@ struct MixerView: View {
                     ForEach(model.snapshot.apps) { app in appCard(app) }
                 }.padding(.horizontal, 12).padding(.vertical, 12)
                     .fixedSize(horizontal: false, vertical: true).trackHeight("apps")
-            }.frame(
-                height: min(
-                    measured["apps", default: 110],
-                    max(
-                        0, model.maximumPanelHeight - measured["header", default: 100] - measured["footer", default: 50]
-                    )))
-            VStack(spacing: 0) {
-                Divider()
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(
-                            model.enabled
-                                ? "\(model.snapshot.active.count) apps processing" : "Bypassed · original system audio")
-                        Text(model.snapshot.timing).foregroundStyle(.tertiary)
-                            .help("Hardware buffer duration, not measured end-to-end latency.")
-                    }
-                    Spacer()
-                    Menu {
-                        Button("Copy diagnostics") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(model.diagnostics, forType: .string)
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .menuStyle(.borderlessButton).fixedSize().help("QEQ options")
-                    Button {
-                        NSApp.terminate(nil)
-                    } label: {
-                        Image(systemName: "power").frame(width: 24, height: 24)
-                    }.buttonStyle(.plain).help("Quit QEQ").accessibilityLabel("Quit QEQ")
-                }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
-            }.trackHeight("footer")
-        }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.accentColor)
+            }.frame(maxHeight: .infinity)
+
+        }.frame(width: 500, height: panelHeight, alignment: .top).clipped().tint(.accentColor)
             .background(Color(nsColor: .windowBackgroundColor))
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: model.selectedEQ)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: isAppEQExpanded)
-            .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
+            .onPreferenceChange(PanelHeights.self) { heights in
+                guard measured != heights else { return }
+                // Geometry feeds the viewport size: never interpolate these
+                // measurements or retain an outgoing editor in the layout.
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { measured = heights }
+            }
     }
     private var globalSection: some View {
         let selected = model.selectedEQ == MixerModel.globalEQID
@@ -118,6 +111,7 @@ struct MixerView: View {
                         Text("EQ")
                         Image(systemName: "chevron.down").font(.system(size: 8))
                             .rotationEffect(.degrees(selected ? 180 : 0))
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: selected)
                     }.font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                         .background(
                             selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
@@ -138,7 +132,7 @@ struct MixerView: View {
                     model: model, appID: MixerModel.globalEQID, compact: true,
                     overviewHandles: selected, selection: $globalBand
                 )
-                .transition(.opacity)
+                .modifier(EQContentFade())
             }
             if selected {
                 ParametricEQView(
@@ -146,7 +140,7 @@ struct MixerView: View {
                     controlsOnly: true, selection: $globalBand
                 )
                 .padding(.horizontal, 16).padding(.top, 4)
-                .transition(.opacity)
+                .modifier(EQContentFade())
             }
         }.padding(.bottom, 10)
     }
@@ -188,6 +182,7 @@ struct MixerView: View {
                         Text("EQ")
                         Image(systemName: "chevron.down").font(.system(size: 8))
                             .rotationEffect(.degrees(selected ? 180 : 0))
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: selected)
                     }
                     .font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                     .background(
@@ -216,10 +211,10 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
-                    .transition(.opacity)
+                    .modifier(EQContentFade())
             } else {
                 activityMeter(app)
-                    .transition(.opacity)
+                    .modifier(EQContentFade())
             }
         }.padding(11).background(
             Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
@@ -262,6 +257,20 @@ struct MixerView: View {
         }
         if settings.isFlat { return app.playing ? "Playing · original audio" : "Idle · original audio" }
         return "Starting…"
+    }
+}
+
+/// Fade only the pixels of incoming content, after it has its final layout.
+/// Unlike an insertion/removal transition, this never keeps two layouts alive.
+private struct EQContentFade: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = false
+
+    func body(content: Content) -> some View {
+        content.opacity(visible ? 1 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: visible)
+            .task { visible = true }
+            .onDisappear { visible = false }
     }
 }
 
