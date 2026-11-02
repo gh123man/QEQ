@@ -164,8 +164,8 @@ struct MixerView: View {
         let selected = model.selectedEQ == app.id
         return VStack(spacing: 9) {
             HStack(spacing: 9) {
-                if let path = app.path {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 25, height: 25)
+                if let icon = model.icon(for: app) {
+                    Image(nsImage: icon).resizable().frame(width: 25, height: 25)
                 } else {
                     Image(systemName: "app").font(.system(size: 22)).frame(width: 25)
                 }

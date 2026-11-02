@@ -73,6 +73,19 @@ final class MixerModel: ObservableObject {
         engine.setEnabled(value)
     }
     func value(_ id: String) -> MixerSettings { id == Self.globalEQID ? globalEQ : settings[id] ?? MixerSettings() }
+    func icon(for app: AudioApplication) -> NSImage? {
+        guard let path = app.path else { return nil }
+        guard preview else { return NSWorkspace.shared.icon(forFile: path) }
+        // Headless macOS runners can block indefinitely in IconServices. Fixture
+        // rendering reads the bundle's icon directly and uses the view's fallback
+        // symbol when an installed app has no standalone icon resource.
+        guard let bundle = Bundle(path: path),
+            let name = bundle.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
+            let resource = bundle.resourceURL?.appendingPathComponent(
+                (name as NSString).pathExtension.isEmpty ? name + ".icns" : name)
+        else { return nil }
+        return NSImage(contentsOf: resource)
+    }
     func edit(_ id: String, _ edit: (inout MixerSettings) -> Void) {
         var value = value(id)
         edit(&value)

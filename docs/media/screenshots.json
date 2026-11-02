@@ -1,7 +1,7 @@
 {
   "sources": {
-    "AppMixer/App/Sources/App.swift": "5fae452c89f2612ad74a2d2e7785ff7158ed5cbc492917616f41ae0c87ae6441",
-    "AppMixer/App/Sources/MixerView.swift": "2ae244e20920c099900b4d91a4d9e762b835e65269aa769f436508035bbe6572",
+    "AppMixer/App/Sources/App.swift": "29ca434b36b089e68cb68d2910e3000ba1b529132ef054c8e048093ceaaaa871",
+    "AppMixer/App/Sources/MixerView.swift": "65f96dad77d857552613a15934841fa24d7cd1ecb2248f019a06aa060f8279c7",
     "AppMixer/App/Sources/ParametricEQView.swift": "221474ab1c9148749251f1487f5a26d4e86a4467b8c233d3e9c4387b029e7f11",
     "AppMixer/App/Sources/ScreenshotRenderer.swift": "a5d14034ab9dcb5447362c02802193b6c0458dd58968e0ca9b3ea93b7fc7f4ee",
     "AppMixer/Sources/AppMixerCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
@@ -11,9 +11,9 @@
   },
   "images": {
     "empty.png": "84cc54f917a1558486594376961bfb4d4c3e821bb1eda1c7df3993720a13fcde",
-    "mixer.png": "a6c5045fa84edb6db0e57862a26bcc2f24206792af1bdbd253f4cc10799e4847",
-    "equalizer.png": "b6f156450c270a2db5e786003a2959dd92a9ecfa4591b62c00e228bb60e1614b",
-    "global-equalizer.png": "9cd123baac6893ae569222e2428ba9e8f772ad1baedafc2a3302bad62acb5b66",
+    "mixer.png": "80b9bde24a1e91e9f1dc5b8c6872812cad1d274c5f07668b2e4297b76c3eb159",
+    "equalizer.png": "dba6de71016daa7aebc5dd77c7221c9a2018862abdb49e6f76518b790fa8b934",
+    "global-equalizer.png": "de1db37f9dd867ee12dba6f2fb660992b22c69e1621a00e64694fb524bb081b9",
     "empty-after-removal.png": "22275cc5e484e7eba65618424e72aaa8e17a578ee575a628ac7b6541ca10e698"
   }
 }

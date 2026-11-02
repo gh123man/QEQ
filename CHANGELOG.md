@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-rc.4 — 2026-11-02
+## 0.1.0-rc.5 — 2026-11-02
 
 - Pin search above the app list and refresh screenshots with explicitly simulated spectra.
 
