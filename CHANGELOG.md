@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Use a monochrome slider mark matching the app icon in the menu bar; hide the options-menu caret.
+- Rename the package, modules, targets, tests, and CI/release paths to QEQ while preserving the existing bundle identity.
+
 - Slide and fade incoming EQ content inside clipped bounds after the first layout frame, keeping surrounding layout anchored. Label the options menu action simply “Quit”.
 
 - Remove the bottom status bar and place the options menu beside the master switch, with Quit inside the menu.

@@ -64,13 +64,12 @@ if [[ "$SKIP_BUILD" == true && "$CLEAN_BUILD" == true ]]; then
   exit 1
 fi
 
-terminate_existing_app AppMixer
 terminate_existing_app QEQ
 if [[ "$SKIP_BUILD" == false ]]; then
   if [[ "$CLEAN_BUILD" == true ]]; then
-    "$SCRIPT_DIR/AppMixer/scripts/build_macos_app.sh" --clean
+    "$SCRIPT_DIR/QEQ/scripts/build_macos_app.sh" --clean
   else
-    "$SCRIPT_DIR/AppMixer/scripts/build_macos_app.sh"
+    "$SCRIPT_DIR/QEQ/scripts/build_macos_app.sh"
   fi
 fi
-exec "$SCRIPT_DIR/AppMixer/scripts/run_macos_app.sh"
+exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh"

@@ -1,29 +1,30 @@
 {
   "sources": {
-    "AppMixer/App/Sources/App.swift": "c064082ae0f2372178afa3341413d2d99f72e8dac7a181e3f489478b925924fc",
-    "AppMixer/App/Sources/MixerView.swift": "c2b3b9d4d1eabf82e4e919412cd47253681756fd2642cdaac74b18063c809479",
-    "AppMixer/App/Sources/ParametricEQView.swift": "8eb3324da5b01517b7b82827ee7000854931b95f7e282f321f85668a160b4178",
-    "AppMixer/App/Sources/ScreenshotRenderer.swift": "bc19550c7a2f6009f24f584ee4c6ae2af6cefec90f85bd4e89bb8b1eadfa524e",
-    "AppMixer/Sources/AppMixerAppSupport/AppAudioRoute.swift": "9530d7346e20242e57b9fd993f72488d613a8dc82882b790c5811a5d57141743",
-    "AppMixer/Sources/AppMixerAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
-    "AppMixer/Sources/AppMixerAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
-    "AppMixer/Sources/AppMixerAppSupport/AudioAppList.swift": "e887879d17d4d571d3fc262a9a08f669b88f5173472fec2e28a9078f409ada7b",
-    "AppMixer/Sources/AppMixerAppSupport/AudioDiagnostics.swift": "821e2c7cda2a9fc755957802a809a2daddeabbdd8645674fef9eb879198050fe",
-    "AppMixer/Sources/AppMixerAppSupport/AudioHardware.swift": "e60412c3fac522ffe88c0d65d6023be677d9b275cb365130101c9a856b7d513d",
-    "AppMixer/Sources/AppMixerAppSupport/MixerEngine.swift": "16470f2b6e4c84e28488ab9356983941b84877f644d4256f3a6d07da18db59e3",
-    "AppMixer/Sources/AppMixerAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
-    "AppMixer/Sources/AppMixerAppSupport/RouteController.swift": "f844d63f07eecc0b03339cde41b7d6dd8159d466b80b20ca3f01f24686bccd03",
-    "AppMixer/Sources/AppMixerAppSupport/SpectrumAnalyzer.swift": "cae420ff6a84c419a8471f991894081a836c4210558c2a8539ea9015eb427547",
-    "AppMixer/Sources/AppMixerCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
-    "AppMixer/Sources/AppMixerCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
-    "AppMixer/project.yml": "6e4cda3613287fc4f2b87039a970d1c0a433252cc8d464a93d90bc5c13f19a4e",
-    "AppMixer/scripts/screenshots.py": "b1b7b6681fad9e27ad64991dd284784b964eddebe0d3e14f78ab0740fa2239bb"
+    "QEQ/App/Sources/App.swift": "0847cd13bf4dbaa0a811a908aa8be94e8d886e98f7800db12d586da1fad072b2",
+    "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
+    "QEQ/App/Sources/MixerView.swift": "3d445d7a3f2939d9f90b94580f2c19dd046964b02097e15babbd1ab12ba88bdf",
+    "QEQ/App/Sources/ParametricEQView.swift": "d0a425d9a293b0b8ee9a0d4ad5e787449ea31691466c2158244a94f9e8a64a54",
+    "QEQ/App/Sources/ScreenshotRenderer.swift": "6956a3d18b6b5e52cd2b387773eaf1752b216be2798b674b73f9856c40c40ecb",
+    "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
+    "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
+    "QEQ/Sources/QEQAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
+    "QEQ/Sources/QEQAppSupport/AudioAppList.swift": "f9a7c62967e94bb83ba092dc670733baf87faa56cf2d9cdd2dfba225f59cca87",
+    "QEQ/Sources/QEQAppSupport/AudioDiagnostics.swift": "be3671d94c8cadbc54b41e6b73df03799d9578003e7e7503a1b205e9e559c9d3",
+    "QEQ/Sources/QEQAppSupport/AudioHardware.swift": "e60412c3fac522ffe88c0d65d6023be677d9b275cb365130101c9a856b7d513d",
+    "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "eedb27dc9e09c1ee1ec70e08a9c07eb68b4d38f8fffad758ead48a86bf8866a5",
+    "QEQ/Sources/QEQAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
+    "QEQ/Sources/QEQAppSupport/RouteController.swift": "a3319d1884fc4b58e086f6bc2869de656c769615a5a3c180c0dce56f6942fbc9",
+    "QEQ/Sources/QEQAppSupport/SpectrumAnalyzer.swift": "cae420ff6a84c419a8471f991894081a836c4210558c2a8539ea9015eb427547",
+    "QEQ/Sources/QEQCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
+    "QEQ/Sources/QEQCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
+    "QEQ/project.yml": "ec9a0df75be3e1dd04c43d6c9b01ca0c7e1d7d9b0f6d1cb557c3e74c42458b24",
+    "QEQ/scripts/screenshots.py": "33f2a726352afa9de8f2fa26b3036e9bc56800323a08f06fa77499bacb1c6429"
   },
   "images": {
-    "empty.png": "8029788903d4c598caf823ca3017bc13a948a1502ee74ffb2a04704a40ba0923",
-    "mixer.png": "cfd5a4def236abfdf2a377438e6c1f6c70a195a1d9881cf0055d8b8955233037",
-    "equalizer.png": "77f3b744abca4e2fa1e29c9a0050b89db1e19fcb4be733c3907d0958fca32fd8",
-    "global-equalizer.png": "af32a502241a5efbd5bc46631562b0b8c4eb91ba0659d00a0e4fe4d0ea483955",
-    "empty-after-removal.png": "440c393804e671d54bfd81d4dcf3eb00cf3c282f8aae1a2875aa498ddfdb989f"
+    "empty.png": "6970efb9d15e4ff4f921b41a60df99164fa2dc15d3feea7c950af4228d1eb68e",
+    "mixer.png": "8d43cfda1e1f08b20d8f31a29b28084eeade003ffd8fe4ea5dab61afc6df35e8",
+    "equalizer.png": "2ab17abb3f3f1ffc2a336690ea9fc4de8e460ed9cb04f02e2954bf0f91785ffc",
+    "global-equalizer.png": "f80083d7b106df508dca113ffa2f36657b8cdff6f103345eb183f7c1a4713714",
+    "empty-after-removal.png": "6890dcc1e767da1db69627a7f79fb50260ff5516ed180177ca3a089b422b7669"
   }
 }

@@ -17,13 +17,13 @@ Thumbs.db
 
 # SwiftPM
 .build/
-AppMixer/.build/
+QEQ/.build/
 .swiftpm/
-AppMixer/.swiftpm/
+QEQ/.swiftpm/
 
 # Xcode generated/user state
 DerivedData/
-AppMixer/AppMixer.xcodeproj/
+QEQ/QEQ.xcodeproj/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
@@ -32,9 +32,9 @@ AppMixer/AppMixer.xcodeproj/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Local build/release products
-AppMixer/.dist/
-AppMixer/.release/
-AppMixer/.xcode-dd/
+QEQ/.dist/
+QEQ/.release/
+QEQ/.xcode-dd/
 
 # Private signing and provisioning data
 *.p12

@@ -12,7 +12,7 @@ Click the three-slider menu bar icon. Start playback in Zoom, Spotify, or anothe
 
 The top-right switch is the global bypass. Switching it off or quitting destroys the taps and private aggregate devices, restoring the original audio paths. Each app’s switch bypasses its volume and EQ while preserving its controls. **Reset app** clears its settings. Global EQ still applies to every playing app on the selected output, including apps with their own processing bypassed. The direct path is restored when no EQ/volume changes or visible spectrum need a route. Settings are saved by app bundle ID; the unlabeled master switch defaults to on when no preference exists, then remembers the user’s on/off choice across launches.
 
-The local app is at `AppMixer/.dist/QEQ.app`. `./run.sh --no-build` launches it without rebuilding. `./run.sh --clean` rebuilds it. XcodeGen and Xcode are needed to build; the app bundle runs on its own.
+The local app is at `QEQ/.dist/QEQ.app`. `./run.sh --no-build` launches it without rebuilding. `./run.sh --clean` rebuilds it. XcodeGen and Xcode are needed to build; the app bundle runs on its own.
 
 ## Permissions
 
@@ -40,19 +40,19 @@ Permission is first requested when processing or live spectrum needs an app audi
 
 ```sh
 brew bundle
-swift test --package-path AppMixer
-./AppMixer/scripts/build_macos_app.sh --configuration release
-./AppMixer/scripts/generate_xcodeproj.sh --open
+swift test --package-path QEQ
+./QEQ/scripts/build_macos_app.sh --configuration release
+./QEQ/scripts/generate_xcodeproj.sh --open
 ```
 
-`AppMixer/project.yml` is canonical. Generated Xcode projects, build products, and private signing files are gitignored. Tests cover the plotted response against rendered DSP at three sample rates, parametric Q/bypass, legacy settings migration, spectrum calibration and stereo phase handling, helper identity, filter frequency response, app-state isolation, volume/mute, mono/planar stereo, hardware-input exclusion in the DSP, invalid layouts, saved settings, and read-only live Core Audio discovery. Hardware discovery requires an available mono/stereo output.
+`QEQ/project.yml` is canonical. Generated Xcode projects, build products, and private signing files are gitignored. Tests cover the plotted response against rendered DSP at three sample rates, parametric Q/bypass, legacy settings migration, spectrum calibration and stereo phase handling, helper identity, filter frequency response, app-state isolation, volume/mute, mono/planar stereo, hardware-input exclusion in the DSP, invalid layouts, saved settings, and read-only live Core Audio discovery. Hardware discovery requires an available mono/stereo output.
 
 ## Command-line audio smoke test
 
 Quit the menu bar app first to avoid duplicate taps, start playback in Chrome, then run:
 
 ```sh
-AppMixer/.dist/QEQ.app/Contents/MacOS/QEQ --audio-check=com.google.Chrome
+QEQ/.dist/QEQ.app/Contents/MacOS/QEQ --audio-check=com.google.Chrome
 ```
 
 This briefly applies a −3 dB bell filter, reports numeric callback/spectrum diagnostics, destroys the route, and checks that the original output and tap list were restored. It uses the normal app permission; it does not bypass macOS privacy controls or save audio. A SILENT result is inconclusive when the source is paused/silent or permission is unavailable.
@@ -74,22 +74,22 @@ The single-callback private aggregate topology builds on [CoreAudioTapKit](https
 
 The private source repository is [gh123man/QEQ](https://github.com/gh123man/QEQ).
 
-- `./AppMixer/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
-- `xcrun swift-format format --in-place --recursive AppMixer/App/Sources AppMixer/Sources AppMixer/Tests AppMixer/Package.swift` applies the checked-in formatting rules.
-- GitHub Actions validates pull requests and pushes to `main` on Intel, complementing local Apple Silicon tests. Headless CI sets `APP_MIXER_HARDWARE_TESTS=0` to skip the two physical-output tests; local tests include them by default.
-- `AppMixer/release.json` records each version, build number, bundle identifier, and required signing/notarization policy. Notes live in `AppMixer/ReleaseNotes/`.
+- `./QEQ/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
+- `xcrun swift-format format --in-place --recursive QEQ/App/Sources QEQ/Sources QEQ/Tests QEQ/Package.swift` applies the checked-in formatting rules.
+- GitHub Actions validates pull requests and pushes to `main` on Intel, complementing local Apple Silicon tests. Headless CI sets `QEQ_HARDWARE_TESTS=0` to skip the two physical-output tests; local tests include them by default.
+- `QEQ/release.json` records each version, build number, bundle identifier, and required signing/notarization policy. Notes live in `QEQ/ReleaseNotes/`.
 
 Before each release, update the record and notes, then regenerate the README screenshots from the real app:
 
 ```sh
-./AppMixer/scripts/cut_release.sh --prepare
-./AppMixer/scripts/check.sh
+./QEQ/scripts/cut_release.sh --prepare
+./QEQ/scripts/check.sh
 ```
 
 Review and commit the application changes, `docs/media/*.png`, and `docs/media/screenshots.json`. Push main and wait for CI, then run:
 
 ```sh
-./AppMixer/scripts/cut_release.sh --publish
+./QEQ/scripts/cut_release.sh --publish
 ```
 
 The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the six configured Apple secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
@@ -114,13 +114,13 @@ Use the options menu beside the master switch → **Copy diagnostics** for the m
 ## Screenshots and icon
 
 ```sh
-python3 AppMixer/scripts/screenshots.py
-python3 AppMixer/scripts/screenshots.py --check
-./AppMixer/scripts/generate_appicon.sh
+python3 QEQ/scripts/screenshots.py
+python3 QEQ/scripts/screenshots.py --check
+./QEQ/scripts/generate_appicon.sh
 ```
 
 The screenshot command renders the real SwiftUI views with labeled fixture settings in an offscreen app window. It never starts the audio engine, reads saved settings, or captures the screen. It also checks empty, populated, app/global EQ, long-list, smaller-screen and removal layouts. The source and image fingerprints in `docs/media/screenshots.json` prevent stale README screenshots from shipping. CI renders from its just-built app using `--skip-build`; normal preparation builds first. Screenshot fixtures use deterministic simulated spectra, labeled in the interface and README. No live audio is captured; the displayed sample EQ is applied to the fixture shapes.
 
-The icon was created with the built-in image-generation tool. The source asset and final prompt are in `AppMixer/Branding/`. The generator script only creates the standard macOS icon sizes from that source. Internal module names and `local.AppMixer` bundle identity are retained so existing settings remain available.
+The icon was created with the built-in image-generation tool. The source asset and final prompt are in `QEQ/Branding/`. The generator script only creates the standard macOS icon sizes from that source. The package, modules, targets, and scripts use QEQ. The legacy `local.AppMixer` bundle identity is retained so existing settings and permission identity remain available. The menu bar uses a native template drawing of the three staggered slider rails and knobs, without the app icon’s panels or outer border.
 
 Native screenshot rendering is also checked in CI before tagging. It reads fixture app icons directly from bundles to avoid headless IconServices stalls. A 90-second timeout retains a process sample on failure. RC.4 was tagged but not published after exposing that runner issue; RC.5 includes the fix.

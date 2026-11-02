@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-26-intel
     timeout-minutes: 20
     env:
-      APP_MIXER_HARDWARE_TESTS: '0'
+      QEQ_HARDWARE_TESTS: '0'
     steps:
       - uses: actions/checkout@v4
       - name: Install declared tools
@@ -26,17 +26,17 @@ jobs:
           xcodegen --version
       - name: Format, tests, and universal app build
         run: |
-          python3 AppMixer/scripts/screenshots.py --check
-          ./AppMixer/scripts/check.sh
+          python3 QEQ/scripts/screenshots.py --check
+          ./QEQ/scripts/check.sh
       - name: Validate native screenshot rendering
-        run: python3 AppMixer/scripts/screenshots.py --skip-build --output AppMixer/.release/screenshots
+        run: python3 QEQ/scripts/screenshots.py --skip-build --output QEQ/.release/screenshots
       - name: Retain screenshot diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-diagnostics
           path: |
-            AppMixer/.release/screenshots/*
-            AppMixer/.release/screenshot-render.sample.txt
+            QEQ/.release/screenshots/*
+            QEQ/.release/screenshot-render.sample.txt
           if-no-files-found: ignore
           retention-days: 7

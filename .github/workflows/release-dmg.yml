@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-26-intel
     timeout-minutes: 90
     env:
-      APP_MIXER_HARDWARE_TESTS: '0'
+      QEQ_HARDWARE_TESTS: '0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,24 +40,24 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          c = json.loads(Path('AppMixer/release.json').read_text())
+          c = json.loads(Path('QEQ/release.json').read_text())
           assert 'v' + c['version'] == os.environ['RELEASE_REF_NAME']
           assert c['notarized'] is True and c['signing'] == 'Developer ID Application'
-          assert Path('AppMixer/ReleaseNotes', c['version'] + '.md').is_file()
+          assert Path('QEQ/ReleaseNotes', c['version'] + '.md').is_file()
           PY
       - name: Install declared tools
         run: brew bundle
       - name: Validate source and universal build
         run: |
-          python3 AppMixer/scripts/screenshots.py --check
-          ./AppMixer/scripts/check.sh
+          python3 QEQ/scripts/screenshots.py --check
+          ./QEQ/scripts/check.sh
       - name: Render screenshots from the release source
-        run: python3 AppMixer/scripts/screenshots.py --skip-build --output AppMixer/.release/screenshots
+        run: python3 QEQ/scripts/screenshots.py --skip-build --output QEQ/.release/screenshots
       - name: Upload rendered screenshots
         uses: actions/upload-artifact@v4
         with:
           name: QEQ-screenshots-${{ env.RELEASE_REF_NAME }}
-          path: AppMixer/.release/screenshots/*
+          path: QEQ/.release/screenshots/*
           include-hidden-files: true
           if-no-files-found: error
       - name: Prepare temporary signing keychain
@@ -68,9 +68,9 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          CERT_PATH="$RUNNER_TEMP/app-mixer-developer-id.p12"
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-mixer-release.keychain-db"
-          NOTARY_KEY_PATH="$RUNNER_TEMP/app-mixer-notary.p8"
+          CERT_PATH="$RUNNER_TEMP/qeq-developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/qeq-release.keychain-db"
+          NOTARY_KEY_PATH="$RUNNER_TEMP/qeq-notary.p8"
           export CERT_PATH NOTARY_KEY_PATH
           {
             echo "CERT_PATH=$CERT_PATH"
@@ -99,12 +99,12 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-        run: python3 AppMixer/scripts/build_release.py
+        run: python3 QEQ/scripts/build_release.py
       - name: Upload verified release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: QEQ-${{ env.RELEASE_REF_NAME }}
-          path: AppMixer/.release/*/artifacts/*
+          path: QEQ/.release/*/artifacts/*
           include-hidden-files: true
           if-no-files-found: error
       - name: Publish private prerelease
@@ -118,14 +118,14 @@ jobs:
             exit 1
           fi
           gh release create "$RELEASE_REF_NAME" --verify-tag --prerelease --latest=false \
-            --title "QEQ $VERSION" --notes-file "AppMixer/ReleaseNotes/$VERSION.md" \
-            AppMixer/.release/"$VERSION"/artifacts/*
+            --title "QEQ $VERSION" --notes-file "QEQ/ReleaseNotes/$VERSION.md" \
+            QEQ/.release/"$VERSION"/artifacts/*
       - name: Retain notarization diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: notarization-${{ github.run_id }}-${{ github.run_attempt }}
-          path: AppMixer/.release/*/logs/*
+          path: QEQ/.release/*/logs/*
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
@@ -134,11 +134,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-diagnostics-${{ github.run_id }}
-          path: AppMixer/.release/screenshot-render.sample.txt
+          path: QEQ/.release/screenshot-render.sample.txt
           if-no-files-found: ignore
           retention-days: 7
       - name: Remove signing material
         if: always()
         run: |
-          security delete-keychain "$RUNNER_TEMP/app-mixer-release.keychain-db" 2>/dev/null || true
-          rm -f "$RUNNER_TEMP/app-mixer-developer-id.p12" "$RUNNER_TEMP/app-mixer-notary.p8"
+          security delete-keychain "$RUNNER_TEMP/qeq-release.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/qeq-developer-id.p12" "$RUNNER_TEMP/qeq-notary.p8"

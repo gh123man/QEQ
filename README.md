@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="AppMixer/Branding/QEQ-icon.png" alt="QEQ app icon" width="160">
+  <img src="QEQ/Branding/QEQ-icon.png" alt="QEQ app icon" width="160">
 </p>
 
 <h1 align="center">QEQ</h1>

@@ -1,12 +1,12 @@
 # Prior art and attribution
 
-AppMixer's private aggregate-device topology and hardware-input stream isolation are adapted from **CoreAudioTapKit** by Cole Stanfield, revision `aab395f1e8e5dd1bd369c3bbfcf5c6bdca85e099`:
+QEQ's private aggregate-device topology and hardware-input stream isolation are adapted from **CoreAudioTapKit** by Cole Stanfield, revision `aab395f1e8e5dd1bd369c3bbfcf5c6bdca85e099`:
 
 - https://github.com/CJStanfield/CoreAudioTapKit
 - Reference: `Sources/CoreAudioTapKit/SystemTapCapture.swift`
-- AppMixer adaptation: `AppMixer/Sources/AppMixerAppSupport/AppAudioRoute.swift`
+- QEQ adaptation: `QEQ/Sources/QEQAppSupport/AppAudioRoute.swift`
 
-The library itself is not linked. AppMixer adds app-scoped taps, muted-when-tapped teardown behavior, strict input isolation, a C callback, and independent three-band DSP.
+The library itself is not linked. QEQ adds app-scoped taps, muted-when-tapped teardown behavior, strict input isolation, a C callback, and independent three-band DSP.
 
 MIT License
 
