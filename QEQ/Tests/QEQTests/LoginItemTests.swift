@@ -8,7 +8,8 @@ import Testing
     let name = "QEQ.login.tests.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: name)!
     defer { defaults.removePersistentDomain(forName: name) }
-    var status = SMAppService.Status.notRegistered
+    // macOS can report notFound before a fresh bundle is registered.
+    var status = SMAppService.Status.notFound
     var registrations = 0
     let store = LoginItemStore(
         defaults: defaults, readStatus: { status },

@@ -39,7 +39,7 @@ public final class LoginItemStore: ObservableObject {
         // Mark before attempting registration so failures/denials do not prompt
         // again on every launch. The toggle allows an explicit retry.
         defaults.set(true, forKey: Self.initializedKey)
-        if status == .notRegistered { setEnabled(true) }
+        if !enabled { setEnabled(true) }
     }
 
     public func refresh() { status = readStatus() }

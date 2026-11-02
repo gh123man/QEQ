@@ -15,7 +15,7 @@
     "QEQ/Sources/QEQAppSupport/AudioAppList.swift": "f9a7c62967e94bb83ba092dc670733baf87faa56cf2d9cdd2dfba225f59cca87",
     "QEQ/Sources/QEQAppSupport/AudioDiagnostics.swift": "be3671d94c8cadbc54b41e6b73df03799d9578003e7e7503a1b205e9e559c9d3",
     "QEQ/Sources/QEQAppSupport/AudioHardware.swift": "6c5abe151e976afb80cd4f665e645c243fa8726abdf4021c3c2a864736807498",
-    "QEQ/Sources/QEQAppSupport/LoginItemStore.swift": "2eb978f13e65ae7f94dd494c5c56295e1cefb36fb324c7dfc4b3c1bd0736722c",
+    "QEQ/Sources/QEQAppSupport/LoginItemStore.swift": "9a2d1b66a01c73461c8a5c3ab590e1170761e83aedd386d86a74eb5205dff833",
     "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "cf0109ed9f3209cde719190815a354c1829c5210b6e4a40af231cb2e106f57ad",
     "QEQ/Sources/QEQAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
     "QEQ/Sources/QEQAppSupport/ReleaseUpdates.swift": "e5e2c9210b2f1a8f49b147b2e1ed0fc5339fd6580b464a88dfa25105b9829c26",
