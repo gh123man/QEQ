@@ -6,7 +6,7 @@
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
     "QEQ/App/Sources/ScreenshotRenderer.swift": "cec9b7b25f18a5e10dc5bab9eea7e1c0bd36c9d8bc9e2f8e151ac78bce0cbc94",
-    "QEQ/App/Sources/SettingsView.swift": "1742f737750fc91206d4b6b26ba015c06cc03298acf561f8ff3ac7c1fd86627c",
+    "QEQ/App/Sources/SettingsView.swift": "24943fe8b9f74809e2fd5485d8549f3272c7af65087115ddeda473dd15a4e9a4",
     "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
     "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "d4ac6c6b52bca23249832ce752b611e5df8a80ff5756ffb5d12aabdbc9299c5b",
@@ -34,6 +34,6 @@
     "global-equalizer.png": "a5ea61ecf49ea59476a03ac884e769fd25e72cc8d411663cd3753e6ce6f811a8",
     "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9",
     "update-available.png": "5d678ee2a3ed3f016c0e68c9a13b926eb93513d2b917e1ea315be1b21562846a",
-    "settings.png": "ae95163227de1ae477c58646a19a48f6d7ace7a30de9156de6f898b1e36ecee3"
+    "settings.png": "184844847935447c22cbce34f01c7915af90aad20bf41fc45feb1b5789d1752a"
   }
 }

@@ -44,8 +44,6 @@ struct SettingsView: View {
                     isOn: Binding(get: { updates.includeRC }, set: { updates.setIncludeRC($0) })
                 )
                 .disabled(updates.installing)
-                Text("Checks daily. Downloads and installs only when you choose.")
-                    .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button(updates.checking ? "Checking…" : "Check now") { updates.checkNow() }
                         .disabled(updates.checking || updates.installing)
