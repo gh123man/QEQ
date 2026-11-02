@@ -5,12 +5,8 @@ import SwiftUI
 
 struct MixerView: View {
     @ObservedObject var model: MixerModel
-    @State private var search = ""
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
-    private var apps: [AudioApplication] {
-        model.snapshot.apps.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
-    }
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -46,19 +42,18 @@ struct MixerView: View {
                 }
                 globalSection
                 Divider()
-                searchField.padding(.horizontal, 12).padding(.vertical, 10)
             }.trackHeight("header")
             ScrollView {
                 VStack(spacing: 8) {
-                    if apps.isEmpty {
+                    if model.snapshot.apps.isEmpty {
                         VStack(spacing: 8) {
-                            Text(search.isEmpty ? "No audio apps yet" : "No matching apps").font(
+                            Text("No audio apps yet").font(
                                 .system(size: 12, weight: .medium))
                             Text("Start playback to see an app here. Apps with saved adjustments also appear.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }.padding(30)
                     }
-                    ForEach(apps) { app in appCard(app) }
+                    ForEach(model.snapshot.apps) { app in appCard(app) }
                 }.padding(.horizontal, 12).padding(.vertical, 12)
                     .fixedSize(horizontal: false, vertical: true).trackHeight("apps")
             }.frame(
@@ -97,21 +92,6 @@ struct MixerView: View {
         }.frame(width: 500).fixedSize(horizontal: false, vertical: true).tint(.accentColor)
             .background(Color(nsColor: .windowBackgroundColor))
             .onPreferenceChange(PanelHeights.self) { if measured != $0 { measured = $0 } }
-    }
-    private var searchField: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter apps", text: $search).textFieldStyle(.plain)
-            if !search.isEmpty {
-                Button {
-                    search = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }.buttonStyle(.plain)
-            }
-        }.font(.system(size: 11)).padding(8).background(
-            .quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6)
-        )
     }
     private var globalSection: some View {
         let selected = model.selectedEQ == MixerModel.globalEQID

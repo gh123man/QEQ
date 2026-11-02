@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Increase the popup height limit from 720 to 1,000 points, capped to the available screen height, to give scrolling app controls more room.
-- Keep expanded Global EQ controls attached to the graph, above the pinned app search.
+- Keep expanded Global EQ controls attached to the graph above the app list, and remove search to free vertical space.
 
 ## 0.1.0-rc.5 — 2026-11-02
 
