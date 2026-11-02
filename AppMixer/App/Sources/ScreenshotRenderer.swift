@@ -24,7 +24,7 @@ struct ScreenshotRenderer {
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil) }
         func layout() -> CGSize {
-            for _ in 0..<8 {
+            for _ in 0..<12 {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.035))
                 host.view.layoutSubtreeIfNeeded()
                 let size = host.view.fittingSize

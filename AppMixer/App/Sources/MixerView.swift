@@ -32,15 +32,12 @@ struct MixerView: View {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(model.diagnostics, forType: .string)
                         }
+                        Divider()
+                        Button("Quit QEQ") { NSApp.terminate(nil) }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
                     .menuStyle(.borderlessButton).fixedSize().help("QEQ options").accessibilityLabel("QEQ options")
-                    Button {
-                        NSApp.terminate(nil)
-                    } label: {
-                        Image(systemName: "power").frame(width: 24, height: 24)
-                    }.buttonStyle(.plain).help("Quit QEQ").accessibilityLabel("Quit QEQ")
                 }.padding(.horizontal, 16).padding(.vertical, 12)
                 Divider()
                 if let error = model.snapshot.error {
@@ -111,7 +108,7 @@ struct MixerView: View {
                         Text("EQ")
                         Image(systemName: "chevron.down").font(.system(size: 8))
                             .rotationEffect(.degrees(selected ? 180 : 0))
-                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: selected)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: selected)
                     }.font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                         .background(
                             selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
@@ -182,7 +179,7 @@ struct MixerView: View {
                         Text("EQ")
                         Image(systemName: "chevron.down").font(.system(size: 8))
                             .rotationEffect(.degrees(selected ? 180 : 0))
-                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: selected)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: selected)
                     }
                     .font(.system(size: 10, weight: .medium)).padding(.horizontal, 8).padding(.vertical, 5)
                     .background(
@@ -267,9 +264,22 @@ private struct EQContentFade: ViewModifier {
     @State private var visible = false
 
     func body(content: Content) -> some View {
-        content.opacity(visible ? 1 : 0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: visible)
-            .task { visible = true }
+        content.opacity(reduceMotion || visible ? 1 : 0)
+            .task(id: reduceMotion) {
+                guard !reduceMotion else {
+                    visible = true
+                    return
+                }
+                // An immediate task can finish before the first rendered frame,
+                // coalescing both opacity values into an invisible transition.
+                // Let initial layout and its nonanimated measurements settle first.
+                do {
+                    try await Task.sleep(for: .milliseconds(40))
+                } catch {
+                    return
+                }
+                withAnimation(.easeInOut(duration: 0.24)) { visible = true }
+            }
             .onDisappear { visible = false }
     }
 }

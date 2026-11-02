@@ -1,9 +1,9 @@
 {
   "sources": {
     "AppMixer/App/Sources/App.swift": "c064082ae0f2372178afa3341413d2d99f72e8dac7a181e3f489478b925924fc",
-    "AppMixer/App/Sources/MixerView.swift": "495185a17c8f8ac9b30dd9e11e60dac8c406efe7afe48218000bef9097a7c71a",
+    "AppMixer/App/Sources/MixerView.swift": "c69f1ba7818a4457663bc40ed4fdb4318e10e25beddd9684e2a547a5c5a6e242",
     "AppMixer/App/Sources/ParametricEQView.swift": "8eb3324da5b01517b7b82827ee7000854931b95f7e282f321f85668a160b4178",
-    "AppMixer/App/Sources/ScreenshotRenderer.swift": "dceea7e68a39960a2c160bc38e4e587896b44de7d25feaef6e4981fe2b5f3933",
+    "AppMixer/App/Sources/ScreenshotRenderer.swift": "bc19550c7a2f6009f24f584ee4c6ae2af6cefec90f85bd4e89bb8b1eadfa524e",
     "AppMixer/Sources/AppMixerAppSupport/AppAudioRoute.swift": "9530d7346e20242e57b9fd993f72488d613a8dc82882b790c5811a5d57141743",
     "AppMixer/Sources/AppMixerAppSupport/AppIdentity.swift": "ee8681ea4dc7c839fc1a0f0a1d2c4e084c682cb7037cbd8a69cab5093cad1a64",
     "AppMixer/Sources/AppMixerAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
@@ -20,10 +20,10 @@
     "AppMixer/scripts/screenshots.py": "b1b7b6681fad9e27ad64991dd284784b964eddebe0d3e14f78ab0740fa2239bb"
   },
   "images": {
-    "empty.png": "a000b0accbc7d337ac436995595da94d863145aef822256e5028f3a210102d75",
-    "mixer.png": "2d0867124291ec999d111040ac7226def02d982361cd690d9446b795c6d4f602",
-    "equalizer.png": "9b60f7ed308c2ada144b0f55e0d18c4462595a5c276d9aed50cbf3e49a6fbfa9",
-    "global-equalizer.png": "cad59f7699eb67de7623929f546118122a18b89bbced2f9ea7b6391b8d015faf",
-    "empty-after-removal.png": "a99bc6b9db1cdb805b8cda9a9294e0c251e5490ee01333f8515af1c2b582e584"
+    "empty.png": "8029788903d4c598caf823ca3017bc13a948a1502ee74ffb2a04704a40ba0923",
+    "mixer.png": "cfd5a4def236abfdf2a377438e6c1f6c70a195a1d9881cf0055d8b8955233037",
+    "equalizer.png": "58d15f5165d5e6b27908a3df549b86bcfd6506e797f16717bf55d0ec8ae22b4a",
+    "global-equalizer.png": "af32a502241a5efbd5bc46631562b0b8c4eb91ba0659d00a0e4fe4d0ea483955",
+    "empty-after-removal.png": "440c393804e671d54bfd81d4dcf3eb00cf3c282f8aae1a2875aa498ddfdb989f"
   }
 }

@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Remove the bottom status bar and place the options menu and Quit button beside the master switch.
+- Start EQ content fades after the first layout frame so they remain visible without animating geometry.
+
+- Remove the bottom status bar and place the options menu beside the master switch, with Quit inside the menu.
 
 - Collapse only the global visualizer while an app's EQ is expanded, keeping its header, bypass, and EQ button available. Keep viewport layout synchronous and bounded during EQ changes; animate only incoming content opacity and chevrons, respecting Reduce Motion.
 - Show the master switch without a visible label, default it to on, and remember the user's on/off choice across launches.
