@@ -2,22 +2,14 @@
 
 ## Unreleased
 
-- Use the native translucent popover material with a stronger system-color backing and subtle app surfaces; keep spectrum plots opaque with appearance-aware backgrounds, labels, and curves.
+## 0.1.0-rc.6 — 2026-11-02
 
-- Remove redundant meter, global-scope, normal-processing, and graph labels; keep units and actionable states, and move the cut/amplitude explanation into the Gain tooltip.
-
-- Use a monochrome slider mark matching the app icon in the menu bar; hide the options-menu caret.
-- Rename the package, modules, targets, tests, and CI/release paths to QEQ while preserving the existing bundle identity.
-
-- Slide and fade incoming EQ content inside clipped bounds after the first layout frame, keeping surrounding layout anchored. Label the options menu action simply “Quit”.
-
-- Remove the bottom status bar and place the options menu beside the master switch, with Quit inside the menu.
-
-- Collapse only the global visualizer while an app's EQ is expanded, keeping its header, bypass, and EQ button available. Keep viewport layout synchronous and bounded during EQ changes; animate only incoming content offset/opacity and chevrons, respecting Reduce Motion.
-- Show the master switch without a visible label, default it to on, and remember the user's on/off choice across launches.
-- Keep global spectrum colors stable per app and derive their hue from each app's icon, with a deterministic fallback for missing or monochrome icons.
-- Increase the popup height limit from 720 to 1,000 points, capped to the available screen height, to give scrolling app controls more room.
-- Keep expanded Global EQ controls attached to the graph above the app list, and remove search to free vertical space.
+- Refine the popup with subtle system translucency, opaque spectrum plots, and light/dark appearance support.
+- Simplify labels and menus, remove search and the footer, and give the app list more vertical space.
+- Keep global controls visible during app EQ editing and contain slide transitions within the EQ area.
+- Use stable, icon-derived spectrum colors and a branded monochrome menu bar icon.
+- Enable processing by default and remember the master switch across launches.
+- Refresh screenshots and shorten the README; rename the project structure and tooling to QEQ.
 
 ## 0.1.0-rc.5 — 2026-11-02
 
