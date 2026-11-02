@@ -179,8 +179,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         distribution: Bundle.main.object(forInfoDictionaryKey: "QEQBuildChannel") as? String == "release",
         defaults: CommandLine.arguments.contains("--render-screenshots") ? nil : .standard,
         logger: CommandLine.arguments.contains("--render-screenshots") ? nil : .shared)
+    private lazy var loginItem = LoginItemStore()
     private lazy var installer = UpdateInstaller(store: updates)
-    private lazy var settingsWindow = SettingsWindowController(updates: updates) { [weak self] in
+    private lazy var settingsWindow = SettingsWindowController(updates: updates, loginItem: loginItem) { [weak self] in
         self?.model.diagnosticReport ?? "QEQ is not running."
     }
     private var item: NSStatusItem!
@@ -213,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         AppLog.shared.write(.info, "QEQ started, version \(updates.currentVersion)")
         updates.installHandler = { [weak self] release in self?.installer.install(release) }
         updates.start()
+        loginItem.start()
         model.showSettings = { [weak self] in
             self?.popover.performClose(nil)
             self?.settingsWindow.show()

@@ -165,9 +165,9 @@ struct ScreenshotRenderer {
     }
     private static func renderSettings(to directory: URL, appearance: NSAppearance?, updates: UpdateStore) throws {
         let host = NSHostingController(
-            rootView: SettingsView(updates: updates, preview: true) { "Fixture diagnostics" })
+            rootView: SettingsView(updates: updates, loginItem: .preview(), preview: true) { "Fixture diagnostics" })
         let window = NSWindow(
-            contentRect: NSRect(x: -8000, y: 0, width: 470, height: 480),
+            contentRect: NSRect(x: -8000, y: 0, width: 470, height: 580),
             styleMask: .borderless, backing: .buffered, defer: false)
         window.appearance = appearance
         window.contentViewController = host
@@ -180,14 +180,14 @@ struct ScreenshotRenderer {
             CATransaction.flush()
         }
         let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 940, pixelsHigh: 960,
+            bitmapDataPlanes: nil, pixelsWide: 940, pixelsHigh: 1160,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0)!
-        bitmap.size = NSSize(width: 470, height: 480)
+        bitmap.size = NSSize(width: 470, height: 580)
         host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(
             to: directory.appendingPathComponent("settings.png"))
-        print("settings: 470 × 480 pt")
+        print("settings: 470 × 580 pt")
     }
 
 }

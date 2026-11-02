@@ -5,20 +5,36 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var updates: UpdateStore
+    @ObservedObject var loginItem: LoginItemStore
     let diagnostics: () -> String
     let preview: Bool
     @State private var logLevel: LogLevel
     @State private var collecting = false
     @State private var logMessage = ""
 
-    init(updates: UpdateStore, preview: Bool = false, diagnostics: @escaping () -> String) {
+    init(updates: UpdateStore, loginItem: LoginItemStore, preview: Bool = false, diagnostics: @escaping () -> String) {
         self.updates = updates
+        self.loginItem = loginItem
         self.preview = preview
         self.diagnostics = diagnostics
         _logLevel = State(initialValue: preview ? .warning : AppLog.shared.level)
     }
     var body: some View {
         Form {
+            Section("General") {
+                Toggle(
+                    "Start with macOS",
+                    isOn: Binding(
+                        get: { loginItem.enabled }, set: { loginItem.setEnabled($0) }))
+                if loginItem.requiresApproval {
+                    Text("Allow QEQ in Login Items to start automatically.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Open Login Items…") { loginItem.openSystemSettings() }
+                }
+                if let error = loginItem.error {
+                    Text(error).font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Updates") {
                 LabeledContent("Version", value: updates.currentVersion)
                 Toggle(
@@ -79,7 +95,11 @@ struct SettingsView: View {
                     Text(logMessage).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
             }
-        }.formStyle(.grouped).padding(12).frame(width: 470, height: 480)
+        }.formStyle(.grouped).padding(12).frame(width: 470, height: 580)
+            .onAppear { loginItem.refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                loginItem.refresh()
+            }
     }
     private func collect() {
         guard !preview else { return }
@@ -87,7 +107,7 @@ struct SettingsView: View {
         logMessage = ""
         let snapshot =
             diagnostics()
-            + "\nUpdates: automatic=\(updates.automatic), includeRC=\(updates.includeRC)\nLog level: \(logLevel.rawValue)"
+            + "\nStart with macOS: \(loginItem.status.rawValue)\nUpdates: automatic=\(updates.automatic), includeRC=\(updates.includeRC)\nLog level: \(logLevel.rawValue)"
         Task { @MainActor in
             defer { collecting = false }
             do {
@@ -109,14 +129,14 @@ struct SettingsView: View {
 @MainActor
 final class SettingsWindowController {
     private let controller: NSWindowController
-    init(updates: UpdateStore, diagnostics: @escaping () -> String) {
+    init(updates: UpdateStore, loginItem: LoginItemStore, diagnostics: @escaping () -> String) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 470, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 470, height: 580),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Settings"
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
-            rootView: SettingsView(updates: updates, diagnostics: diagnostics))
+            rootView: SettingsView(updates: updates, loginItem: loginItem, diagnostics: diagnostics))
         window.center()
         controller = NSWindowController(window: window)
     }

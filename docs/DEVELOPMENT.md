@@ -135,6 +135,8 @@ See [profiling results and commands](PERFORMANCE.md) for Release microbenchmarks
 
 ## Updates and diagnostics
 
+Settings → General includes **Start with macOS**, using `SMAppService.mainApp` without a helper or additional privacy permissions. QEQ registers once on the first normal launch, then respects changes made in QEQ or macOS Login Items. Registration failures are shown in Settings and can be retried with the toggle; approval requests link directly to Login Items. Screenshot and diagnostic CLI modes never register a login item.
+
 The options menu → **Settings…** opens a native settings window. Release builds check QEQ's public GitHub releases at most once daily (also across restarts). Checks only change the **Update available** button; Sparkle is created after an explicit install click. Automatic downloads, unsolicited updater windows, and system-profile reporting are disabled. RCs require the **Include release candidates** toggle, even when the installed version is an RC. Manual checks and errors stay in Settings. Local development builds allow manual discovery but disable automatic checks and installation.
 
 Updates require both a published `appcast.xml` and the matching app ZIP. The checker compares version numbers numerically and never suggests older builds. Sparkle 2.9.3 verifies signed feeds and Ed25519 archive signatures before extraction, then handles installation and relaunch. QEQ keeps processing during download; normal termination releases audio routes before the updated app starts. Releases predating this mechanism need one manual installation to acquire it.

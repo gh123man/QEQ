@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add Start with macOS, enabled on first launch and configurable in Settings.
 - Add quiet update discovery, an Update available button, and explicit Sparkle installation with signed feeds and archives.
 - Add Settings for automatic checks, RC opt-in, log levels, and local diagnostic-log collection.
 
