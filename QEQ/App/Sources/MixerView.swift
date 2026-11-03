@@ -79,9 +79,7 @@ struct MixerView: View {
             }.frame(maxHeight: .infinity)
 
         }.frame(width: 500, height: panelHeight, alignment: .top).clipped().tint(.accentColor)
-            // Keep the native popover blur, but soften how much backdrop shows
-            // through with an appearance-matched, partially opaque surface.
-            .background(Color(nsColor: .windowBackgroundColor).opacity(0.55))
+            .background(PanelBackground().allowsHitTesting(false))
             .onPreferenceChange(PanelHeights.self) { heights in
                 guard measured != heights else { return }
                 // Geometry feeds the viewport size: never interpolate these
