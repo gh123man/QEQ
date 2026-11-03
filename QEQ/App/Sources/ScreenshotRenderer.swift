@@ -116,7 +116,7 @@ struct ScreenshotRenderer {
         try DesktopScreenshot.render(
             model: model, panelHeight: layout().height, appearance: window.appearance,
             to: directory.appendingPathComponent("desktop-mixer.png"))
-        model.snapshot.apps = [zoom]
+        model.snapshot.apps = [zoom, chrome, music]
         model.selectedEQ = zoom.id
         simulateSpectra()
         host.rootView = MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
@@ -126,6 +126,7 @@ struct ScreenshotRenderer {
         try DesktopScreenshot.render(
             model: model, panelHeight: layout().height, appearance: window.appearance,
             to: directory.appendingPathComponent("desktop-app-equalizer.png"))
+        model.snapshot.apps = [zoom]
         model.globalEQ.bands = EQPreset.warm.bands
         model.selectedEQ = MixerModel.globalEQID
         simulateSpectra()

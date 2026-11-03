@@ -8,6 +8,7 @@ import SwiftUI
 struct DesktopScreenshot: View {
     @ObservedObject var model: MixerModel
     let panelHeight: CGFloat
+    private var canvasHeight: CGFloat { max(720, panelHeight + 80) }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -27,7 +28,7 @@ struct DesktopScreenshot: View {
             .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 16)
             .offset(x: 478, y: 33)
         }
-        .frame(width: 1000, height: 720)
+        .frame(width: 1000, height: canvasHeight)
         .clipped()
         .environment(\.controlActiveState, .active)
     }
@@ -61,7 +62,7 @@ struct DesktopScreenshot: View {
                     startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .frame(width: 1400, height: 450).rotationEffect(.degrees(-30)).offset(x: -180, y: 580)
-        }.frame(width: 1000, height: 720).clipped()
+        }.frame(width: 1000, height: canvasHeight).clipped()
     }
 
     private var menuBar: some View {
@@ -100,9 +101,12 @@ struct DesktopScreenshot: View {
     }
 
     static func render(model: MixerModel, panelHeight: CGFloat, appearance: NSAppearance?, to path: URL) throws {
-        let host = NSHostingController(rootView: DesktopScreenshot(model: model, panelHeight: panelHeight))
+        let scene = DesktopScreenshot(model: model, panelHeight: panelHeight)
+        let canvasHeight = scene.canvasHeight
+        let host = NSHostingController(rootView: scene)
         let window = NSWindow(
-            contentRect: NSRect(x: -10000, y: 0, width: 1000, height: 720), styleMask: .borderless, backing: .buffered,
+            contentRect: NSRect(x: -10000, y: 0, width: 1000, height: canvasHeight), styleMask: .borderless,
+            backing: .buffered,
             defer: false)
         window.appearance = appearance
         window.contentViewController = host
@@ -115,9 +119,10 @@ struct DesktopScreenshot: View {
             CATransaction.flush()
         }
         let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 2000, pixelsHigh: 1440, bitsPerSample: 8, samplesPerPixel: 4,
+            bitmapDataPlanes: nil, pixelsWide: 2000, pixelsHigh: Int(canvasHeight * 2), bitsPerSample: 8,
+            samplesPerPixel: 4,
             hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-        bitmap.size = NSSize(width: 1000, height: 720)
+        bitmap.size = NSSize(width: 1000, height: canvasHeight)
         ScreenshotControls.prepare(in: host.view)
         host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(to: path)

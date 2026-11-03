@@ -8,13 +8,13 @@
 <p align="center">macOS 14.4+ · Apple Silicon & Intel</p>
 
 <p align="center">
-  <img src="docs/media/desktop-mixer.png" alt="QEQ per-app mixer open from a mock macOS menu bar" width="1000">
+  <img src="docs/media/desktop-app-equalizer.png" alt="FaceTime EQ expanded with Chrome and Spotify volume controls in QEQ" width="1000">
 </p>
 <p align="center"><sub>Illustrated desktop; real app UI with simulated spectra.</sub></p>
 
 <details>
-<summary>Per-app equalizer</summary>
-<img src="docs/media/desktop-app-equalizer.png" alt="QEQ per-app parametric equalizer on an illustrated desktop" width="1000">
+<summary>Global spectrum and mixer</summary>
+<img src="docs/media/desktop-mixer.png" alt="QEQ global spectrum and per-app mixer on an illustrated desktop" width="1000">
 </details>
 
 ## Features
