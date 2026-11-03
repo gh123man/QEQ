@@ -54,6 +54,7 @@ struct ScreenshotRenderer {
                 pixelsHigh: Int(size.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
                 isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
             bitmap.size = size
+            ScreenshotControls.prepare(in: host.view)
             host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
             try bitmap.representation(using: .png, properties: [:])!.write(
                 to: directory.appendingPathComponent(name + ".png"))
@@ -77,6 +78,11 @@ struct ScreenshotRenderer {
         model.settings = [zoom.id: zoomEQ, music.id: musicEQ]
         // Deterministic illustrative spectra: never capture audio or claim these
         // fixtures are live. Apply the displayed EQ/volume to each sample shape.
+        let sourceSpectra = [
+            music.id: ScreenshotAudio.spectrum(.music),
+            zoom.id: ScreenshotAudio.spectrum(.voice),
+            chrome.id: ScreenshotAudio.spectrum(.browser),
+        ]
         func simulateSpectra() {
             var combined = AudioTelemetry()
             combined.simulated = true
@@ -88,22 +94,11 @@ struct ScreenshotRenderer {
                 let settings = model.value(app.id)
                 for index in 0..<96 {
                     let hz = 20 * pow(1000, (Double(index) + 0.5) / 96)
-                    func bump(_ center: Double, _ width: Double) -> Double {
-                        exp(-0.5 * pow(log2(hz / center) / width, 2))
-                    }
-                    let shape: Double
-                    if app.id == music.id {
-                        shape = -56 + 27 * bump(85, 0.9) + 20 * bump(900, 1.5) + 12 * bump(6500, 1)
-                    } else if app.id == zoom.id {
-                        shape = -72 + 35 * bump(550, 1.2) + 22 * bump(2400, 0.8)
-                    } else {
-                        shape = -65 + 22 * bump(200, 0.8) + 28 * bump(3300, 1)
-                    }
-                    let ripple = 3 * sin(Double(index) * 1.7) + 2 * cos(Double(index) * 0.63)
+                    let measured = Double(sourceSpectra[app.id]?[index] ?? -90)
                     let eq =
                         settings.responseDB(at: hz, sampleRate: 48000)
                         + model.globalEQ.responseDB(at: hz, sampleRate: 48000)
-                    let db = Float(max(-90, min(0, shape + ripple + eq + 20 * log10(settings.volume))))
+                    let db = Float(max(-90, min(0, measured + eq + 20 * log10(settings.volume))))
                     value.spectrum.append(db)
                     combined.spectrum[index] = max(combined.spectrum[index], db)
                 }
@@ -118,6 +113,9 @@ struct ScreenshotRenderer {
             \.controlActiveState, .active
         ).id("mixer")
         try capture("mixer", maximum: MixerModel.panelHeightLimit)
+        try DesktopScreenshot.render(
+            model: model, panelHeight: layout().height, appearance: window.appearance,
+            to: directory.appendingPathComponent("desktop-mixer.png"))
         model.snapshot.apps = [zoom]
         model.selectedEQ = zoom.id
         simulateSpectra()
@@ -125,6 +123,9 @@ struct ScreenshotRenderer {
             \.controlActiveState, .active
         ).id("equalizer")
         try capture("equalizer", maximum: MixerModel.panelHeightLimit)
+        try DesktopScreenshot.render(
+            model: model, panelHeight: layout().height, appearance: window.appearance,
+            to: directory.appendingPathComponent("desktop-app-equalizer.png"))
         model.globalEQ.bands = EQPreset.warm.bands
         model.selectedEQ = MixerModel.globalEQID
         simulateSpectra()
@@ -190,6 +191,7 @@ struct ScreenshotRenderer {
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0)!
         bitmap.size = NSSize(width: 470, height: 620)
+        ScreenshotControls.prepare(in: host.view)
         host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(
             to: directory.appendingPathComponent(showExclusions ? "excluded-apps.png" : "settings.png"))

@@ -8,10 +8,14 @@
 <p align="center">macOS 14.4+ · Apple Silicon & Intel</p>
 
 <p align="center">
-  <img src="docs/media/mixer.png" alt="Per-app volume and mute controls" width="360">
-  <img src="docs/media/global-equalizer.png" alt="Global five-band parametric EQ" width="360">
+  <img src="docs/media/desktop-mixer.png" alt="QEQ per-app mixer open from a mock macOS menu bar" width="1000">
 </p>
-<p align="center"><sub>Screenshots show simulated spectra.</sub></p>
+<p align="center"><sub>Illustrated desktop; real app UI with simulated spectra.</sub></p>
+
+<details>
+<summary>Per-app equalizer</summary>
+<img src="docs/media/desktop-app-equalizer.png" alt="QEQ per-app parametric equalizer on an illustrated desktop" width="1000">
+</details>
 
 ## Features
 

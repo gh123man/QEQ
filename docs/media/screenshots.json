@@ -1,11 +1,14 @@
 {
   "sources": {
     "QEQ/App/Sources/App.swift": "cad795c64e51bbb2e03902a874a7a753937c21fdd6d5cf4a443cbbcffa271eab",
+    "QEQ/App/Sources/DesktopScreenshot.swift": "40c0980409c6e96ff3b9ca6eccbdfc04a8f2120b9b760d0a911234a72cc83c40",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
     "QEQ/App/Sources/MixerView.swift": "db8f04d674fb97a59ed30e15e6a74f6167a14a3e25a1ebf4608dde8d37473aed",
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
-    "QEQ/App/Sources/ScreenshotRenderer.swift": "991cdb65ec343feca9daee3c8de45456624a2a6680aaf25eb1763ef62018c639",
+    "QEQ/App/Sources/ScreenshotAudio.swift": "7444227e5a1e3efaac744f35d3638b14d7892686a4e48795068e0cebf4617f66",
+    "QEQ/App/Sources/ScreenshotControls.swift": "3812aa70c952f5050010a0287760da12b8e7e3873a4b94bd8cf49b8c91ad14c2",
+    "QEQ/App/Sources/ScreenshotRenderer.swift": "c0602b2c50c8d87ae5ad74c6c423268fc7f3770b252ebf067710cdacabdba007",
     "QEQ/App/Sources/SettingsView.swift": "3e84fa7a61fb9983c9e5706425979588562f737098065d244ba4b63daa60856e",
     "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
@@ -26,16 +29,18 @@
     "QEQ/Sources/QEQCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
     "QEQ/Sources/QEQCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
     "QEQ/project.yml": "dd66d8dc0d55e786a576ab33cc144044de65d2ac4cf2acc9897aba36427939f8",
-    "QEQ/scripts/screenshots.py": "94c61954f012ce18d757d729445abf69c3c00dfc516d10f3953b6a463a0737b0"
+    "QEQ/scripts/screenshots.py": "e4b4ab2e760255418e41abec61311b645f6aa20ee614f21ce804750f4f571108"
   },
   "images": {
     "empty.png": "8cac6afa2b2a73e094ca01521990826cc06935ec8bbf1aa35a0f96e222fa32c8",
-    "mixer.png": "f959c25f9f7bd4e6f269f983efd7d845c2414e7998cef638c3a5766c90f0c5c9",
-    "equalizer.png": "04548a08dadc8ab0fda878b56f794efed35f706dd7fe95885e47a762ac68440b",
-    "global-equalizer.png": "a5ea61ecf49ea59476a03ac884e769fd25e72cc8d411663cd3753e6ce6f811a8",
+    "mixer.png": "b0f002f27dd350113a364732b5c1b65a2e940fa7bc3c48abad19a38c397d9be8",
+    "equalizer.png": "094487df789142e53c5dbef46a8848016b88a4d115fd9563c1a759db05a6c55a",
+    "global-equalizer.png": "fe60abbd3f5d538c72b806de33868ac1457b54b22612fce6efb5cf06528e5850",
     "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9",
-    "update-available.png": "5d678ee2a3ed3f016c0e68c9a13b926eb93513d2b917e1ea315be1b21562846a",
+    "update-available.png": "2872b7258f1ffe4f336892b09bcdf161e21fb67fa694e8dbe76c673a0c9ccb7d",
     "settings.png": "e3ba0017926107e03cb7d487469e0487a3bdb937034762dd2f2d78e97bd720a2",
-    "excluded-apps.png": "d89ea8382eee5b1811d32bba855c37a77ecd67bb71baf2e9a5b05e921ab5189b"
+    "excluded-apps.png": "d89ea8382eee5b1811d32bba855c37a77ecd67bb71baf2e9a5b05e921ab5189b",
+    "desktop-mixer.png": "a1a1c74072ae97ee7ecbb745cecc9d01877190f26391df3f48d83e6a1f8dd802",
+    "desktop-app-equalizer.png": "98af513a4cb6b104b4c40cf4ba64f3fccdedd42d624728a07d624801f2bc00fd"
   }
 }

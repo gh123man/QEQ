@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
-NAMES = ('empty', 'mixer', 'equalizer', 'global-equalizer', 'empty-after-removal', 'update-available', 'settings', 'excluded-apps')
+NAMES = ('empty', 'mixer', 'equalizer', 'global-equalizer', 'empty-after-removal', 'update-available', 'settings', 'excluded-apps', 'desktop-mixer', 'desktop-app-equalizer')
 
 
 def digest(path):
