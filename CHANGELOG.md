@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.0 — 2026-11-02
+
+- First stable release of QEQ, the per-app mixer and equalizer for macOS.
+- Global and per-app five-band parametric EQ, 11 presets, live spectra, independent volume, and quick mute.
+- Global and per-app bypass, persistent app exclusions, and optional launch at login.
+- Quiet update checks with explicit installation, RC opt-in, and diagnostic settings.
+- Keep the translucent panel's tint consistent when opening, resizing, and changing focus.
+
 ## 0.1.0-rc.8 — 2026-11-02
 
 - Add persistent app exclusions, default PowerChime exclusion, and a Settings table for restoring apps.
