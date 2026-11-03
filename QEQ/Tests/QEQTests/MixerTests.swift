@@ -42,6 +42,49 @@ private func rms(_ samples: [Float]) -> Double {
     #expect(abs(rms(full) - 0.1 / sqrt(2)) < 0.00001)
     #expect(abs(rms(half) / rms(full) - 0.5) < 0.00001)
 }
+@Test func appVolumeBoostRaisesQuietAudioAndLeavesOtherProcessorsUnchanged() {
+    for rate in [44100.0, 48000, 96000] {
+        let normal = rms(render(frequency: 1000, rate: rate))
+        #expect(abs(rms(render(frequency: 1000, volume: 2, rate: rate)) / normal - 2) < 0.0001)
+        #expect(abs(rms(render(frequency: 1000, volume: 1.5, rate: rate)) / normal - 1.5) < 0.0001)
+        #expect(abs(rms(render(frequency: 1000, rate: rate)) - normal) < 0.0001)
+        #expect(rms(render(volume: 2, muted: true, rate: rate)) == 0)
+        // Invalid direct DSP callers cannot exceed the supported boost range.
+        #expect(abs(rms(render(frequency: 1000, volume: 20, rate: rate)) / normal - 2) < 0.0001)
+    }
+}
+
+@Test func boostedVolumePersistsAndDisablingBoostRestoresUnityCeiling() throws {
+    var settings = MixerSettings()
+    settings.boostEnabled = true
+    settings.volume = 1.75
+    let restored = try JSONDecoder().decode(MixerSettings.self, from: JSONEncoder().encode(settings))
+    #expect(restored == settings)
+    #expect(restored.needsProcessing)
+    #expect(restored.shouldPersist)
+    settings.volume = 12
+    #expect(settings.sanitized().volume == 2)
+    settings.boostEnabled = false
+    #expect(settings.sanitized().volume == 1)
+    let legacy = try JSONDecoder().decode(MixerSettings.self, from: Data(#"{"volume":0.65}"#.utf8))
+    #expect(!legacy.boostEnabled && legacy.volume == 0.65)
+    settings.boostEnabled = true
+    settings.volume = 1
+    #expect(!settings.needsProcessing)
+    #expect(settings.shouldPersist)
+}
+
+@Test func volumeBoostRetainsStereoPeakProtectionAndOutputTelemetry() {
+    let dsp = MixerDSPCreate(48000, 2, 1)!
+    defer { MixerDSPDestroy(dsp) }
+    MixerDSPConfigure(dsp, 2, false, nil, 0)
+    _ = processSamples([Float](repeating: 0, count: 4096), channels: 2, dsp: dsp)
+    let result = processSamples([0.8, -0.4], channels: 2, dsp: dsp)
+    #expect(abs(result[0] - 1) < 0.00001)
+    #expect(abs(result[1] + 0.5) < 0.00001)
+    #expect(abs(MixerDSPPeak(dsp) - 1) < 0.00001)
+    #expect(MixerDSPLimitingDB(dsp) > 4)
+}
 @Test func bassCutAttenuatesLowFrequenciesWithoutChangingOtherApps() {
     let low = rms(render(frequency: 60, bass: -12)) / rms(render(frequency: 60))
     let high = rms(render(frequency: 2000, bass: -12)) / rms(render(frequency: 2000))
@@ -72,6 +115,27 @@ private func rms(_ samples: [Float]) -> Double {
 @Test func muteAndZeroGainAreSilentAfterRamp() {
     #expect(rms(render(muted: true)) == 0)
     #expect(rms(render(volume: 0)) == 0)
+}
+
+@Test func mutedSourceMeterTracksLiveInputWithoutLeakingAudio() {
+    for channels in [1, 2] {
+        let dsp = MixerDSPCreate(48000, UInt32(channels), 1)!
+        defer { MixerDSPDestroy(dsp) }
+        MixerDSPConfigure(dsp, 2, true, nil, 0)
+        _ = processSamples([Float](repeating: 0, count: 1024 * channels), channels: channels, dsp: dsp)
+        // No spectrum window or analysis enablement is needed for source peaks.
+        for source in [Float(0.4), 0.1, 0, 0.7] {
+            let input = (0..<(512 * channels)).map { $0 % 2 == 0 ? source : -source }
+            let output = processSamples(input, channels: channels, dsp: dsp)
+            #expect(output.allSatisfy { $0 == 0 })
+            #expect(MixerDSPPeak(dsp) == 0)
+            #expect(abs(MixerDSPSourcePeak(dsp) - source) < 0.00001)
+        }
+        MixerDSPConfigure(dsp, 1, false, nil, 0)
+        _ = processSamples([Float](repeating: 0.1, count: 2048 * channels), channels: channels, dsp: dsp)
+        #expect(abs(MixerDSPPeak(dsp) - 0.1) < 0.00001)
+        #expect(abs(MixerDSPSourcePeak(dsp) - 0.1) < 0.00001)
+    }
 }
 @Test func monoIsSupportedAndInvalidFormatsRejected() {
     #expect(abs(rms(render(channels: 1)) - 0.1 / sqrt(2)) < 0.0001)
@@ -121,6 +185,7 @@ private func rms(_ samples: [Float]) -> Double {
     }
     #expect(outLeft.allSatisfy { abs($0 - 0.1) < 0.00001 })
     #expect(outRight.allSatisfy { abs($0 + 0.2) < 0.00001 })
+    #expect(abs(MixerDSPSourcePeak(dsp) - 0.2) < 0.00001)  // Excludes the 0.9 physical input.
 }
 @Test func invalidBufferLayoutClearsOutputAndReportsFault() {
     let dsp = MixerDSPCreate(48000, 2, 2)!
@@ -336,6 +401,7 @@ private func renderParametric(
     let right = left.map { -$0 }
     let analyzer = SpectrumAnalyzer()
     let bins = analyzer.spectrum(left: left, right: right, sampleRate: rate)
+    #expect(bins.count == AudioTelemetry.spectrumBinCount)
     let peak = bins.enumerated().max(by: { $0.element < $1.element })!
     let frequency = 20 * pow(1000, (Double(peak.offset) + 0.5) / Double(bins.count))
     #expect(abs(log2(frequency / tone)) < 0.2)
@@ -416,6 +482,7 @@ private func renderParametric(
     let muted = try #require(analyzer.read(dsp: dsp, sampleRate: rate))
     #expect(muted.spectrum.allSatisfy { $0 == -90 })
     #expect(muted.peak == 0)
+    #expect(abs(muted.sourcePeak - 0.01) < 0.00001)
 }
 
 @Test func maximumBassCutLeavesMeasuredResidualAudioInsteadOfSilence() throws {

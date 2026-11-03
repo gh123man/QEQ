@@ -9,6 +9,7 @@ private final class FakeRoute: AudioRoute {
     var processes: [AudioObjectID]
     let output: OutputDevice
     var peak: Float = 0
+    var sourcePeak: Float = 0
     var lastFrames: UInt64 = 0
     var stopped = false
     var stalled = false

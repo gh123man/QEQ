@@ -105,6 +105,7 @@ final class AppAudioRoute: AudioRoute {
         return analyzer.read(dsp: dsp, sampleRate: output.sampleRate)
     }
     var peak: Float { dsp.map { MixerDSPPeak($0) } ?? 0 }
+    var sourcePeak: Float { dsp.map { MixerDSPSourcePeak($0) } ?? 0 }
     func checkHealth() throws {
         guard let dsp else { return }
         let frames = MixerDSPFrames(dsp)

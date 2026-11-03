@@ -3,8 +3,11 @@ import Foundation
 import MixerDSP
 
 public struct AudioTelemetry: Equatable, Sendable {
+    /// Logarithmic display bands shared by live analysis and documentation fixtures.
+    public static let spectrumBinCount = 192
     public var spectrum: [Float] = []
     public var peak: Float = 0
+    public var sourcePeak: Float = 0
     public var limitingDB: Float = 0
     public var apps: [String: AudioTelemetry] = [:]
     public var simulated = false
@@ -29,7 +32,7 @@ public struct AudioTelemetry: Equatable, Sendable {
 /// bounded atomic snapshot; a concurrent write skips this visual frame.
 final class SpectrumAnalyzer {
     static let count = Int(MixerAnalysisFrameCount)
-    static let bins = 96
+    static let bins = AudioTelemetry.spectrumBinCount
     private let setup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(count), .FORWARD)
     private static let window = (0..<count).map { Float(0.5 - 0.5 * cos(2 * .pi * Double($0) / Double(count))) }
     private static let scale = 2 / window.reduce(0, +)
@@ -45,6 +48,7 @@ final class SpectrumAnalyzer {
         guard MixerDSPReadAnalysis(dsp, &left, &right, UInt32(Self.count)) else { return nil }
         var value = AudioTelemetry()
         value.peak = MixerDSPPeak(dsp)
+        value.sourcePeak = MixerDSPSourcePeak(dsp)
         value.limitingDB = MixerDSPLimitingDB(dsp)
         value.spectrum = spectrum(left: left, right: right, sampleRate: sampleRate)
         return value

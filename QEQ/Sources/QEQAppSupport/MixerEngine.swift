@@ -153,7 +153,9 @@ public final class MixerEngine: @unchecked Sendable {
         }
         guard analysisTimer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(67), leeway: .milliseconds(10))
+        // Match the short trace interpolation so fresh measurements arrive without
+        // a stationary gap between animations. This timer stops with the panel.
+        timer.schedule(deadline: .now(), repeating: .milliseconds(33), leeway: .milliseconds(2))
         timer.setEventHandler { [weak self] in self?.readAnalysis() }
         analysisTimer = timer
         timer.resume()
@@ -170,6 +172,7 @@ public final class MixerEngine: @unchecked Sendable {
             // Meters do not wait for a full FFT window or a successful snapshot.
             var reading = analysisReadings[id] ?? AudioTelemetry()
             reading.peak = route.peak
+            reading.sourcePeak = route.sourcePeak
             analysisReadings[id] = reading
         }
         var combined = AudioTelemetry.envelope(Array(analysisReadings.values))

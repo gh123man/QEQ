@@ -144,6 +144,8 @@ struct MixerView: View {
     private func appCard(_ app: AudioApplication) -> some View {
         let settings = model.value(app.id)
         let selected = model.selectedEQ == app.id
+        let muted = settings.enabled && settings.muted
+        let reading = model.telemetry.apps[app.id]
         return VStack(spacing: 9) {
             HStack(spacing: 9) {
                 if let icon = model.icon(for: app) {
@@ -158,6 +160,21 @@ struct MixerView: View {
                     }
                 }
                 Spacer()
+                Button {
+                    model.edit(app.id) { $0.boostEnabled.toggle() }
+                } label: {
+                    Text("Boost").font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(settings.boostEnabled ? Color.accentColor : .secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(
+                            settings.boostEnabled ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 5))
+                }.buttonStyle(.plain)
+                    .accessibilityLabel("Boost for \(app.name)")
+                    .accessibilityValue(settings.boostEnabled ? "On" : "Off")
+                    .help(
+                        "Allow up to 200% volume (+6 dB). Turning off caps volume at 100%. Peak protection still applies."
+                    )
                 Button {
                     model.edit(app.id) {
                         $0.muted.toggle()
@@ -195,12 +212,18 @@ struct MixerView: View {
                 .help("Bypass this app's volume and EQ while keeping its settings. Global EQ still applies.")
             }
             HStack(spacing: 9) {
-                Slider(
+                InsetMeterSlider(
                     value: Binding(
                         get: { model.value(app.id).volume }, set: { value in model.edit(app.id) { $0.volume = value } }),
-                    in: 0...1
+                    maximum: settings.maximumVolume,
+                    peak: meterAvailable(app) ? ((muted ? reading?.sourcePeak : reading?.peak) ?? 0) : 0,
+                    metered: meterAvailable(app),
+                    muted: muted,
+                    color: NSColor(model.spectrumColor(for: app)),
+                    limitingDB: model.telemetry.apps[app.id]?.limitingDB ?? 0,
+                    appName: app.name
                 )
-                .accessibilityLabel("\(app.name) volume")
+                .frame(height: 26)
                 Text("\(Int((settings.volume * 100).rounded()))%")
                     .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).frame(
                         width: 33, alignment: .trailing)
@@ -208,9 +231,6 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
-                    .modifier(EQContentReveal())
-            } else {
-                activityMeter(app)
                     .modifier(EQContentReveal())
             }
         }.padding(11).background(
@@ -221,30 +241,8 @@ struct MixerView: View {
             Button("Exclude") { model.exclusions.exclude(app) }
         }
     }
-    private func activityMeter(_ app: AudioApplication) -> some View {
-        let available = model.enabled && app.playing && model.snapshot.active.contains(app.id)
-        let peak = available ? (model.telemetry.apps[app.id]?.peak ?? 0) : 0
-        let db = peak > 0 ? 20 * log10(Double(peak)) : -.infinity
-        let fraction = max(0, min(1, (db + 60) / 60))
-        let label = !available ? "—" : (peak > 0 ? String(format: "%.0f dBFS", db) : "−∞ dBFS")
-        return HStack(spacing: 7) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.secondary.opacity(0.12))
-                    Capsule().fill(Color.accentColor.opacity(0.75))
-                        .frame(width: geometry.size.width * fraction)
-                }
-            }.frame(height: 4)
-                .animation(.linear(duration: 0.067), value: fraction)
-            Text(label).monospacedDigit().foregroundStyle(.secondary).frame(width: 51, alignment: .trailing)
-        }.font(.system(size: 9))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(app.name) output level")
-            .accessibilityValue(available ? label : "Not metered")
-            .help(
-                model.enabled
-                    ? "Live output peak after app volume, mute, and both EQs. Meter scale: −60 to 0 dBFS."
-                    : "Turn on the master switch to show live output levels. Bypass releases all audio taps.")
+    private func meterAvailable(_ app: AudioApplication) -> Bool {
+        model.enabled && app.playing && model.snapshot.active.contains(app.id)
     }
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String? {
         if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return nil }

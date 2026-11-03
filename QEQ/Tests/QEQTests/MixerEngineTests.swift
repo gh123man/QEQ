@@ -10,6 +10,8 @@ private final class MeterRoute: AudioRoute {
     let processes: [AudioObjectID] = [10]
     let output = OutputDevice(id: 20, uid: "test", name: "Test", sampleRate: 48000, bufferFrames: 256, channels: 2)
     var peak: Float { level.withLock { $0 } }
+    var sourcePeak: Float { sourceLevel.withLock { $0 } }
+    let sourceLevel = OSAllocatedUnfairLock<Float>(initialState: 0.3)
     var lastFrames: UInt64 { 16384 }
     let level: OSAllocatedUnfairLock<Float>
     let reads: OSAllocatedUnfairLock<Int>
@@ -23,7 +25,7 @@ private final class MeterRoute: AudioRoute {
         reads.withLock { $0 += 1 }
         var value = AudioTelemetry()
         value.peak = peak
-        value.spectrum = [Float](repeating: peak > 0 ? -20 : -90, count: 96)
+        value.spectrum = [Float](repeating: peak > 0 ? -20 : -90, count: AudioTelemetry.spectrumBinCount)
         return value
     }
     func checkHealth() throws {}
@@ -70,6 +72,10 @@ private final class MeterRoute: AudioRoute {
     #expect(values.withLock { $0.count } == count)  // Identical frames do not redraw.
     level.withLock { $0 = 0 }
     try await wait { values.withLock { $0.last?.spectrum.first == -90 } }
+    // Source-only changes must still reach the row while output remains silent.
+    route.sourceLevel.withLock { $0 = 0.6 }
+    try await wait { values.withLock { $0.last?.apps["test"]?.sourcePeak == 0.6 } }
+    #expect(values.withLock { $0.last?.peak } == 0)
     playing.withLock { $0 = false }
     try await wait { values.withLock { $0.last == AudioTelemetry() } }
     let idleReads = reads.withLock { $0 }

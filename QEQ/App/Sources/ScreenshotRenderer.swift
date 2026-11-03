@@ -86,14 +86,15 @@ struct ScreenshotRenderer {
         func simulateSpectra() {
             var combined = AudioTelemetry()
             combined.simulated = true
-            combined.spectrum = [Float](repeating: -90, count: 96)
+            let bins = AudioTelemetry.spectrumBinCount
+            combined.spectrum = [Float](repeating: -90, count: bins)
             model.snapshot.active = Set(model.snapshot.apps.map(\.id))
             for app in model.snapshot.apps {
                 var value = AudioTelemetry()
                 value.simulated = true
                 let settings = model.value(app.id)
-                for index in 0..<96 {
-                    let hz = 20 * pow(1000, (Double(index) + 0.5) / 96)
+                for index in 0..<bins {
+                    let hz = 20 * pow(1000, (Double(index) + 0.5) / Double(bins))
                     let measured = Double(sourceSpectra[app.id]?[index] ?? -90)
                     let eq =
                         settings.responseDB(at: hz, sampleRate: 48000)

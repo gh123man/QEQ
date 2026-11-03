@@ -25,7 +25,7 @@ func profileComponents() throws {
     try measure("HAL discovery (cached metadata)", iterations: 30) { _ = try HAL.applications(identityCache: cache) }
     let signal = (0..<SpectrumAnalyzer.count).map { Float(0.1 * sin(2 * .pi * 1000 * Double($0) / 48000)) }
     let analyzer = SpectrumAnalyzer()
-    measure("stereo FFT + 96 bins", iterations: 1000) {
+    measure("stereo FFT + \(SpectrumAnalyzer.bins) bins", iterations: 1000) {
         _ = analyzer.spectrum(left: signal, right: signal, sampleRate: 48000)
     }
     var settings = MixerSettings()

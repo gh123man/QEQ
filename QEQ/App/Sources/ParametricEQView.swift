@@ -3,6 +3,7 @@ import QEQCore
 import SwiftUI
 
 struct ParametricEQView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: MixerModel
     let appID: String
     var compact = false
@@ -233,34 +234,14 @@ struct ParametricEQView: View {
                             Text(label).font(.system(size: 8, design: .monospaced)).foregroundStyle(
                                 .primary.opacity(0.45)), at: CGPoint(x: x(hz), y: rect.maxY + 12))
                     }
-                    if processing, !telemetry.spectrum.isEmpty {
-                        let spectrum = telemetry.spectrum
-                        var area = Path()
-                        area.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-                        for (index, db) in spectrum.enumerated() {
-                            area.addLine(
-                                to: CGPoint(
-                                    x: rect.minX + (Double(index) + 0.5) / Double(spectrum.count) * rect.width,
-                                    y: rect.maxY - CGFloat(max(0, min(1, (db + 90) / 90))) * rect.height))
-                        }
-                        area.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-                        area.closeSubpath()
-                        context.fill(area, with: .color(Color.accentColor.opacity(0.16)))
-                        if isGlobal {
-                            for app in spectrumApps {
-                                guard let bins = model.telemetry.apps[app.id]?.spectrum else { continue }
-                                var line = Path()
-                                for (index, db) in bins.enumerated() {
-                                    let point = CGPoint(
-                                        x: rect.minX + (Double(index) + 0.5) / Double(bins.count) * rect.width,
-                                        y: rect.maxY - CGFloat(max(0, min(1, (db + 90) / 90))) * rect.height)
-                                    if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
-                                }
-                                context.stroke(
-                                    line, with: .color(model.spectrumColor(for: app).opacity(0.85)), lineWidth: 1)
-                            }
-                        }
-                    }
+                }
+                spectrumLayer
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .allowsHitTesting(false)
+                Canvas { context, size in
+                    func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
+                    func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
                     var curve = Path()
                     for index in 0...240 {
                         let hz = 20 * pow(upper / 20, Double(index) / 240)
@@ -318,6 +299,26 @@ struct ParametricEQView: View {
                 )
         }
     }
+    private var spectrumLayer: some View {
+        ZStack {
+            if processing, !telemetry.spectrum.isEmpty {
+                SpectrumTrace(levels: SpectrumPlotValues(spectrum: telemetry.spectrum), filled: true)
+                    .fill(Color.accentColor.opacity(0.16))
+                    .animation(reduceMotion ? nil : .linear(duration: 0.033), value: telemetry.spectrum)
+                    .id(telemetry.spectrum.count)
+                if isGlobal {
+                    ForEach(spectrumApps) { app in
+                        let bins = model.telemetry.apps[app.id]?.spectrum ?? []
+                        SpectrumTrace(levels: SpectrumPlotValues(spectrum: bins))
+                            .stroke(model.spectrumColor(for: app).opacity(0.85), lineWidth: 1)
+                            .animation(reduceMotion ? nil : .linear(duration: 0.033), value: bins)
+                            .id(bins.count)
+                    }
+                }
+            }
+        }.accessibilityHidden(true)
+    }
+
     private func resetBand(_ index: Int) {
         selected = index
         model.edit(appID) { $0.bands[index] = MixerSettings.defaultBands[index] }

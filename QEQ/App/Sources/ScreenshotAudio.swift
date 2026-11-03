@@ -1,5 +1,6 @@
 import Accelerate
 import Foundation
+import QEQAppSupport
 
 /// Offline documentation fixtures. Analyze synthesized PCM instead of drawing
 /// periodic ripples in frequency space. Never touches an audio device.
@@ -89,9 +90,10 @@ enum ScreenshotAudio {
             let fraction = Float(position - Double(lower))
             return powers[lower] * (1 - fraction) + powers[lower + 1] * fraction
         }
-        return (0..<96).map { index in
-            let low = 20 * pow(1000, Double(index) / 96) / rate * Double(count)
-            let high = 20 * pow(1000, Double(index + 1) / 96) / rate * Double(count)
+        let bins = AudioTelemetry.spectrumBinCount
+        return (0..<bins).map { index in
+            let low = 20 * pow(1000, Double(index) / Double(bins)) / rate * Double(count)
+            let high = 20 * pow(1000, Double(index + 1) / Double(bins)) / rate * Double(count)
             var peak = max(power(at: low), power(at: high))
             let start = max(1, Int(ceil(low)))
             let end = Int(floor(high))

@@ -55,7 +55,10 @@ private func bounded(_ x: Double, _ lo: Double, _ hi: Double, fallback: Double =
 }
 
 public struct MixerSettings: Codable, Equatable, Sendable {
+    public static let boostedVolumeLimit: Double = 2
     public var volume: Double = 1
+    public var boostEnabled: Bool = false
+    public var maximumVolume: Double { boostEnabled ? Self.boostedVolumeLimit : 1 }
     public var muted: Bool = false
     public var enabled: Bool = true
     public var bands: [EQBand] = defaultBands
@@ -95,15 +98,16 @@ public struct MixerSettings: Codable, Equatable, Sendable {
     }
     public func sanitized() -> Self {
         var copy = self
-        copy.volume = bounded(volume, 0, 1, fallback: 1)
+        copy.volume = bounded(volume, 0, maximumVolume, fallback: 1)
         copy.bands = Array(bands.prefix(5)).map { $0.sanitized() }
         while copy.bands.count < 5 { copy.bands.append(Self.defaultBands[copy.bands.count]) }
         return copy
     }
-    enum CodingKeys: String, CodingKey { case volume, muted, enabled, bands, bass, mid, treble }
+    enum CodingKeys: String, CodingKey { case volume, boostEnabled, muted, enabled, bands, bass, mid, treble }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
+        boostEnabled = try c.decodeIfPresent(Bool.self, forKey: .boostEnabled) ?? false
         muted = try c.decodeIfPresent(Bool.self, forKey: .muted) ?? false
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
         bands = try c.decodeIfPresent([EQBand].self, forKey: .bands) ?? Self.defaultBands
@@ -117,6 +121,7 @@ public struct MixerSettings: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(volume, forKey: .volume)
+        try c.encode(boostEnabled, forKey: .boostEnabled)
         try c.encode(muted, forKey: .muted)
         try c.encode(enabled, forKey: .enabled)
         try c.encode(bands, forKey: .bands)

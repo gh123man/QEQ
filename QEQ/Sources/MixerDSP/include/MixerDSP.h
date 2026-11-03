@@ -21,6 +21,8 @@ OSStatus MixerDSPCallback(AudioObjectID device, const AudioTimeStamp *now, const
  const AudioTimeStamp *inputTime, AudioBufferList *output, const AudioTimeStamp *outputTime, void *context);
 OSStatus MixerDSPRegister(AudioObjectID device, MixerDSP *dsp, AudioDeviceIOProcID *proc);
 float MixerDSPPeak(const MixerDSP *dsp);
+// App tap peak before EQ, volume, and mute; never includes physical inputs.
+float MixerDSPSourcePeak(const MixerDSP *dsp);
 // Maximum stereo-linked gain reduction in the latest callback, in dB.
 float MixerDSPLimitingDB(const MixerDSP *dsp);
 uint64_t MixerDSPFrames(const MixerDSP *dsp);

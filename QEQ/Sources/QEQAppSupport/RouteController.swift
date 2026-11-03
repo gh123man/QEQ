@@ -6,6 +6,7 @@ protocol AudioRoute: AnyObject {
     var processes: [AudioObjectID] { get }
     var output: OutputDevice { get }
     var peak: Float { get }
+    var sourcePeak: Float { get }
     var lastFrames: UInt64 { get }
     func update(_ settings: MixerSettings, global: MixerSettings)
     func setAnalysis(_ enabled: Bool)

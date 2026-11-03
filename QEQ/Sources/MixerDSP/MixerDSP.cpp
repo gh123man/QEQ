@@ -50,7 +50,7 @@ struct MixerDSP {
     uint32_t channels, tapBuffers;
     std::atomic<uint64_t> version{0}, frames{0}, faults{0};
     std::atomic<double> parameters[paramCount];
-    std::atomic<float> peak{0}, limitingDB{0};
+    std::atomic<float> peak{0}, sourcePeak{0}, limitingDB{0};
     double limiterGain=1, limiterRelease;
     double target[paramCount]{}, current[paramCount]{};
     State state[2][bandCount];
@@ -85,7 +85,7 @@ double MixerEQResponse(const MixerEQBand *bands,uint32_t count,double rate,doubl
 }
 void MixerDSPConfigure(MixerDSP *d,float volume,bool muted,const MixerEQBand *bands,uint32_t count) {
     if(!d) return;
-    volume=std::isfinite(volume)?std::clamp(volume,0.f,1.f):1.f;
+    volume=std::isfinite(volume)?std::clamp(volume,0.f,2.f):1.f;
     Coeff filters[bandCount];
     for(uint32_t i=0;bands && i<std::min(count,(uint32_t)bandCount);i++) filters[i]=coefficients(d->rate,bands[i]);
     d->version.fetch_add(1);
@@ -144,7 +144,7 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
     }
     const bool analyze=d->analyze.load(std::memory_order_relaxed);
     if(analyze) d->analysisVersion.fetch_add(1);
-    float peak=0;
+    float peak=0, sourcePeak=0;
     double minimumGain=1;
     for(uint32_t f=0;f<frames;f++) {
         if(d->remaining) {
@@ -154,6 +154,9 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
         double processed[2]{}, framePeak=0;
         for(uint32_t c=0;c<d->channels;c++) {
             double x=in[c][f*inStride[c]];
+            // Observe only the app tap, before EQ/gain/mute. No extra buffer or
+            // FFT is needed to show source activity while its output is muted.
+            if(std::isfinite(x)) sourcePeak=std::max(sourcePeak,(float)std::abs(x));
             for(int b=0;b<bandCount;b++) {
                 const double *v=d->current+1+b*5; auto &s=d->state[c][b];
                 double y=v[0]*x+s.z1;
@@ -184,6 +187,7 @@ void MixerDSPProcess(MixerDSP *d,const AudioBufferList *input,AudioBufferList *o
     }
     if(analyze) { d->analysisFrames.store(d->analysisPosition); d->analysisVersion.fetch_add(1); }
     d->peak.store(peak,std::memory_order_relaxed);
+    d->sourcePeak.store(sourcePeak,std::memory_order_relaxed);
     d->limitingDB.store((float)(-20*std::log10(std::max(1e-20,minimumGain))),std::memory_order_relaxed);
     d->frames.fetch_add(frames,std::memory_order_relaxed);
 }
@@ -191,6 +195,7 @@ OSStatus MixerDSPCallback(AudioObjectID,const AudioTimeStamp*,const AudioBufferL
     MixerDSPProcess(static_cast<MixerDSP*>(context),in,out); return noErr;
 }
 float MixerDSPPeak(const MixerDSP *d) { return d->peak.load(std::memory_order_relaxed); }
+float MixerDSPSourcePeak(const MixerDSP *d) { return d->sourcePeak.load(std::memory_order_relaxed); }
 float MixerDSPLimitingDB(const MixerDSP *d) { return d->limitingDB.load(std::memory_order_relaxed); }
 uint64_t MixerDSPFrames(const MixerDSP *d) { return d->frames.load(std::memory_order_relaxed); }
 uint64_t MixerDSPFaults(const MixerDSP *d) { return d->faults.load(std::memory_order_relaxed); }
