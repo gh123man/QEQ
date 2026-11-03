@@ -6,7 +6,7 @@
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
     "QEQ/App/Sources/MixerView.swift": "b8a4900bd462ccdbc29b528d78eca1ae53dc59367903f9b35de86790992ed229",
     "QEQ/App/Sources/PanelBackground.swift": "b9588337956597fa15c79bbb8262ffeeec556d56adc72e91acfc662a60f38640",
-    "QEQ/App/Sources/ParametricEQView.swift": "63bdb21706da2c5fc81ac90793efadf5711f08e9d803de25f2903aaf5c0f86fc",
+    "QEQ/App/Sources/ParametricEQView.swift": "7357267d68af59128c3ba6d18567bda8d4565b274542dcc6e0f3a92375dc5479",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
     "QEQ/App/Sources/PopoverLayout.swift": "9e0f4cbd915d30ac8b5b2e07fc1431ad511fa1beee847d035d13847517569687",
     "QEQ/App/Sources/ScreenshotAudio.swift": "fa3dfafcf08eaba9431a96a7570db38bc770ad5675e67ff7a130f8b6f0791ce1",
@@ -41,13 +41,13 @@
   "images": {
     "empty.png": "193233470940217dbdeeb8daeb497379b9d4dd28e78d3842a8f7f8a7abbb2612",
     "mixer.png": "f385949abd0c19c3c63305fca0f50fdae73ea756d845fcee4e62ed95420b119b",
-    "equalizer.png": "f5e1e4563417f06dfd7258f9598859073f1bacdab8163860d27c0681493c6ced",
-    "global-equalizer.png": "afddbe57f6c6bd49c1786439b7ef6f4589ed9427c22cfc41b6da5a84ffe66d1e",
+    "equalizer.png": "75e1eb84c2acfc0e4bd11bf4f0e6a6753ef6ae5d6b432148725ae49d7b8f1dc2",
+    "global-equalizer.png": "d6d9aadc9508cfcb2cab795377c2890ea97b6c2ed3ea5d8167fe63cf02a5c9d5",
     "empty-after-removal.png": "33512a9c455f84e76407cc9e60e61dd0d11d894f3f9761a73cbdb5c201f27801",
     "update-available.png": "b5cdfe825d1b215939a088b644c311c54b63d8626d2c642b6b904a13b1b1e568",
     "settings.png": "e3ba0017926107e03cb7d487469e0487a3bdb937034762dd2f2d78e97bd720a2",
     "excluded-apps.png": "0d923deaa1768cb33e53bd7333b18d299ba31d77ab74e7976bf0e0646ede1b5b",
     "desktop-mixer.png": "c91570a4f9479091767bb199f1b42587727ba0ec99f65cd55fab54dd469efd95",
-    "desktop-app-equalizer.png": "a7be73b2b2079fd98f5016b17e2ac7976c3ce70faf6e55c492846fac183a740d"
+    "desktop-app-equalizer.png": "92614f359e1b59d5058f80a19f2b6d60f0b609d730555a938418029feb451be0"
   }
 }

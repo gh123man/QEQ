@@ -120,7 +120,7 @@ struct ParametricEQView: View {
                             })
                     ) {
                         ForEach(EQFilter.allCases, id: \.self) { Text($0.label).tag($0) }
-                    }.labelsHidden().frame(width: 125).controlSize(.small)
+                    }.labelsHidden().frame(width: 125, alignment: .trailing).controlSize(.small)
                 }
                 HStack(spacing: 12) {
                     numberControl(
