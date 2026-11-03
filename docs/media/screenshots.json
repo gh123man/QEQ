@@ -6,7 +6,7 @@
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
     "QEQ/App/Sources/ScreenshotRenderer.swift": "991cdb65ec343feca9daee3c8de45456624a2a6680aaf25eb1763ef62018c639",
-    "QEQ/App/Sources/SettingsView.swift": "63ee059b186a51c7fb0c0734674b782329aa6faa59b1909f0aa99e1ad562dc29",
+    "QEQ/App/Sources/SettingsView.swift": "913d24d8f8d8a2cfcfaf13e7190aa59168ae44a17636a56f1bc0339cb38ea9cb",
     "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
     "QEQ/Sources/QEQAppSupport/AppExclusions.swift": "9ffed3d11560d3c5f2b76d8b7a869282de3f75efab65c3063d629392a64abd58",
@@ -36,6 +36,6 @@
     "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9",
     "update-available.png": "5d678ee2a3ed3f016c0e68c9a13b926eb93513d2b917e1ea315be1b21562846a",
     "settings.png": "3a0a96c4ef87ad9f7c04d590c35fe77f8867ee143d1b5a159c23b654b26ef649",
-    "excluded-apps.png": "dfeeb80530f8b983285a699a8097e3f20b28a55d408c08bc15cf326ab17fdd9b"
+    "excluded-apps.png": "d89ea8382eee5b1811d32bba855c37a77ecd67bb71baf2e9a5b05e921ab5189b"
   }
 }
