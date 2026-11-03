@@ -111,7 +111,7 @@ RC.1 was Apple Development signed and not notarized. RC.2 and subsequent release
 
 A stalled app is released independently; other routes keep running. One automatic fresh-route attempt is allowed, then the affected app stays bypassed until Retry, a playback restart, new process IDs, or an output change. “No callbacks” is a route observation, not proof that capture permission is missing. Apps explicitly routed elsewhere show “Playing on another output.”
 
-Use the options menu beside the master switch → **Copy diagnostics** for the macOS/app version, output format, app playback/device state, current process IDs, callback frames, and route messages. No audio is recorded. Test USB output with a saved-but-idle app alongside an actively playing app, then pause/resume, reconnect the device, and use global bypass.
+Use **Settings → General → Diagnostics → Copy diagnostics** for the macOS/app version, output format, app playback/device state, current process IDs, callback frames, and route messages. No audio is recorded. Test USB output with a saved-but-idle app alongside an actively playing app, then pause/resume, reconnect the device, and use global bypass.
 
 ## Screenshots and icon
 

@@ -32,11 +32,6 @@ struct MixerView: View {
                     Menu {
                         Button("Settings…") { model.showSettings?() }.keyboardShortcut(",")
                         Divider()
-                        Button("Copy diagnostics") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(model.diagnostics, forType: .string)
-                        }
-                        Divider()
                         Button("Quit") { NSApp.terminate(nil) }
                     } label: {
                         Image(systemName: "ellipsis.circle")

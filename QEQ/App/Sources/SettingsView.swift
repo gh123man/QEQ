@@ -113,6 +113,12 @@ struct SettingsView: View {
                 )
                 .font(.caption).foregroundStyle(.secondary)
                 HStack {
+                    Button("Copy diagnostics") {
+                        guard !preview else { return }
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(diagnostics(), forType: .string)
+                        logMessage = "Diagnostics copied."
+                    }
                     Button(collecting ? "Collecting…" : "Save diagnostic log…") { collect() }
                         .disabled(collecting)
                     Button("Clear logs") {
@@ -124,7 +130,7 @@ struct SettingsView: View {
                             } catch { logMessage = "Couldn’t clear logs: \(error.localizedDescription)" }
                         }
                     }.disabled(collecting)
-                }
+                }.controlSize(.small)
                 if !logMessage.isEmpty {
                     Text(logMessage).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
