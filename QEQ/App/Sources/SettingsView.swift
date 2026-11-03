@@ -44,6 +44,8 @@ struct SettingsView: View {
                 TableColumn("App") { app in Text(app.name).help(app.id) }
                 TableColumn("") { app in
                     Button("Remove") { exclusions.remove(app.id) }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Remove \(app.name) from excluded apps")
                         .help("Show \(app.name) in the mixer again")
                 }.width(70)
