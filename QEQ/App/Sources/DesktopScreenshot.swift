@@ -12,6 +12,9 @@ struct DesktopScreenshot: View {
     var blurredWallpaper: NSImage? = nil
     private var canvasHeight: CGFloat { max(720, panelHeight + 80) }
     private let panelOrigin = CGPoint(x: 478, y: 33)
+    // Approximate the native popover material's backing before our extra tint.
+    // Together these leave 18% of the wallpaper visible, rather than 45%.
+    private let materialBackingOpacity = 0.60
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -22,13 +25,14 @@ struct DesktopScreenshot: View {
                 .frame(width: 500, height: panelHeight + 10)
                 .background {
                     // Bitmap capture cannot include WindowServer's behind-window
-                    // material. Blur the matching region of our own wallpaper,
-                    // then apply the live panel's tint. Spectrum fills stay opaque.
+                    // material. Blur our wallpaper, approximate the material's
+                    // backing, then add the live tint. Spectrum fills stay opaque.
                     if let blurredWallpaper {
                         Image(nsImage: blurredWallpaper)
                             .resizable().frame(width: 1000, height: canvasHeight)
                             .offset(x: -panelOrigin.x, y: -panelOrigin.y)
                             .frame(width: 500, height: panelHeight + 10, alignment: .topLeading)
+                            .overlay(Color(nsColor: .windowBackgroundColor).opacity(materialBackingOpacity))
                             .overlay(Color(nsColor: .windowBackgroundColor).opacity(PanelBackground.tintOpacity))
                     }
                 }

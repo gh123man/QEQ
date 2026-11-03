@@ -1,7 +1,7 @@
 {
   "sources": {
     "QEQ/App/Sources/App.swift": "cad795c64e51bbb2e03902a874a7a753937c21fdd6d5cf4a443cbbcffa271eab",
-    "QEQ/App/Sources/DesktopScreenshot.swift": "28153e3a40cb0037bd50df7dd2b810561dc949a8c02e35059b4d5c92901d48e6",
+    "QEQ/App/Sources/DesktopScreenshot.swift": "7b3d4580c710fa3ca631d09494451f74ee5647aedae2ebb6a401ef2196115280",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
     "QEQ/App/Sources/MixerView.swift": "283bd5843f05989efda735d9b79b4f0c305b200b18b0f90840ca0d88b7b661b5",
     "QEQ/App/Sources/PanelBackground.swift": "b9588337956597fa15c79bbb8262ffeeec556d56adc72e91acfc662a60f38640",
@@ -41,7 +41,7 @@
     "update-available.png": "d273eec30aa9f34961d7a84afd685355d3ae04ff228fc01e83a34ffc26e9d8e3",
     "settings.png": "e3ba0017926107e03cb7d487469e0487a3bdb937034762dd2f2d78e97bd720a2",
     "excluded-apps.png": "d89ea8382eee5b1811d32bba855c37a77ecd67bb71baf2e9a5b05e921ab5189b",
-    "desktop-mixer.png": "f3228ab7e91d10a8a551bf1ea7c9d7088ac544b1b25819d2fd7d76c8da38b41a",
-    "desktop-app-equalizer.png": "f50ed46cb4d94e8c854fe5366117b280ce379ec23f9b8948e1cdd2e43b32e5ed"
+    "desktop-mixer.png": "37063ed81a3c23c309462fe13d9565d65e334a8f58729bb223702d957681fb0b",
+    "desktop-app-equalizer.png": "7676278fbe6a8d65586e8e8ad90fc7fb763001bc2d0d642490c1bd08f6fe642f"
   }
 }
