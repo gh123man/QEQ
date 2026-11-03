@@ -129,7 +129,7 @@ struct MixerView: View {
                     model: model, appID: MixerModel.globalEQID, compact: true,
                     overviewHandles: selected, selection: $globalBand
                 )
-                .modifier(EQContentReveal())
+                .modifier(EQContentReveal(animate: model.animateEQReveal))
             }
             if selected {
                 ParametricEQView(
@@ -137,7 +137,7 @@ struct MixerView: View {
                     controlsOnly: true, selection: $globalBand
                 )
                 .padding(.horizontal, 16).padding(.top, 4)
-                .modifier(EQContentReveal())
+                .modifier(EQContentReveal(animate: model.animateEQReveal))
             }
         }.padding(.bottom, 10)
     }
@@ -158,7 +158,7 @@ struct MixerView: View {
                     if let status = status(app, settings: settings) {
                         Text(status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).help(status)
                     }
-                }
+                }.frame(height: 30, alignment: .leading)
                 Spacer()
                 Button {
                     model.edit(app.id) { $0.boostEnabled.toggle() }
@@ -231,7 +231,7 @@ struct MixerView: View {
             if selected {
                 Divider()
                 ParametricEQView(model: model, appID: app.id)
-                    .modifier(EQContentReveal())
+                    .modifier(EQContentReveal(animate: model.animateEQReveal))
             }
         }.padding(11).background(
             Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8)
@@ -260,16 +260,17 @@ struct MixerView: View {
 /// Slide and fade content inside its final bounds, without moving its siblings.
 /// Clipping contains the motion; the popup and scroll layout never interpolate.
 private struct EQContentReveal: ViewModifier {
+    var animate: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
 
     func body(content: Content) -> some View {
         content
-            .offset(y: reduceMotion || visible ? 0 : -24)
-            .opacity(reduceMotion || visible ? 1 : 0)
+            .offset(y: !animate || reduceMotion || visible ? 0 : -24)
+            .opacity(!animate || reduceMotion || visible ? 1 : 0)
             .clipped()
-            .task(id: reduceMotion) {
-                guard !reduceMotion else {
+            .task(id: animate && !reduceMotion) {
+                guard animate && !reduceMotion else {
                     visible = true
                     return
                 }

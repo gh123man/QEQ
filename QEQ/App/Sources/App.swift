@@ -12,6 +12,7 @@ final class MixerModel: ObservableObject {
     @Published var enabled = false
     @Published var changing = false
     @Published var selectedEQ: String?
+    @Published var animateEQReveal = false
     @Published var telemetry = AudioTelemetry()
     static let panelHeightLimit: CGFloat = 1000
     @Published var maximumPanelHeight: CGFloat = MixerModel.panelHeightLimit
@@ -166,6 +167,7 @@ final class MixerModel: ObservableObject {
         }
     }
     func selectEQ(_ id: String) {
+        animateEQReveal = true
         selectedEQ = selectedEQ == id ? nil : id
         refreshAnalysis()
     }
@@ -206,6 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
     private var item: NSStatusItem!
     private let popover = NSPopover()
+    private var mixerHost: NSHostingController<MixerView>?
     private var performanceRecorder: PerformanceRecorder?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -246,10 +249,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         item.button?.action = #selector(togglePopover)
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 500, height: 240)
         let host = NSHostingController(rootView: MixerView(model: model, updates: updates))
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
+        mixerHost = host
         // Show the controls once at launch so a menu-bar-only app is easy to find.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self else { return }
@@ -272,10 +275,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if popover.isShown { popover.performClose(nil) } else { showPopover() }
     }
     private func showPopover() {
-        guard let button = item.button else { return }
+        guard let button = item.button, let host = mixerHost else { return }
+        model.animateEQReveal = false
         model.maximumPanelHeight = min(
             MixerModel.panelHeightLimit,
             max(280, (button.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
+        popover.contentSize = PopoverLayout.prepare(host, maximumHeight: model.maximumPanelHeight)
         model.setPanelVisible(true)
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

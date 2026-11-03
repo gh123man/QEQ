@@ -24,7 +24,8 @@ struct ParametricEQView: View {
         isGlobal ? model.telemetry : model.telemetry.apps[appID] ?? AudioTelemetry()
     }
     private var spectrumApps: [AudioApplication] {
-        Array(model.snapshot.apps.filter { model.telemetry.apps[$0.id]?.spectrum.isEmpty == false }.prefix(6))
+        // The legend is known before taps start delivering telemetry.
+        Array(model.snapshot.apps.filter { $0.playing }.prefix(6))
     }
     private var processing: Bool {
         model.enabled
@@ -63,6 +64,7 @@ struct ParametricEQView: View {
                         ).foregroundStyle(.secondary)
                     }
                 }
+                .frame(height: 13)
                 .padding(.horizontal, isGlobal ? 16 : 0)
                 .help(
                     isGlobal
@@ -70,7 +72,7 @@ struct ParametricEQView: View {
                         : "App output after app EQ, Global EQ, volume, and limiting. The curve shows this app's EQ only."
                 )
                 graph.frame(height: compact ? 150 : 190)
-                if isGlobal && processing && !spectrumApps.isEmpty {
+                if isGlobal && !spectrumApps.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(spectrumApps) { app in
@@ -197,7 +199,6 @@ struct ParametricEQView: View {
             let rect = CGRect(x: 29, y: 20, width: geometry.size.width - 65, height: geometry.size.height - 43)
             let upper = maxFrequency
             ZStack {
-                RoundedRectangle(cornerRadius: isGlobal ? 0 : 6).fill(Color(nsColor: .textBackgroundColor))
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
@@ -297,7 +298,7 @@ struct ParametricEQView: View {
                 .help(
                     "Frequency is logarithmic: equal distance means equal frequency ratio. Left axis: EQ gain. Right axis: actual output level. A −18 dB cut reduces amplitude by about 87%; it does not mute that frequency. The spectrum uses a 16,384-sample analysis window, separate from playback."
                 )
-        }
+        }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: isGlobal ? 0 : 6))
     }
     private var spectrumLayer: some View {
         ZStack {

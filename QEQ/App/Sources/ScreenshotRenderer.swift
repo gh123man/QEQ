@@ -27,7 +27,6 @@ struct ScreenshotRenderer {
         let lightAppearance = ProcessInfo.processInfo.environment["QEQ_SCREENSHOT_APPEARANCE"] == "light"
         window.appearance = NSAppearance(named: lightAppearance ? .aqua : .darkAqua)
         window.contentViewController = host
-        window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil) }
         func layout() -> CGSize {
             for _ in 0..<12 {
@@ -41,7 +40,18 @@ struct ScreenshotRenderer {
             return host.view.bounds.size
         }
         func capture(_ name: String, maximum: CGFloat) throws {
+            let prepared = PopoverLayout.prepare(host, maximumHeight: model.maximumPanelHeight)
+            window.setContentSize(prepared)
+            if !window.isVisible { window.makeKeyAndOrderFront(nil) }
             let size = layout()
+            guard abs(prepared.height - size.height) <= 1 else {
+                throw NSError(
+                    domain: "QEQ layout", code: 4,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "\(name) changed height after presentation: \(prepared.height) → \(size.height)"
+                    ])
+            }
             guard size.height <= maximum + 1, size.height > 120 else {
                 throw NSError(
                     domain: "QEQ screenshots", code: 1,
@@ -114,6 +124,22 @@ struct ScreenshotRenderer {
             \.controlActiveState, .active
         ).id("mixer")
         try capture("mixer", maximum: MixerModel.panelHeightLimit)
+        // Opening starts taps asynchronously. Their first readings must not add
+        // a legend/status row or change the already-presented panel's geometry.
+        let streaming = model.telemetry
+        let active = model.snapshot.active
+        model.telemetry = AudioTelemetry()
+        model.snapshot.active = []
+        let waitingSize = layout()
+        model.telemetry = streaming
+        model.snapshot.active = active
+        let streamingSize = layout()
+        guard abs(waitingSize.height - streamingSize.height) <= 1 else {
+            throw NSError(
+                domain: "QEQ layout", code: 5,
+                userInfo: [NSLocalizedDescriptionKey: "First audio readings changed the panel height"])
+        }
+        print("first audio readings preserve panel height: \(Int(streamingSize.height)) pt")
         try DesktopScreenshot.render(
             model: model, panelHeight: layout().height, appearance: window.appearance,
             to: directory.appendingPathComponent("desktop-mixer.png"))

@@ -1,16 +1,17 @@
 {
   "sources": {
-    "QEQ/App/Sources/App.swift": "cad795c64e51bbb2e03902a874a7a753937c21fdd6d5cf4a443cbbcffa271eab",
+    "QEQ/App/Sources/App.swift": "cf654d46cee1d357288802f778fc6f894cd06aee8226edbef76994cba0782750",
     "QEQ/App/Sources/DesktopScreenshot.swift": "7b3d4580c710fa3ca631d09494451f74ee5647aedae2ebb6a401ef2196115280",
     "QEQ/App/Sources/InsetMeterSlider.swift": "ae99782f2bfb4967ae2a358a6d68bc5d7612a9979cac407e4939e1cece398b36",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
-    "QEQ/App/Sources/MixerView.swift": "d7e9d68ba03c386c2876ca9de18085efa9231631e21fc18bea40b22ef94d9e83",
+    "QEQ/App/Sources/MixerView.swift": "b8a4900bd462ccdbc29b528d78eca1ae53dc59367903f9b35de86790992ed229",
     "QEQ/App/Sources/PanelBackground.swift": "b9588337956597fa15c79bbb8262ffeeec556d56adc72e91acfc662a60f38640",
-    "QEQ/App/Sources/ParametricEQView.swift": "122c730866636b4e17570488a551663b79144ec3d5006e496f1c1108c8754548",
+    "QEQ/App/Sources/ParametricEQView.swift": "63bdb21706da2c5fc81ac90793efadf5711f08e9d803de25f2903aaf5c0f86fc",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
+    "QEQ/App/Sources/PopoverLayout.swift": "9e0f4cbd915d30ac8b5b2e07fc1431ad511fa1beee847d035d13847517569687",
     "QEQ/App/Sources/ScreenshotAudio.swift": "fa3dfafcf08eaba9431a96a7570db38bc770ad5675e67ff7a130f8b6f0791ce1",
     "QEQ/App/Sources/ScreenshotControls.swift": "68e43fa4dddddb86e6aae219581d34a7a5b19745e0c20cd76012fc279ac88f9d",
-    "QEQ/App/Sources/ScreenshotRenderer.swift": "b40b5af0b4808c9067792d4be67547f129fd96beb4e5c63c44c13bbdbe17e6ca",
+    "QEQ/App/Sources/ScreenshotRenderer.swift": "3d24da2219bf2eac88c38bbd0859dad37b6fa021536ee406128a3cb79c7be12e",
     "QEQ/App/Sources/SettingsView.swift": "3e84fa7a61fb9983c9e5706425979588562f737098065d244ba4b63daa60856e",
     "QEQ/App/Sources/SpectrumTrace.swift": "cca9576988c8f2204446aa1b46215826d64c698f702735180957351f70bb0cb4",
     "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
@@ -38,15 +39,15 @@
     "QEQ/scripts/screenshots.py": "e4b4ab2e760255418e41abec61311b645f6aa20ee614f21ce804750f4f571108"
   },
   "images": {
-    "empty.png": "4f4c5a14977484f200b80b3be0658dff1f0af725e5337a8c73aec2e6a7f709ce",
-    "mixer.png": "f0c82ce88feaddd13a05ff52e348634b47f117226f66015b0b6faf81a785bb8f",
-    "equalizer.png": "565a48dc839a66326ba94d7fb1d2e439ab4d696acb9074bd0659b7f6fed5ccc4",
-    "global-equalizer.png": "5ede8adffc269b73a8e8698b65d6bbc5378f2df3e7cebf627cfcfe5e282782a5",
-    "empty-after-removal.png": "45241d6a3bed2ea893168bcf517aa95af218ecf282651bc581785853a74ade76",
-    "update-available.png": "2a7ecbe1eda6a869810eceddacbc56be7f03fe075b9225deb37fdefb9b43742a",
+    "empty.png": "193233470940217dbdeeb8daeb497379b9d4dd28e78d3842a8f7f8a7abbb2612",
+    "mixer.png": "f385949abd0c19c3c63305fca0f50fdae73ea756d845fcee4e62ed95420b119b",
+    "equalizer.png": "f5e1e4563417f06dfd7258f9598859073f1bacdab8163860d27c0681493c6ced",
+    "global-equalizer.png": "afddbe57f6c6bd49c1786439b7ef6f4589ed9427c22cfc41b6da5a84ffe66d1e",
+    "empty-after-removal.png": "33512a9c455f84e76407cc9e60e61dd0d11d894f3f9761a73cbdb5c201f27801",
+    "update-available.png": "b5cdfe825d1b215939a088b644c311c54b63d8626d2c642b6b904a13b1b1e568",
     "settings.png": "e3ba0017926107e03cb7d487469e0487a3bdb937034762dd2f2d78e97bd720a2",
     "excluded-apps.png": "d89ea8382eee5b1811d32bba855c37a77ecd67bb71baf2e9a5b05e921ab5189b",
-    "desktop-mixer.png": "cc377d57341cd4b15877869e712683e8c39bd0b8901576383269f689e6457f7d",
-    "desktop-app-equalizer.png": "1eb39b4f16e4f707eb2b54ea4a80ead455ae8ccf39978328378bc2f1b3479746"
+    "desktop-mixer.png": "c91570a4f9479091767bb199f1b42587727ba0ec99f65cd55fab54dd469efd95",
+    "desktop-app-equalizer.png": "a7be73b2b2079fd98f5016b17e2ac7976c3ce70faf6e55c492846fac183a740d"
   }
 }
