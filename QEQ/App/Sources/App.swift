@@ -24,10 +24,24 @@ final class MixerModel: ObservableObject {
     private var observers: [NSObjectProtocol] = []
     private var saveWork: DispatchWorkItem?
     var showSettings: (() -> Void)?
+    let exclusions: AppExclusions
 
     init(preview: Bool = false) {
         self.preview = preview
+        exclusions = AppExclusions(defaults: preview ? nil : .standard)
         guard !preview else { return }
+        exclusions.onChange = { [weak self] ids in
+            guard let self else { return }
+            self.snapshot.apps.removeAll { AppExclusions.contains($0, ids: ids) }
+            if let selected = self.selectedEQ, selected != Self.globalEQID,
+                !self.snapshot.apps.contains(where: { $0.id == selected })
+            {
+                self.selectedEQ = nil
+                self.refreshAnalysis()
+            }
+            self.telemetry = AudioTelemetry()
+            self.engine.setExcludedApps(ids)
+        }
         enabled = preferences.enabled
         if let data = UserDefaults.standard.data(forKey: "appSettings"),
             let saved = try? JSONDecoder().decode([String: MixerSettings].self, from: data)
@@ -41,7 +55,8 @@ final class MixerModel: ObservableObject {
             globalEQ.volume = 1
             globalEQ.muted = false
         }
-        engine.start(settings: settings, global: globalEQ, enabled: enabled) { [weak self] value in
+        engine.start(settings: settings, global: globalEQ, enabled: enabled, excludedIDs: exclusions.ids) {
+            [weak self] value in
             Task { @MainActor in
                 if let self, !value.migratedIDs.isEmpty {
                     for (old, new) in value.migratedIDs {
@@ -51,7 +66,9 @@ final class MixerModel: ObservableObject {
                     self.save()
                 }
                 guard let self else { return }
-                if self.snapshot != value { self.snapshot = value }
+                var visible = value
+                visible.apps.removeAll { AppExclusions.contains($0, ids: self.exclusions.ids) }
+                if self.snapshot != visible { self.snapshot = visible }
                 if self.enabled != value.enabled { self.enabled = value.enabled }
                 if self.changing { self.changing = false }
                 let paths = Set(value.apps.compactMap(\.path))
@@ -83,7 +100,8 @@ final class MixerModel: ObservableObject {
         var values = settings.filter { $0.value.shouldPersist }
         values[Self.globalEQID] = globalEQ
         let data = (try? encoder.encode(values)) ?? Data()
-        return diagnostics + "\n\nEQ settings\n" + String(decoding: data, as: UTF8.self)
+        return diagnostics + "\nExcluded apps: \(exclusions.ids.sorted())\n\nEQ settings\n"
+            + String(decoding: data, as: UTF8.self)
     }
     func toggle(_ value: Bool) {
         if !preview { AppLog.shared.write(.info, "Processing enabled: \(value)") }
@@ -181,7 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         logger: CommandLine.arguments.contains("--render-screenshots") ? nil : .shared)
     private lazy var loginItem = LoginItemStore()
     private lazy var installer = UpdateInstaller(store: updates)
-    private lazy var settingsWindow = SettingsWindowController(updates: updates, loginItem: loginItem) { [weak self] in
+    private lazy var settingsWindow = SettingsWindowController(
+        updates: updates, loginItem: loginItem, exclusions: model.exclusions
+    ) { [weak self] in
         self?.model.diagnosticReport ?? "QEQ is not running."
     }
     private var item: NSStatusItem!

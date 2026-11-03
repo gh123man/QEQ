@@ -220,6 +220,9 @@ struct MixerView: View {
             Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8)
         )
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
+        .contextMenu {
+            Button("Exclude") { model.exclusions.exclude(app) }
+        }
     }
     private func activityMeter(_ app: AudioApplication) -> some View {
         let available = model.enabled && app.playing && model.snapshot.active.contains(app.id)

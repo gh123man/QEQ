@@ -60,7 +60,8 @@ private func release(_ version: String, prerelease: Bool = false, draft: Bool = 
 
 @Test @MainActor func updateChecksNeverInstallAndChannelChangesDiscardPendingResults() async throws {
     let store = UpdateStore(
-        currentVersion: "0.1.0", distribution: true, defaults: nil,
+        // Local builds must be able to install a signed release too.
+        currentVersion: "0.1.0", distribution: false, defaults: nil,
         checker: { _, _ in
             // Simulate a server response arriving after cancellation.
             try? await Task.sleep(for: .milliseconds(70))

@@ -162,12 +162,18 @@ struct ScreenshotRenderer {
             ).id("update-available")
         try capture("update-available", maximum: MixerModel.panelHeightLimit)
         try renderSettings(to: directory, appearance: window.appearance, updates: updates)
+        try renderSettings(to: directory, appearance: window.appearance, updates: updates, showExclusions: true)
     }
-    private static func renderSettings(to directory: URL, appearance: NSAppearance?, updates: UpdateStore) throws {
+    private static func renderSettings(
+        to directory: URL, appearance: NSAppearance?, updates: UpdateStore, showExclusions: Bool = false
+    ) throws {
         let host = NSHostingController(
-            rootView: SettingsView(updates: updates, loginItem: .preview(), preview: true) { "Fixture diagnostics" })
+            rootView: SettingsView(
+                updates: updates, loginItem: .preview(), exclusions: AppExclusions(defaults: nil), preview: true,
+                showExclusions: showExclusions
+            ) { "Fixture diagnostics" })
         let window = NSWindow(
-            contentRect: NSRect(x: -8000, y: 0, width: 470, height: 580),
+            contentRect: NSRect(x: -8000, y: 0, width: 470, height: 620),
             styleMask: .borderless, backing: .buffered, defer: false)
         window.appearance = appearance
         window.contentViewController = host
@@ -180,14 +186,14 @@ struct ScreenshotRenderer {
             CATransaction.flush()
         }
         let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 940, pixelsHigh: 1160,
+            bitmapDataPlanes: nil, pixelsWide: 940, pixelsHigh: 1240,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0)!
-        bitmap.size = NSSize(width: 470, height: 580)
+        bitmap.size = NSSize(width: 470, height: 620)
         host.view.cacheDisplay(in: host.view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(
-            to: directory.appendingPathComponent("settings.png"))
-        print("settings: 470 × 580 pt")
+            to: directory.appendingPathComponent(showExclusions ? "excluded-apps.png" : "settings.png"))
+        print("settings: 470 × 620 pt")
     }
 
 }

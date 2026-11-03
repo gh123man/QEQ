@@ -6,20 +6,55 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @ObservedObject var updates: UpdateStore
     @ObservedObject var loginItem: LoginItemStore
+    @ObservedObject var exclusions: AppExclusions
+    @State private var selectedTab: Int
     let diagnostics: () -> String
     let preview: Bool
     @State private var logLevel: LogLevel
     @State private var collecting = false
     @State private var logMessage = ""
 
-    init(updates: UpdateStore, loginItem: LoginItemStore, preview: Bool = false, diagnostics: @escaping () -> String) {
+    init(
+        updates: UpdateStore, loginItem: LoginItemStore, exclusions: AppExclusions, preview: Bool = false,
+        showExclusions: Bool = false, diagnostics: @escaping () -> String
+    ) {
         self.updates = updates
         self.loginItem = loginItem
+        self.exclusions = exclusions
+        _selectedTab = State(initialValue: showExclusions ? 1 : 0)
         self.preview = preview
         self.diagnostics = diagnostics
         _logLevel = State(initialValue: preview ? .warning : AppLog.shared.level)
     }
     var body: some View {
+        VStack(spacing: 12) {
+            Picker("Settings", selection: $selectedTab) {
+                Text("General").tag(0)
+                Text("Excluded Apps").tag(1)
+            }.pickerStyle(.segmented).labelsHidden().padding(.horizontal, 16).padding(.top, 12)
+            if selectedTab == 0 { generalSettings } else { excludedApps }
+        }.padding(12).frame(width: 470, height: 620)
+            .background(Color(nsColor: .windowBackgroundColor))
+    }
+    private var excludedApps: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Excluded apps use system audio without QEQ adjustments.")
+                .font(.caption).foregroundStyle(.secondary)
+            Table(exclusions.apps) {
+                TableColumn("App") { app in Text(app.name).help(app.id) }
+                TableColumn("") { app in
+                    Button("Remove") { exclusions.remove(app.id) }
+                        .accessibilityLabel("Remove \(app.name) from excluded apps")
+                        .help("Show \(app.name) in the mixer again")
+                }.width(70)
+            }.overlay {
+                if exclusions.apps.isEmpty { Text("No excluded apps").foregroundStyle(.secondary) }
+            }
+            Text("Right-click an app in the mixer to exclude it.")
+                .font(.caption).foregroundStyle(.secondary)
+        }.padding(16)
+    }
+    private var generalSettings: some View {
         Form {
             Section("General") {
                 Toggle(
@@ -47,15 +82,14 @@ struct SettingsView: View {
                 HStack {
                     Button(updates.checking ? "Checking…" : "Check now") { updates.checkNow() }
                         .disabled(updates.checking || updates.installing)
-                    if updates.available != nil { UpdateAvailableButton(updates: updates) }
+                    if updates.available != nil {
+                        Button(updates.installing ? "Updating…" : "Install update") { updates.install() }
+                            .disabled(updates.installing)
+                    }
                     Spacer()
                     if updates.checking || updates.installing { ProgressView().controlSize(.small) }
                 }
                 Text(updates.message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                if !updates.distribution {
-                    Text("Development build: automatic checks and installation are off.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
             }
             Section("Diagnostics") {
                 Picker(
@@ -93,7 +127,7 @@ struct SettingsView: View {
                     Text(logMessage).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
             }
-        }.formStyle(.grouped).padding(12).frame(width: 470, height: 580)
+        }.formStyle(.grouped)
             .onAppear { loginItem.refresh() }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 loginItem.refresh()
@@ -127,14 +161,17 @@ struct SettingsView: View {
 @MainActor
 final class SettingsWindowController {
     private let controller: NSWindowController
-    init(updates: UpdateStore, loginItem: LoginItemStore, diagnostics: @escaping () -> String) {
+    init(
+        updates: UpdateStore, loginItem: LoginItemStore, exclusions: AppExclusions, diagnostics: @escaping () -> String
+    ) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 470, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 470, height: 620),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Settings"
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(
-            rootView: SettingsView(updates: updates, loginItem: loginItem, diagnostics: diagnostics))
+            rootView: SettingsView(
+                updates: updates, loginItem: loginItem, exclusions: exclusions, diagnostics: diagnostics))
         window.center()
         controller = NSWindowController(window: window)
     }

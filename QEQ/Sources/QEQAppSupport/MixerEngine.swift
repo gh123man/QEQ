@@ -35,6 +35,7 @@ public final class MixerEngine: @unchecked Sendable {
     private var settings: [String: MixerSettings] = [:]
     private var globalEQ = MixerSettings()
     private var appList = AudioAppList()
+    private var excludedIDs: Set<String> = []
     private let identityCache = AppIdentityCache()
     private var enabled = false
     private let requestedEnabled = OSAllocatedUnfairLock(initialState: false)
@@ -60,11 +61,13 @@ public final class MixerEngine: @unchecked Sendable {
     public func start(
         settings: [String: MixerSettings], global: MixerSettings = MixerSettings(),
         enabled initialEnabled: Bool = false,
+        excludedIDs: Set<String> = [],
         deliver: @escaping @Sendable (MixerSnapshot) -> Void
     ) {
         requestedEnabled.withLock { $0 = initialEnabled }
         queue.async { [self] in
             self.settings = settings
+            self.excludedIDs = excludedIDs
             self.globalEQ = global
             self.enabled = requestedEnabled.withLock { $0 }
             self.deliver = deliver
@@ -83,6 +86,13 @@ public final class MixerEngine: @unchecked Sendable {
             controller.resetFailures()
             if !value { stopRoutes() }
             refresh()
+        }
+    }
+    public func setExcludedApps(_ ids: Set<String>) {
+        queue.async { [self] in
+            excludedIDs = ids
+            refresh()
+            if analysisApp != nil { readAnalysis() }
         }
     }
     public func update(_ key: String, settings value: MixerSettings) {
@@ -197,7 +207,8 @@ public final class MixerEngine: @unchecked Sendable {
         var snapshot = MixerSnapshot()
         enabled = enabled && requestedEnabled.withLock { $0 }
         do {
-            let discovered = try discover?() ?? HAL.applications(identityCache: identityCache)
+            let allApps = try discover?() ?? HAL.applications(identityCache: identityCache)
+            let discovered = allApps.filter { !AppExclusions.contains($0, ids: excludedIDs) }
             for app in discovered {
                 for alias in app.aliases.sorted() where settings[alias] != nil {
                     if settings[app.id] == nil { settings[app.id] = settings[alias] }

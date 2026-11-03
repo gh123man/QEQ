@@ -93,4 +93,16 @@ private final class MeterRoute: AudioRoute {
     #expect(reads.withLock { $0 } == hiddenReads)
     show()
     try await wait { values.withLock { $0.last?.peak == 0.2 } }
+    // Excluding a live app releases its route and its spectrum immediately,
+    // even while global EQ would otherwise require processing.
+    var global = MixerSettings()
+    global.bass = 6
+    engine.setGlobalEQ(global)
+    engine.setExcludedApps(["test"])
+    try await wait { values.withLock { $0.last == AudioTelemetry() } }
+    let excludedReads = reads.withLock { $0 }
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(reads.withLock { $0 } == excludedReads)
+    engine.setExcludedApps([])
+    try await wait { values.withLock { $0.last?.peak == 0.2 } }
 }

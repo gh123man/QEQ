@@ -126,8 +126,8 @@ public final class UpdateStore: ObservableObject {
     }
     public func install() {
         guard let available, !installing else { return }
-        guard distribution, let installHandler else {
-            message = "Install updates from a released QEQ build."
+        guard let installHandler else {
+            message = "The updater is unavailable. Restart QEQ and try again."
             return
         }
         installing = true

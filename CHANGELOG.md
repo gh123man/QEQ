@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add persistent app exclusions, default PowerChime exclusion, and a Settings table for restoring apps.
+- Fix manual update installation from local builds and add Install update beside Check now.
 ## 0.1.0-rc.7 — 2026-11-02
 
 - Add Start with macOS, enabled on first launch and configurable in Settings.

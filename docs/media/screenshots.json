@@ -1,14 +1,15 @@
 {
   "sources": {
-    "QEQ/App/Sources/App.swift": "bd2afbc6e6ea015d64345c0021321d9e3d09d5fa302749c2f41976acb095b3c5",
+    "QEQ/App/Sources/App.swift": "cad795c64e51bbb2e03902a874a7a753937c21fdd6d5cf4a443cbbcffa271eab",
     "QEQ/App/Sources/MenuBarIcon.swift": "f67acfa20b84eee7a01e572446b3b5548daf9677b1b6e117c3d09d6b4d6a329e",
-    "QEQ/App/Sources/MixerView.swift": "844aec8fbfe3e00b11458458daa7059370989af1338c6f85b4b3782091b6afe4",
+    "QEQ/App/Sources/MixerView.swift": "926c1e235a1d7e466aa94ea754d2d876900d314a6663f24c5e15c082d35eee0e",
     "QEQ/App/Sources/ParametricEQView.swift": "ad791fedf3f3ac9fcd24ad17310a38645129e46d5b58e5ee2974b62fcaf406c2",
     "QEQ/App/Sources/PerformanceRecorder.swift": "147d1ce33967181a69fc4c5f273a1807decb17bb3366dd0d39f902e8d7d9687d",
-    "QEQ/App/Sources/ScreenshotRenderer.swift": "cec9b7b25f18a5e10dc5bab9eea7e1c0bd36c9d8bc9e2f8e151ac78bce0cbc94",
-    "QEQ/App/Sources/SettingsView.swift": "24943fe8b9f74809e2fd5485d8549f3272c7af65087115ddeda473dd15a4e9a4",
+    "QEQ/App/Sources/ScreenshotRenderer.swift": "991cdb65ec343feca9daee3c8de45456624a2a6680aaf25eb1763ef62018c639",
+    "QEQ/App/Sources/SettingsView.swift": "630c0584cfe11dc5f00f234dabce5f8aa1dea27a38389b44845776194cfecba4",
     "QEQ/App/Sources/UpdateInstaller.swift": "9c73eb5088c65a66aff1612a9b0ed445ea76d34ce5f4f36d4a1c334a1348cf11",
     "QEQ/Sources/QEQAppSupport/AppAudioRoute.swift": "c04702b2fa5d7fe240615880656f435a626f740a4562a4c47641fedacc9bc1db",
+    "QEQ/Sources/QEQAppSupport/AppExclusions.swift": "9ffed3d11560d3c5f2b76d8b7a869282de3f75efab65c3063d629392a64abd58",
     "QEQ/Sources/QEQAppSupport/AppIdentity.swift": "d4ac6c6b52bca23249832ce752b611e5df8a80ff5756ffb5d12aabdbc9299c5b",
     "QEQ/Sources/QEQAppSupport/AppLog.swift": "920a724539b3d1743471e83bea22ceaf06a1ba8674050ea40d847dc3db95d0f4",
     "QEQ/Sources/QEQAppSupport/AppSpectrumColors.swift": "653d184689c04a97d24fa0c755b69f82006cbcba34eea7f926030c304f960909",
@@ -16,16 +17,16 @@
     "QEQ/Sources/QEQAppSupport/AudioDiagnostics.swift": "be3671d94c8cadbc54b41e6b73df03799d9578003e7e7503a1b205e9e559c9d3",
     "QEQ/Sources/QEQAppSupport/AudioHardware.swift": "6c5abe151e976afb80cd4f665e645c243fa8726abdf4021c3c2a864736807498",
     "QEQ/Sources/QEQAppSupport/LoginItemStore.swift": "9a2d1b66a01c73461c8a5c3ab590e1170761e83aedd386d86a74eb5205dff833",
-    "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "cf0109ed9f3209cde719190815a354c1829c5210b6e4a40af231cb2e106f57ad",
+    "QEQ/Sources/QEQAppSupport/MixerEngine.swift": "d38eb0c3882a65dc43950412514b4d112933423589be9c818373d1cbea257cf5",
     "QEQ/Sources/QEQAppSupport/MixerPreferences.swift": "f7ecc10a50fa0ba1e709554a4e827bde68317bc902880c830aacc5dd64f85c8d",
     "QEQ/Sources/QEQAppSupport/ReleaseUpdates.swift": "e5e2c9210b2f1a8f49b147b2e1ed0fc5339fd6580b464a88dfa25105b9829c26",
     "QEQ/Sources/QEQAppSupport/RouteController.swift": "004c5c0376ceccfe9c9cc64bede007a8cb8c2d7ba6be5f9a331486d4d2c890aa",
     "QEQ/Sources/QEQAppSupport/SpectrumAnalyzer.swift": "0fb0317ce2658d36df5d513f10e4969ff45d182410763104dd48d92f8be97e83",
-    "QEQ/Sources/QEQAppSupport/UpdateStore.swift": "7fb48f039bd6a14cd2c44409c67f63ebffc4ebcbd8e1d96da269e4eb96385067",
+    "QEQ/Sources/QEQAppSupport/UpdateStore.swift": "6875e727765ae580db4788efe71dfd1d6ae5415a0cbbe1fdc3371c063a8b92b2",
     "QEQ/Sources/QEQCore/EQPreset.swift": "d719b2172e4357bc61b3d341a029d223030c5c1f51ddae4ad5976090d26dea32",
     "QEQ/Sources/QEQCore/MixerSettings.swift": "e7ef2610171a7abc89f768670bef4f05603f01df2169b77648637fc5dac11e9c",
     "QEQ/project.yml": "dd66d8dc0d55e786a576ab33cc144044de65d2ac4cf2acc9897aba36427939f8",
-    "QEQ/scripts/screenshots.py": "0c52eba6e67b653c394fd885d6d800e8d8f44fbe89fd60619a3c711dd16093dd"
+    "QEQ/scripts/screenshots.py": "94c61954f012ce18d757d729445abf69c3c00dfc516d10f3953b6a463a0737b0"
   },
   "images": {
     "empty.png": "8cac6afa2b2a73e094ca01521990826cc06935ec8bbf1aa35a0f96e222fa32c8",
@@ -34,6 +35,7 @@
     "global-equalizer.png": "a5ea61ecf49ea59476a03ac884e769fd25e72cc8d411663cd3753e6ce6f811a8",
     "empty-after-removal.png": "c4ddaa587a2f794868e20da05c329b9b24d8f319e5548ca7453529eec14374f9",
     "update-available.png": "5d678ee2a3ed3f016c0e68c9a13b926eb93513d2b917e1ea315be1b21562846a",
-    "settings.png": "184844847935447c22cbce34f01c7915af90aad20bf41fc45feb1b5789d1752a"
+    "settings.png": "3a0a96c4ef87ad9f7c04d590c35fe77f8867ee143d1b5a159c23b654b26ef649",
+    "excluded-apps.png": "f21c3b0d98e02bf4b8159b3069f82b1395b891c5cf25244569eb72df86c632d4"
   }
 }
