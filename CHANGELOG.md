@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.1 — 2026-11-03
+
 - Prevent popup opening pop-in by preparing its size before presentation and keeping live status and legend layout stable.
 - Combine per-app volume sliders with smooth, app-colored activity meters; muted apps show gray source activity.
 - Add optional volume boost up to 200%, with an exponential boost range and a clear 100% marker.
