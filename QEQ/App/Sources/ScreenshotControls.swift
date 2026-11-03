@@ -29,10 +29,12 @@ enum ScreenshotControls {
             field.drawsBackground = false
             field.backgroundColor = .textBackgroundColor
             field.wantsLayer = true
-            field.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
             field.layer?.cornerRadius = 5
             field.layer?.borderWidth = 0.5
-            field.layer?.borderColor = NSColor.separatorColor.cgColor
+            field.effectiveAppearance.performAsCurrentDrawingAppearance {
+                field.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+                field.layer?.borderColor = NSColor.separatorColor.cgColor
+            }
             field.layer?.masksToBounds = true
         }
         for child in view.subviews { prepare(in: child) }

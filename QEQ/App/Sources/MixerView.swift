@@ -6,6 +6,8 @@ import SwiftUI
 struct MixerView: View {
     @ObservedObject var model: MixerModel
     var updates: UpdateStore? = nil
+    // Desktop documentation supplies a composited backdrop; live panels use AppKit.
+    var drawsPanelBackground = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
@@ -79,7 +81,9 @@ struct MixerView: View {
             }.frame(maxHeight: .infinity)
 
         }.frame(width: 500, height: panelHeight, alignment: .top).clipped().tint(.accentColor)
-            .background(PanelBackground().allowsHitTesting(false))
+            .background {
+                if drawsPanelBackground { PanelBackground().allowsHitTesting(false) }
+            }
             .onPreferenceChange(PanelHeights.self) { heights in
                 guard measured != heights else { return }
                 // Geometry feeds the viewport size: never interpolate these

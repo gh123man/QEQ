@@ -5,6 +5,8 @@ import SwiftUI
 /// Keep the material and tint together, independent of SwiftUI content updates
 /// and the popover becoming key. Only a system appearance change alters the tint.
 struct PanelBackground: NSViewRepresentable {
+    static let tintOpacity = 0.55
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let material = NSVisualEffectView()
         material.material = .popover
@@ -48,7 +50,10 @@ private final class PanelTintView: NSView {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.55).cgColor
+            layer?.backgroundColor =
+                NSColor.windowBackgroundColor.withAlphaComponent(
+                    PanelBackground.tintOpacity
+                ).cgColor
             CATransaction.commit()
         }
     }

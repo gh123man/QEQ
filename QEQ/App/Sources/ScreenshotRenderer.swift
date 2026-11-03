@@ -13,9 +13,9 @@ struct ScreenshotRenderer {
         let model = MixerModel(preview: true)
         model.snapshot.outputName = "MacBook Pro Speakers"
         model.snapshot.timing = "256 frames · 5.3 ms I/O buffer · 48 kHz"
-        // A view-only bitmap has no window-server backdrop. Supply an opaque
-        // appearance-matched backing for documentation captures; the live app
-        // leaves this clear and uses NSPopover's native visual-effect material.
+        // Standalone crops have no desktop backdrop, so supply an opaque backing.
+        // DesktopScreenshot separately composites its illustrated wallpaper to
+        // approximate the live panel's behind-window translucency.
         let host = NSHostingController(
             rootView: MixerView(model: model).background(Color(nsColor: .windowBackgroundColor)).environment(
                 \.controlActiveState, .active
