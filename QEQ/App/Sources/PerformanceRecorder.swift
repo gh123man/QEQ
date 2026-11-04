@@ -11,10 +11,11 @@ final class PerformanceRecorder {
     private var previousCPU = 0.0
     private var previousTime = 0.0
     private var tick = 0
+    private var signal: UIProfileSignal?
 
     func start(
         path: String, model: MixerModel, isVisible: @escaping @MainActor @Sendable () -> Bool,
-        setVisible: @escaping @MainActor @Sendable (Bool) -> Void
+        setVisible: @escaping @MainActor @Sendable (Bool) -> Void, synthetic: Bool = false
     ) {
         guard FileManager.default.createFile(atPath: path, contents: nil),
             let file = FileHandle(forWritingAtPath: path)
@@ -23,6 +24,11 @@ final class PerformanceRecorder {
             return
         }
         self.file = file
+        if synthetic {
+            let signal = UIProfileSignal()
+            signal.start(model: model, isVisible: isVisible)
+            self.signal = signal
+        }
         previousCPU = cpuTime()
         previousTime = ProcessInfo.processInfo.systemUptime
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self, weak model] _ in
@@ -31,10 +37,13 @@ final class PerformanceRecorder {
                 let now = ProcessInfo.processInfo.systemUptime
                 let cpu = self.cpuTime()
                 let row: [String: Any] = [
+                    "synthetic": synthetic,
+                    "editor": model.selectedEQ ?? "global-overview",
                     "seconds": (self.tick + 1) * 2,
                     "cpuPercent": 100 * (cpu - self.previousCPU) / (now - self.previousTime),
                     "panelVisible": isVisible(),
                     "activeRoutes": model.snapshot.active.count,
+                    "callbackFrames": model.snapshot.callbackFrames,
                     "playingApps": model.snapshot.apps.filter(\.playing).count,
                     "latestPeak": model.snapshot.peaks.values.max() ?? 0,
                     "warmup": self.tick == 0 || self.tick == 5 || self.tick == 10,
@@ -46,10 +55,15 @@ final class PerformanceRecorder {
                 self.previousTime = now
                 self.tick += 1
                 if self.tick == 5 { setVisible(false) }
-                if self.tick == 10 { setVisible(true) }
+                if self.tick == 10 {
+                    if synthetic { model.selectedEQ = model.snapshot.apps.first?.id }
+                    setVisible(true)
+                }
                 if self.tick == 15 {
                     self.timer?.invalidate()
                     self.timer = nil
+                    self.signal?.stop()
+                    self.signal = nil
                     try? self.file?.close()
                     self.file = nil
                 }

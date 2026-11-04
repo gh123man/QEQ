@@ -14,13 +14,11 @@ private final class FakeRoute: AudioRoute {
     var stopped = false
     var stalled = false
     var checks = 0
-    var analyzing = false
     init(_ app: AudioApplication, _ output: OutputDevice) {
         processes = app.processes
         self.output = output
     }
     func update(_ settings: MixerSettings, global: MixerSettings) {}
-    func setAnalysis(_ enabled: Bool) { analyzing = enabled }
     func analysis(using analyzer: SpectrumAnalyzer) -> AudioTelemetry? { nil }
     func checkHealth() throws {
         checks += 1
@@ -38,40 +36,35 @@ private var adjusted: MixerSettings {
     return value
 }
 
-@Test func expandingFlatEQStartsAnalysisAndClosingReleasesOnlyUnneededRoutes() {
+@Test func flatAndBypassedPlayingAppsKeepRoutesUntilPlaybackStopsOrGlobalBypass() {
     var created: [FakeRoute] = []
-    var supplied: [MixerSettings] = []
-    let controller = RouteController { app, output, value, _ in
+    let controller = RouteController { app, output, _, _ in
         let route = FakeRoute(app, output)
         created.append(route)
-        supplied.append(value)
         return route
     }
-    let flat = AudioApplication(id: "flat", name: "Flat", processes: [1], playing: true)
+    var flat = AudioApplication(id: "flat", name: "Flat", processes: [1], playing: true)
     let edited = AudioApplication(id: "edited", name: "Edited", processes: [2], playing: true)
     var settings = ["edited": adjusted]
-    func reconcile(_ selected: String?, enabled: Bool = true) {
+    func reconcile(enabled: Bool = true) {
         controller.reconcile(
             apps: [flat, edited], output: usb(), settings: settings,
-            enabled: enabled, analysisApp: selected, now: 0)
+            enabled: enabled, now: 0)
     }
-    reconcile(nil)
-    #expect(created.count == 1)
-    reconcile("flat")
-    #expect(created.count == 2 && supplied[1] == MixerSettings())
-    #expect(controller.routes["flat"] != nil && created[1].analyzing)
-    reconcile("edited")
-    #expect(created[1].stopped && created[0].analyzing)
-    reconcile(nil)
-    #expect(!created[0].stopped && !created[0].analyzing)
-    reconcile("flat", enabled: false)
-    #expect(controller.routes.isEmpty && created[0].stopped)
+    reconcile()
+    #expect(created.count == 2)
+    let flatRoute = created.first { $0.processes == [1] }!
     var bypassed = MixerSettings()
     bypassed.enabled = false
     settings["flat"] = bypassed
-    reconcile("flat")
-    #expect(controller.routes["flat"] == nil)
-    #expect(created.count == 3)  // Only the adjusted app restarts.
+    settings["edited"] = MixerSettings()
+    for _ in 0..<10 { reconcile() }
+    #expect(created.count == 2 && created.allSatisfy { !$0.stopped })
+    flat.playing = false
+    reconcile()
+    #expect(flatRoute.stopped && Set(controller.routes.keys) == ["edited"])
+    reconcile(enabled: false)
+    #expect(controller.routes.isEmpty && created.allSatisfy(\.stopped))
 }
 
 @Test func restoredIdleAppsDoNotAcquireRoutesOrTripTheWatchdog() throws {
@@ -87,29 +80,29 @@ private var adjusted: MixerSettings {
     let settings = ["saved": saved, "live": adjusted]
     for now in [0.0, 5, 30] {
         controller.reconcile(
-            apps: [idle, live], output: usb(), settings: settings, enabled: true, analysisApp: nil, now: now)
+            apps: [idle, live], output: usb(), settings: settings, enabled: true, now: now)
     }
     #expect(created.count == 1 && Set(controller.routes.keys) == ["live"])
     #expect(controller.errors.isEmpty && controller.messages["saved"] == "Waiting for playback")
     idle.playing = true
     controller.reconcile(
-        apps: [idle, live], output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 31)
+        apps: [idle, live], output: usb(), settings: settings, enabled: true, now: 31)
     #expect(created.count == 2 && controller.routes.count == 2)
     let savedRoute = created[1]
     savedRoute.stalled = true
     idle.playing = false
     controller.reconcile(
-        apps: [idle, live], output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 40)
+        apps: [idle, live], output: usb(), settings: settings, enabled: true, now: 40)
     #expect(savedRoute.stopped && savedRoute.checks == 0)
     #expect(controller.errors.isEmpty && controller.routes.count == 1)
     idle.processes = [99]
     idle.playing = true
     controller.reconcile(
-        apps: [idle, live], output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 41)
+        apps: [idle, live], output: usb(), settings: settings, enabled: true, now: 41)
     #expect(created.last?.processes == [99])
 }
 
-@Test func globalEQRoutesAllPlayingAppsIncludingAppBypassAndReleasesWhenDisabled() {
+@Test func changingGlobalEQDoesNotReplacePlayingRoutes() {
     var created: [FakeRoute] = []
     let controller = RouteController { app, output, _, global in
         #expect(global.hasEnabledEQ)
@@ -127,10 +120,11 @@ private var adjusted: MixerSettings {
     bypassed.enabled = false
     let settings = ["bypassed": bypassed]
     controller.reconcile(
-        apps: apps, output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 0, global: adjusted)
+        apps: apps, output: usb(), settings: settings, enabled: true, now: 0, global: adjusted)
     #expect(Set(controller.routes.keys) == ["flat", "bypassed"])
-    controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 1)
-    #expect(controller.routes.isEmpty && created.allSatisfy(\.stopped))
+    controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, now: 1)
+    #expect(created.count == 2 && created.allSatisfy { !$0.stopped })
+    #expect(Set(controller.routes.keys) == ["flat", "bypassed"])
 }
 
 @Test func globalSpectrumStartsWithoutAnyEQAdjustmentAndRespectsGlobalBypass() {
@@ -142,10 +136,10 @@ private var adjusted: MixerSettings {
     }
     let apps = [AudioApplication(id: "flat", name: "Flat", processes: [1], playing: true)]
     controller.reconcile(
-        apps: apps, output: usb(), settings: [:], enabled: true, analysisApp: MixerEngine.globalEQID, now: 0)
-    #expect(created.count == 1 && created[0].analyzing)
+        apps: apps, output: usb(), settings: [:], enabled: true, now: 0)
+    #expect(created.count == 1 && !created[0].stopped)
     controller.reconcile(
-        apps: apps, output: usb(), settings: [:], enabled: false, analysisApp: MixerEngine.globalEQID, now: 1)
+        apps: apps, output: usb(), settings: [:], enabled: false, now: 1)
     #expect(controller.routes.isEmpty && created[0].stopped)
 }
 
@@ -163,14 +157,14 @@ private var adjusted: MixerSettings {
     ]
     let settings = ["bad": adjusted, "good": adjusted]
     for now in [0.0, 5, 6, 7, 12, 100] {
-        controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, analysisApp: nil, now: now)
+        controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, now: now)
     }
     #expect(created.count == 3)  // Good once, stalled app twice.
     #expect(Set(controller.routes.keys) == ["good"])
     #expect(created[0].stopped && created[2].stopped && !created[1].stopped)
     #expect(controller.errors.keys.sorted() == ["bad"])
     controller.resetFailures()
-    controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, analysisApp: nil, now: 101)
+    controller.reconcile(apps: apps, output: usb(), settings: settings, enabled: true, now: 101)
     #expect(created.count == 4 && controller.routes.count == 2)
 }
 
@@ -183,20 +177,20 @@ private var adjusted: MixerSettings {
     }
     var app = AudioApplication(id: "app", name: "App", processes: [1], playing: true, outputDevices: [99])
     controller.reconcile(
-        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, analysisApp: nil, now: 0)
+        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, now: 0)
     #expect(created.isEmpty && controller.messages["app"] == "Playing on another output")
     app.outputDevices = [10]
     controller.reconcile(
-        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, analysisApp: nil, now: 1)
+        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, now: 1)
     app.processes = [2]
     controller.reconcile(
-        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, analysisApp: nil, now: 2)
+        apps: [app], output: usb(), settings: ["app": adjusted], enabled: true, now: 2)
     #expect(created.count == 2 && created[0].stopped && created[1].processes == [2])
     app.outputDevices = [11]
     controller.reconcile(
-        apps: [app], output: usb(11), settings: ["app": adjusted], enabled: true, analysisApp: nil, now: 3)
+        apps: [app], output: usb(11), settings: ["app": adjusted], enabled: true, now: 3)
     #expect(created.count == 3 && created[1].stopped && created[2].output.id == 11)
     controller.reconcile(
-        apps: [app], output: usb(11), settings: ["app": adjusted], enabled: false, analysisApp: nil, now: 4)
+        apps: [app], output: usb(11), settings: ["app": adjusted], enabled: false, now: 4)
     #expect(controller.routes.isEmpty && created[2].stopped)
 }

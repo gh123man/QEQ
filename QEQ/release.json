@@ -1,7 +1,7 @@
 {
-  "version": "1.0.1",
-  "marketingVersion": "1.0.1",
-  "build": 10,
+  "version": "1.0.2",
+  "marketingVersion": "1.0.2",
+  "build": 11,
   "bundleIdentifier": "local.AppMixer",
   "signing": "Developer ID Application",
   "notarized": true

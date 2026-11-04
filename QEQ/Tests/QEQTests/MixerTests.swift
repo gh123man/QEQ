@@ -239,10 +239,10 @@ func bypassDoesNotCreateAudioTapsOrChangeDefaultOutput() async throws {
     let initial = await iterator.next()
     #expect(initial?.enabled == false)
     #expect(initial?.active.isEmpty == true)
-    engine.setEnabled(true)
-    let enabled = await iterator.next()
-    #expect(enabled?.enabled == true)
-    #expect(enabled?.active.isEmpty == true)
+    // Even an open spectrum cannot acquire a tap while globally bypassed.
+    // Enabling now intentionally maintains routes for all playing apps, so do
+    // not enable a real engine in this read-only hardware check.
+    engine.setAnalysisApp(MixerEngine.globalEQID, includeGlobal: true) { _ in }
     engine.setEnabled(false)
     let bypassed = await iterator.next()
     #expect(bypassed?.enabled == false)

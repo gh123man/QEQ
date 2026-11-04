@@ -79,6 +79,9 @@ final class AppAudioRoute: AudioRoute {
                 throw AudioFailure(message: "Unsupported audio format.")
             }
             dsp = processor
+            // Capture into the preallocated bounded snapshot for the route lifetime.
+            // Opening/closing the UI must not change the realtime callback workload.
+            MixerDSPEnableAnalysis(processor, true)
             update(settings, global: global)
             try checkAudio(MixerDSPRegister(aggregate, processor, &proc), "Create realtime processor")
             // Strictly disable physical input streams BEFORE starting; never request microphone access.
@@ -99,7 +102,6 @@ final class AppAudioRoute: AudioRoute {
             }
         }
     }
-    func setAnalysis(_ enabled: Bool) { if let dsp { MixerDSPEnableAnalysis(dsp, enabled) } }
     func analysis(using analyzer: SpectrumAnalyzer) -> AudioTelemetry? {
         guard let dsp else { return nil }
         return analyzer.read(dsp: dsp, sampleRate: output.sampleRate)

@@ -9,7 +9,6 @@ protocol AudioRoute: AnyObject {
     var sourcePeak: Float { get }
     var lastFrames: UInt64 { get }
     func update(_ settings: MixerSettings, global: MixerSettings)
-    func setAnalysis(_ enabled: Bool)
     func analysis(using analyzer: SpectrumAnalyzer) -> AudioTelemetry?
     func checkHealth() throws
     func stop()
@@ -17,6 +16,7 @@ protocol AudioRoute: AnyObject {
 
 /// All access is on the engine control queue. Saved UI rows are not capture targets:
 /// only clients actively playing to the selected output may acquire a route.
+/// UI visibility is deliberately not an input: opening a meter cannot reroute audio.
 final class RouteController {
     private(set) var routes: [String: any AudioRoute] = [:]
     private(set) var messages: [String: String] = [:]
@@ -60,8 +60,8 @@ final class RouteController {
 
     func reconcile(
         apps: [AudioApplication], output: OutputDevice, settings: [String: MixerSettings],
-        enabled: Bool, analysisApp: String?, now: TimeInterval,
-        shouldContinue: () -> Bool = { true }, global: MixerSettings = MixerSettings(), analyzeAll: Bool = false
+        enabled: Bool, now: TimeInterval,
+        shouldContinue: () -> Bool = { true }, global: MixerSettings = MixerSettings()
     ) {
         messages.removeAll()
         errors.removeAll()
@@ -71,10 +71,6 @@ final class RouteController {
         }
         var wanted: [String: AudioApplication] = [:]
         for app in apps {
-            let value = settings[app.id] ?? MixerSettings()
-            let analyzing =
-                analyzeAll || analysisApp == MixerEngine.globalEQID || (app.id == analysisApp && value.enabled)
-            guard value.needsProcessing || global.hasEnabledEQ || analyzing else { continue }
             guard app.playing, !app.processes.isEmpty else {
                 messages[app.id] = "Waiting for playback"
                 continue
@@ -98,7 +94,6 @@ final class RouteController {
                 return
             }
             if let route = routes[app.id] {
-                route.setAnalysis(analyzeAll || app.id == analysisApp || analysisApp == MixerEngine.globalEQID)
                 do {
                     try route.checkHealth()
                     continue
@@ -114,7 +109,6 @@ final class RouteController {
             }
             do {
                 let route = try create(app, output, settings[app.id] ?? MixerSettings(), global)
-                route.setAnalysis(analyzeAll || app.id == analysisApp || analysisApp == MixerEngine.globalEQID)
                 routes[app.id] = route
                 log?.write(
                     .info,

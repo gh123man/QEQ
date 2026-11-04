@@ -145,7 +145,6 @@ struct MixerView: View {
         let settings = model.value(app.id)
         let selected = model.selectedEQ == app.id
         let muted = settings.enabled && settings.muted
-        let reading = model.telemetry.apps[app.id]
         return VStack(spacing: 9) {
             HStack(spacing: 9) {
                 if let icon = model.icon(for: app) {
@@ -212,15 +211,15 @@ struct MixerView: View {
                 .help("Bypass this app's volume and EQ while keeping its settings. Global EQ still applies.")
             }
             HStack(spacing: 9) {
-                InsetMeterSlider(
+                LiveAppMeter(
+                    liveAudio: model.liveAudio, appID: app.id,
                     value: Binding(
                         get: { model.value(app.id).volume }, set: { value in model.edit(app.id) { $0.volume = value } }),
                     maximum: settings.maximumVolume,
-                    peak: meterAvailable(app) ? ((muted ? reading?.sourcePeak : reading?.peak) ?? 0) : 0,
                     metered: meterAvailable(app),
                     muted: muted,
+                    bypassed: !settings.enabled,
                     color: NSColor(model.spectrumColor(for: app)),
-                    limitingDB: model.telemetry.apps[app.id]?.limitingDB ?? 0,
                     appName: app.name
                 )
                 .frame(height: 26)

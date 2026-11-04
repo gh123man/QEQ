@@ -8,12 +8,13 @@ usage() {
 Build and launch the app from the repo root.
 
 Usage:
-  ./run.sh [--clean] [--no-build] [--profile <jsonl>]
+  ./run.sh [--clean] [--no-build] [--profile <jsonl>] [--profile-ui <jsonl>]
 
 Options:
   --clean       Do a clean rebuild before launch
   --no-build    Launch the existing app bundle without rebuilding
   --profile     Record 30 seconds of CPU/route counters with the popup open/closed
+  --profile-ui  Profile reproducible animated UI fixtures without capturing/playing audio
   -h, --help    Show this help
 USAGE
 }
@@ -43,6 +44,11 @@ while [[ $# -gt 0 ]]; do
     --clean)
       CLEAN_BUILD=true
       shift
+      ;;
+    --profile-ui)
+      [[ $# -ge 2 && "$2" == /* ]] || { echo "--profile-ui requires an absolute output file path" >&2; exit 1; }
+      PROFILE_ARGS=(--profile-ui "$2")
+      shift 2
       ;;
     --profile)
       [[ $# -ge 2 && "$2" == /* ]] || { echo "--profile requires an absolute output file path" >&2; exit 1; }

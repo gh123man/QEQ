@@ -32,6 +32,7 @@ public final class MixerEngine: @unchecked Sendable {
     private let controller: RouteController
     private let discover: (() throws -> [AudioApplication])?
     private let readOutput: () throws -> OutputDevice
+    private var discoveryInterval: TimeInterval = 1
     private var settings: [String: MixerSettings] = [:]
     private var globalEQ = MixerSettings()
     private var appList = AudioAppList()
@@ -51,12 +52,13 @@ public final class MixerEngine: @unchecked Sendable {
     }
     init(
         controller: RouteController, discover: @escaping () throws -> [AudioApplication],
-        readOutput: @escaping () throws -> OutputDevice
+        readOutput: @escaping () throws -> OutputDevice, discoveryInterval: TimeInterval = 1
     ) {
         logging = false
         self.controller = controller
         self.discover = discover
         self.readOutput = readOutput
+        self.discoveryInterval = discoveryInterval
     }
     public func start(
         settings: [String: MixerSettings], global: MixerSettings = MixerSettings(),
@@ -72,7 +74,7 @@ public final class MixerEngine: @unchecked Sendable {
             self.enabled = requestedEnabled.withLock { $0 }
             self.deliver = deliver
             let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now(), repeating: 1, leeway: .milliseconds(200))
+            timer.schedule(deadline: .now(), repeating: discoveryInterval, leeway: .milliseconds(200))
             timer.setEventHandler { [weak self] in self?.refresh() }
             self.timer = timer
             timer.resume()
@@ -99,13 +101,10 @@ public final class MixerEngine: @unchecked Sendable {
         queue.async { [self] in
             let value = value.sanitized()
             settings[key] = value
-            let analyzing = analyzeAll || analysisApp == Self.globalEQID || (key == analysisApp && value.enabled)
-            if !value.needsProcessing && !globalEQ.hasEnabledEQ && !analyzing {
-                controller.remove(key)
-            } else if let route = controller.routes[key] {
+            if let route = controller.routes[key] {
                 route.update(value, global: globalEQ)
             }
-            // New routes are created at the next discovery tick, so slider drags don't queue HAL calls.
+            // Settings change coefficients, never route lifetime. Discovery owns topology.
         }
     }
     public func setGlobalEQ(_ value: MixerSettings) {
@@ -114,7 +113,7 @@ public final class MixerEngine: @unchecked Sendable {
             for (id, route) in controller.routes {
                 route.update(settings[id] ?? MixerSettings(), global: globalEQ)
             }
-            // Discovery creates/removes routes on its next tick, not on each drag.
+            // Changing filters does not create or destroy audio routes.
         }
     }
     public func setAnalysisApp(
@@ -124,29 +123,26 @@ public final class MixerEngine: @unchecked Sendable {
             analysisApp = key
             analyzeAll = includeGlobal
             deliverAnalysis = deliver
-            analyzers.removeAll()
             analysisReadings.removeAll()
-            analysisTimer?.cancel()
-            analysisTimer = nil
-            for (id, route) in controller.routes {
-                route.setAnalysis(analyzeAll || id == key || key == Self.globalEQID)
-            }
             lastAnalysis = AudioTelemetry()
             deliver(lastAnalysis)
-            // Opening a flat EQ needs a route for its spectrum too. Closing the
-            // panel releases that route immediately unless its audio is adjusted.
-            refresh()
+            // Presentation only subscribes/unsubscribes to existing snapshots.
+            // No discovery, health checks, DSP configuration, or HAL lifecycle here.
+            refreshAnalysisTimer()
+            if key != nil { readAnalysis() }
         }
     }
     /// Only wake at visual frame rate while a visible spectrum has an audio route.
     /// Discovery still runs once per second so playback/recovery remain responsive.
     private func refreshAnalysisTimer() {
+        // Reuse FFT plans across openings, but release them with their audio route.
+        analyzers = analyzers.filter { controller.routes[$0.key] != nil }
+        analysisReadings = analysisReadings.filter { controller.routes[$0.key] != nil }
         guard let key = analysisApp,
             controller.routes.keys.contains(where: { analyzeAll || key == Self.globalEQID || $0 == key })
         else {
             analysisTimer?.cancel()
             analysisTimer = nil
-            analyzers.removeAll()
             analysisReadings.removeAll()
             publishAnalysis(AudioTelemetry())
             return
@@ -163,7 +159,7 @@ public final class MixerEngine: @unchecked Sendable {
     private func readAnalysis() {
         guard let key = analysisApp else { return }
         let routes = controller.routes.filter { analyzeAll || key == Self.globalEQID || $0.key == key }
-        analyzers = analyzers.filter { routes[$0.key] != nil }
+        analyzers = analyzers.filter { controller.routes[$0.key] != nil }
         analysisReadings = analysisReadings.filter { routes[$0.key] != nil }
         for (id, route) in routes {
             let analyzer = analyzers[id] ?? SpectrumAnalyzer()
@@ -205,6 +201,8 @@ public final class MixerEngine: @unchecked Sendable {
     }
     private func stopRoutes() {
         controller.stop()
+        analyzers.removeAll()
+        analysisReadings.removeAll()
     }
     private func refresh() {
         var snapshot = MixerSnapshot()
@@ -228,9 +226,9 @@ public final class MixerEngine: @unchecked Sendable {
                 Double(output.bufferFrames) / output.sampleRate * 1000, output.sampleRate / 1000)
             controller.reconcile(
                 apps: discovered, output: output, settings: settings,
-                enabled: enabled && !suspended, analysisApp: analysisApp,
+                enabled: enabled && !suspended,
                 now: ProcessInfo.processInfo.systemUptime,
-                shouldContinue: { self.requestedEnabled.withLock { $0 } }, global: globalEQ, analyzeAll: analyzeAll)
+                shouldContinue: { self.requestedEnabled.withLock { $0 } }, global: globalEQ)
             if !requestedEnabled.withLock({ $0 }) {
                 enabled = false
                 stopRoutes()

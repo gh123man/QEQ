@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.0.2 — 2026-11-04
+
+- Keep audio routes independent of popup visibility to prevent UI-driven playback interruptions.
+- Reduce open-popup CPU usage with isolated telemetry updates and retained native visualizer layers, preserving resolution and responsiveness.
+- Meter bypassed apps over the full volume track while preserving saved volume and boost settings.
+
 ## 1.0.1 — 2026-11-03
 
 - Align the EQ filter dropdown with the right edge of its controls.

@@ -13,7 +13,12 @@ final class MixerModel: ObservableObject {
     @Published var changing = false
     @Published var selectedEQ: String?
     @Published var animateEQReveal = false
-    @Published var telemetry = AudioTelemetry()
+    // High-frequency audio readings must not invalidate the controls/layout.
+    let liveAudio = LiveAudioTelemetry()
+    var telemetry: AudioTelemetry {
+        get { liveAudio.value }
+        set { liveAudio.update(newValue) }
+    }
     static let panelHeightLimit: CGFloat = 1000
     @Published var maximumPanelHeight: CGFloat = MixerModel.panelHeightLimit
     private let preview: Bool
@@ -179,7 +184,7 @@ final class MixerModel: ObservableObject {
         engine.setAnalysisApp(panelVisible ? (selectedEQ ?? Self.globalEQID) : nil, includeGlobal: panelVisible) {
             [weak self] value in
             Task { @MainActor in
-                guard let self, self.telemetry != value else { return }
+                guard let self else { return }
                 self.telemetry = value
             }
         }
@@ -193,7 +198,9 @@ final class MixerModel: ObservableObject {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    let model = MixerModel(preview: CommandLine.arguments.contains("--render-screenshots"))
+    let model = MixerModel(
+        preview: CommandLine.arguments.contains("--render-screenshots")
+            || CommandLine.arguments.contains("--profile-ui"))
     let updates = UpdateStore(
         currentVersion: Bundle.main.object(forInfoDictionaryKey: "QEQReleaseVersion") as? String ?? "0.1.0",
         distribution: Bundle.main.object(forInfoDictionaryKey: "QEQBuildChannel") as? String == "release",
@@ -236,8 +243,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         AppLog.shared.write(.info, "QEQ started, version \(updates.currentVersion)")
         updates.installHandler = { [weak self] release in self?.installer.install(release) }
-        updates.start()
-        loginItem.start()
+        if !CommandLine.arguments.contains("--profile-ui") {
+            updates.start()
+            loginItem.start()
+        }
         model.showSettings = { [weak self] in
             self?.popover.performClose(nil)
             self?.settingsWindow.show()
@@ -257,7 +266,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self else { return }
             self.showPopover()
-            if let index = CommandLine.arguments.firstIndex(of: "--profile-performance"),
+            if let index = CommandLine.arguments.firstIndex(where: {
+                $0 == "--profile-performance" || $0 == "--profile-ui"
+            }),
                 index + 1 < CommandLine.arguments.count
             {
                 let recorder = PerformanceRecorder()
@@ -267,7 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                     isVisible: { [weak self] in self?.popover.isShown == true },
                     setVisible: { [weak self] visible in
                         if visible { self?.showPopover() } else { self?.popover.performClose(nil) }
-                    })
+                    }, synthetic: CommandLine.arguments.contains("--profile-ui"))
             }
         }
     }

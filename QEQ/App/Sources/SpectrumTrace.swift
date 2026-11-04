@@ -1,8 +1,8 @@
 import QEQAppSupport
 import SwiftUI
 
-/// SwiftUI interpolates only this inexpensive trace. Grid, filter response and
-/// draggable EQ handles stay outside the per-frame animation work.
+/// Shared bin-centered trace geometry. SpectrumSurface interpolates its paths
+/// in Core Animation; the grid, response and draggable handles stay static.
 struct SpectrumTrace: Shape {
     var levels: SpectrumPlotValues
     var filled = false

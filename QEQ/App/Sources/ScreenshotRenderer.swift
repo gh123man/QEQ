@@ -124,6 +124,7 @@ struct ScreenshotRenderer {
             \.controlActiveState, .active
         ).id("mixer")
         try capture("mixer", maximum: MixerModel.panelHeightLimit)
+        try VisualizationChecks.verify(model: model, host: host)
         // Opening starts taps asynchronously. Their first readings must not add
         // a legend/status row or change the already-presented panel's geometry.
         let streaming = model.telemetry

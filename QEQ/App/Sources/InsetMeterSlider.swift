@@ -1,4 +1,6 @@
 import AppKit
+import Combine
+import QEQAppSupport
 import QEQCore
 import QuartzCore
 import SwiftUI
@@ -9,12 +11,13 @@ struct InsetMeterSlider: NSViewRepresentable {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var value: Double
     var maximum: Double
-    var peak: Float
     var metered: Bool
     var muted = false
+    var bypassed = false
     var color: NSColor
-    var limitingDB: Float
     var appName: String
+    let liveAudio: LiveAudioTelemetry
+    let appID: String
 
     func makeCoordinator() -> Coordinator { Coordinator(value: $value) }
 
@@ -26,6 +29,9 @@ struct InsetMeterSlider: NSViewRepresentable {
 
     func makeNSView(context: Context) -> MeterSlider {
         let slider = MeterSlider()
+        // Retained drawing layers keep meter animation out of AppKit's
+        // control drawing and the surrounding SwiftUI hosting view.
+        slider.wantsLayer = true
         slider.cell = MeterSliderCell()
         slider.sliderType = .linear
         slider.isContinuous = true
@@ -33,6 +39,7 @@ struct InsetMeterSlider: NSViewRepresentable {
         slider.target = context.coordinator
         slider.action = #selector(Coordinator.changed(_:))
         slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        slider.observe(liveAudio, appID: appID)
         return slider
     }
 
@@ -44,24 +51,17 @@ struct InsetMeterSlider: NSViewRepresentable {
         if slider.doubleValue != position { slider.doubleValue = position }
         slider.altIncrementValue = 0.01
         slider.setAccessibilityLabel("\(appName) volume")
-        let db = peak > 0 && peak.isFinite ? 20 * log10(Double(peak)) : -.infinity
-        let level = metered ? (db.isFinite ? String(format: "%.0f dBFS", db) : "Silent") : "Not metered"
-        slider.toolTip =
-            "\(Int((value * 100).rounded()))% · \(muted ? "Muted · Source: " : "")\(level)\n"
-            + "Drag to set volume; double-click to reset to 100%.\n"
-            + (muted
-                ? "Gray shows source activity before EQ, volume and mute. Output is silent."
-                : "Color shows output activity after EQ, volume and mute, scaled within the handle.")
-            + (metered && !muted && limitingDB > 0.1 ? String(format: "\nPeak protection: −%.1f dB", limitingDB) : "")
         if let cell = slider.cell as? MeterSliderCell {
             cell.meterColor = muted ? .secondaryLabelColor : color
             cell.boosted = maximum > 1
         }
-        slider.setMeterLevel(metered ? max(0, min(1, (db + 60) / 60)) : 0, animated: metered && !reduceMotion)
+        slider.configureMeter(
+            metered: metered, muted: muted, bypassed: bypassed, animated: !reduceMotion, volume: value)
         slider.needsDisplay = true
     }
 
     static func dismantleNSView(_ slider: MeterSlider, coordinator: Coordinator) {
+        slider.stopObserving()
         slider.stopMeterAnimation()
     }
 
@@ -73,6 +73,54 @@ struct InsetMeterSlider: NSViewRepresentable {
 }
 
 final class MeterSlider: NSSlider {
+    private var subscription: AnyCancellable?
+    private var reading = AudioTelemetry()
+    private var metered = false
+    private var muted = false
+    private var bypassed = false
+    private var animateMeter = true
+    private var volume = 1.0
+
+    func observe(_ source: LiveAudioTelemetry, appID: String) {
+        subscription = source.$value.sink { [weak self] value in
+            guard let self else { return }
+            self.reading = value.apps[appID] ?? AudioTelemetry()
+            self.refreshMeter()
+        }
+    }
+
+    func stopObserving() { subscription = nil }
+
+    func configureMeter(metered: Bool, muted: Bool, bypassed: Bool, animated: Bool, volume: Double) {
+        self.metered = metered
+        self.muted = muted
+        self.bypassed = bypassed
+        self.animateMeter = animated
+        self.volume = volume
+        refreshMeter()
+    }
+
+    private func refreshMeter() {
+        let peak = muted ? reading.sourcePeak : reading.peak
+        let db = peak > 0 && peak.isFinite ? 20 * log10(Double(peak)) : -.infinity
+        let level = metered ? (db.isFinite ? String(format: "%.0f dBFS", db) : "Silent") : "Not metered"
+        let volumeLabel =
+            bypassed
+            ? "100% · Bypassed (saved: \(Int((volume * 100).rounded()))%)" : "\(Int((volume * 100).rounded()))%"
+        let tip =
+            "\(volumeLabel) · \(muted ? "Muted · Source: " : "")\(level)\n"
+            + "Drag to set volume; double-click to reset to 100%.\n"
+            + (muted
+                ? "Gray shows source activity before EQ, volume and mute. Output is silent."
+                : (bypassed
+                    ? "Color shows output activity across the full track. This app's volume and EQ are bypassed; Global EQ still applies."
+                    : "Color shows output activity after EQ, volume and mute, scaled within the handle."))
+            + (metered && !muted && reading.limitingDB > 0.1
+                ? String(format: "\nPeak protection: −%.1f dB", reading.limitingDB) : "")
+        if toolTip != tip { toolTip = tip }
+        setMeterLevel(metered ? max(0, min(1, (db + 60) / 60)) : 0, animated: metered && animateMeter)
+    }
+
     var scale = VolumeSliderScale(maximum: 1)
     private var meterTransition = MeterLevelTransition()
     private var meterDisplayLink: MeterDisplayLinkLifetime?
@@ -104,7 +152,7 @@ final class MeterSlider: NSSlider {
             let level = meterTransition.value(at: time)
             if cell.level != level {
                 cell.level = level
-                needsDisplay = true
+                updateMeterFill()
             }
         }
         if meterTransition.isSettled(at: time) { stopMeterAnimation() }
@@ -148,6 +196,77 @@ final class MeterSlider: NSSlider {
         }
     }
 
+    // The native control still owns tracking, keyboard input and accessibility.
+    // Retain its static geometry in layers; moving the fill must not repaint the
+    // knob/shadow or ask AppKit to lay out the SwiftUI panel at display cadence.
+    private let trackLayer = CALayer()
+    private let fillLayer = CALayer()
+    private let markerLayer = CAShapeLayer()
+    private let knobLayer = CAShapeLayer()
+    private var fillSpan: CGFloat = 0
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer, let cell = cell as? MeterSliderCell else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        if trackLayer.superlayer == nil {
+            layer.addSublayer(trackLayer)
+            trackLayer.addSublayer(fillLayer)
+            layer.addSublayer(markerLayer)
+            layer.addSublayer(knobLayer)
+            trackLayer.cornerRadius = 6
+            trackLayer.masksToBounds = true
+            knobLayer.lineWidth = 0.5
+            knobLayer.shadowOpacity = 1
+            knobLayer.shadowRadius = 2
+            knobLayer.shadowOffset = CGSize(width: 0, height: -1)
+        }
+        let rect = cell.barRect(flipped: isFlipped)
+        let bar = CGRect(x: rect.minX, y: rect.midY - 6, width: rect.width, height: 12)
+        let knob = cell.knobRect(flipped: isFlipped)
+        trackLayer.frame = bar
+        // A bypassed app uses unity gain regardless of its saved volume/boost.
+        // Keep the handle at that saved setting, but meter over the whole track.
+        fillSpan = bypassed ? bar.width : (doubleValue > minValue ? max(0, min(bar.width, knob.midX - bar.minX)) : 0)
+        let path = CGPath(roundedRect: knob, cornerWidth: 4, cornerHeight: 4, transform: nil)
+        knobLayer.path = path
+        knobLayer.shadowPath = path
+        let marker = CGMutablePath()
+        if cell.boosted {
+            let pixels = window?.backingScaleFactor ?? 1
+            let unityX =
+                ((bounds.minX + 10 + max(0, bounds.width - 20) * VolumeSliderScale.boostedUnityPosition)
+                * pixels).rounded() / pixels
+            let centerY = (bounds.midY * pixels).rounded() / pixels
+            marker.addRect(CGRect(x: unityX - 1, y: centerY - 12, width: 2, height: 24))
+            marker.addRect(CGRect(x: unityX - 3, y: centerY - 12, width: 6, height: 2))
+            marker.addRect(CGRect(x: unityX - 3, y: centerY + 10, width: 6, height: 2))
+        }
+        markerLayer.path = marker
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            trackLayer.backgroundColor = NSColor.secondaryLabelColor.withAlphaComponent(0.18).cgColor
+            fillLayer.backgroundColor = cell.meterColor.withAlphaComponent(0.72).cgColor
+            markerLayer.fillColor = NSColor.labelColor.withAlphaComponent(0.8).cgColor
+            knobLayer.fillColor = NSColor(white: 0.95, alpha: 1).cgColor
+            knobLayer.strokeColor = NSColor.black.withAlphaComponent(0.12).cgColor
+            knobLayer.shadowColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        }
+        for surface in [trackLayer, fillLayer, markerLayer, knobLayer] {
+            surface.contentsScale = window?.backingScaleFactor ?? 2
+        }
+        updateMeterFill()
+    }
+
+    private func updateMeterFill() {
+        guard let cell = cell as? MeterSliderCell else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fillLayer.frame = CGRect(x: 0, y: 0, width: fillSpan * cell.level, height: 12)
+        CATransaction.commit()
+    }
+
     override func accessibilityValueDescription() -> String? {
         "\(Int((scale.gain(at: doubleValue) * 100).rounded())) percent"
     }
@@ -178,55 +297,9 @@ private final class MeterSliderCell: NSSliderCell {
     var meterColor: NSColor = .controlAccentColor
     var boosted = false
 
-    override func drawBar(inside rect: NSRect, flipped: Bool) {
-        let bar = NSRect(x: rect.minX, y: rect.midY - 6, width: rect.width, height: 12)
-        let shape = NSBezierPath(roundedRect: bar, xRadius: 6, yRadius: 6)
-        NSColor.secondaryLabelColor.withAlphaComponent(0.18).setFill()
-        shape.fill()
-        NSGraphicsContext.saveGraphicsState()
-        shape.addClip()
-        meterColor.withAlphaComponent(0.72).setFill()
-        // Fit the full meter range into the selected volume span, rather than
-        // clipping a full-width meter (which would look stuck at low volumes).
-        let span = doubleValue > minValue ? max(0, min(bar.width, knobRect(flipped: flipped).midX - bar.minX)) : 0
-        NSRect(x: bar.minX, y: bar.minY, width: span * level, height: bar.height).fill()
-        NSGraphicsContext.restoreGraphicsState()
-        if boosted {
-            // This reference must never depend on an animated native knob/bar
-            // rectangle. Use the fixed control bounds and the resting 10pt inset.
-            let bounds = controlView?.bounds ?? rect
-            let pixels = controlView?.window?.backingScaleFactor ?? 1
-            let unityX =
-                ((bounds.minX + 10 + max(0, bounds.width - 20) * VolumeSliderScale.boostedUnityPosition) * pixels)
-                .rounded() / pixels
-            let centerY = (bounds.midY * pixels).rounded() / pixels
-            // High-contrast unity marker crosses the track; end caps remain
-            // visible above and below the handle when it sits at exactly 100%.
-            NSColor.labelColor.withAlphaComponent(0.8).setFill()
-            NSRect(x: unityX - 1, y: centerY - 12, width: 2, height: 24).fill()
-            NSRect(x: unityX - 3, y: centerY - 12, width: 6, height: 2).fill()
-            NSRect(x: unityX - 3, y: centerY + 10, width: 6, height: 2).fill()
-        }
-    }
-
     override func knobRect(flipped: Bool) -> NSRect {
         let native = super.knobRect(flipped: flipped)
         return NSRect(x: native.midX - 4.5, y: native.midY - 10, width: 9, height: 20)
     }
 
-    override func drawKnob(_ knobRect: NSRect) {
-        let shape = NSBezierPath(roundedRect: knobRect, xRadius: 4, yRadius: 4)
-        NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
-        shadow.shadowBlurRadius = 2
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.set()
-        NSColor(white: 0.95, alpha: 1).setFill()
-        shape.fill()
-        NSGraphicsContext.restoreGraphicsState()
-        NSColor.black.withAlphaComponent(0.12).setStroke()
-        shape.lineWidth = 0.5
-        shape.stroke()
-    }
 }

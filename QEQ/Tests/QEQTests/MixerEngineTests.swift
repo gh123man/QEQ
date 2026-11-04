@@ -12,6 +12,7 @@ private final class MeterRoute: AudioRoute {
     var peak: Float { level.withLock { $0 } }
     var sourcePeak: Float { sourceLevel.withLock { $0 } }
     let sourceLevel = OSAllocatedUnfairLock<Float>(initialState: 0.3)
+    let lifecycle = OSAllocatedUnfairLock(initialState: [String]())
     var lastFrames: UInt64 { 16384 }
     let level: OSAllocatedUnfairLock<Float>
     let reads: OSAllocatedUnfairLock<Int>
@@ -19,8 +20,7 @@ private final class MeterRoute: AudioRoute {
         self.level = level
         self.reads = reads
     }
-    func update(_ settings: MixerSettings, global: MixerSettings) {}
-    func setAnalysis(_ enabled: Bool) {}
+    func update(_ settings: MixerSettings, global: MixerSettings) { lifecycle.withLock { $0.append("update") } }
     func analysis(using analyzer: SpectrumAnalyzer) -> AudioTelemetry? {
         reads.withLock { $0 += 1 }
         var value = AudioTelemetry()
@@ -28,8 +28,66 @@ private final class MeterRoute: AudioRoute {
         value.spectrum = [Float](repeating: peak > 0 ? -20 : -90, count: AudioTelemetry.spectrumBinCount)
         return value
     }
-    func checkHealth() throws {}
-    func stop() {}
+    func checkHealth() throws { lifecycle.withLock { $0.append("health") } }
+    func stop() { lifecycle.withLock { $0.append("stop") } }
+}
+
+@Test func openingClosingAndSelectingEQCannotDiscoverOrReconfigureAudioRoutes() async throws {
+    let route = MeterRoute(level: .init(initialState: 0.1), reads: .init(initialState: 0))
+    let creates = OSAllocatedUnfairLock(initialState: 0)
+    let discoveries = OSAllocatedUnfairLock(initialState: 0)
+    let ready = OSAllocatedUnfairLock(initialState: false)
+    let finished = OSAllocatedUnfairLock(initialState: false)
+    let controller = RouteController { _, _, _, _ in
+        creates.withLock { $0 += 1 }
+        return route
+    }
+    let engine = MixerEngine(
+        controller: controller,
+        discover: {
+            discoveries.withLock { $0 += 1 }
+            return [AudioApplication(id: "test", name: "Test", processes: [10], playing: true)]
+        }, readOutput: { route.output }, discoveryInterval: 60)
+    defer { engine.shutdown() }
+    engine.start(settings: [:], enabled: true) { snapshot in
+        ready.withLock { $0 = snapshot.active == ["test"] }
+    }
+    func wait(_ flag: OSAllocatedUnfairLock<Bool>) async throws {
+        for _ in 0..<300 {
+            if flag.withLock({ $0 }) { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(flag.withLock { $0 }, "Engine did not finish within 3 seconds")
+    }
+    try await wait(ready)
+    let before = route.lifecycle.withLock { $0 }
+    // A running flat app must already have its route before the first opening.
+    #expect(creates.withLock { $0 } == 1)
+    for _ in 0..<100 {
+        engine.setAnalysisApp(MixerEngine.globalEQID, includeGlobal: true) { _ in }
+        engine.setAnalysisApp("test", includeGlobal: true) { _ in }
+        engine.setAnalysisApp(nil) { _ in }
+    }
+    engine.setAnalysisApp(nil) { _ in finished.withLock { $0 = true } }
+    try await wait(finished)
+    #expect(discoveries.withLock { $0 } == 1)
+    #expect(creates.withLock { $0 } == 1)
+    #expect(route.lifecycle.withLock { $0 } == before)
+    #expect(route.reads.withLock { $0 } > 0)
+
+    // Resetting/bypassing an app must not put the next popup opening back on
+    // the old create/stop path either. Only the explicit master bypass stops it.
+    var bypassed = MixerSettings()
+    bypassed.enabled = false
+    finished.withLock { $0 = false }
+    engine.update("test", settings: bypassed)
+    engine.update("test", settings: MixerSettings())
+    engine.setGlobalEQ(MixerSettings())
+    engine.setAnalysisApp(nil) { _ in finished.withLock { $0 = true } }
+    try await wait(finished)
+    #expect(route.lifecycle.withLock { $0 } == before + ["update", "update", "update"])
+    engine.shutdown()
+    #expect(route.lifecycle.withLock { $0.last } == "stop")
 }
 
 @Test func analysisSleepsWhenIdleAndRestartsAfterPlaybackBypassAndPanelChanges() async throws {

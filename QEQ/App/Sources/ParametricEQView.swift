@@ -3,7 +3,6 @@ import QEQCore
 import SwiftUI
 
 struct ParametricEQView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: MixerModel
     let appID: String
     var compact = false
@@ -20,9 +19,6 @@ struct ParametricEQView: View {
     private var settings: MixerSettings { model.value(appID) }
     private var band: EQBand { settings.bands[selected] }
     private var isGlobal: Bool { appID == MixerModel.globalEQID }
-    private var telemetry: AudioTelemetry {
-        isGlobal ? model.telemetry : model.telemetry.apps[appID] ?? AudioTelemetry()
-    }
     private var spectrumApps: [AudioApplication] {
         // The legend is known before taps start delivering telemetry.
         Array(model.snapshot.apps.filter { $0.playing }.prefix(6))
@@ -37,33 +33,9 @@ struct ParametricEQView: View {
     var body: some View {
         VStack(spacing: 10) {
             if !controlsOnly {
-                HStack(spacing: 5) {
-                    Spacer()
-                    if processing && !telemetry.spectrum.isEmpty {
-                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                        if telemetry.simulated {
-                            Text("Simulated spectrum").font(.system(size: 9)).foregroundStyle(.secondary)
-                        }
-                        if compact && telemetry.limitingDB > 0.1 {
-                            Text(String(format: "Limiting −%.1f dB", telemetry.limitingDB))
-                                .font(.system(size: 9, design: .monospaced)).foregroundStyle(.orange)
-                                .help(
-                                    "Automatic clipping protection is reducing gain. Lower app volume or EQ boosts for more headroom."
-                                )
-                        } else {
-                            Text(
-                                telemetry.peak > 0.00003
-                                    ? String(format: "%.0f dBFS", 20 * log10(telemetry.peak)) : "−∞ dBFS"
-                            )
-                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).frame(
-                                width: 53, alignment: .trailing)
-                        }
-                    } else {
-                        Text(processing ? "Waiting for signal" : "Preview · enable processing for spectrum").font(
-                            .system(size: 9)
-                        ).foregroundStyle(.secondary)
-                    }
-                }
+                LiveSpectrumStatus(
+                    liveAudio: model.liveAudio, appID: appID, processing: processing, compact: compact
+                )
                 .frame(height: 13)
                 .padding(.horizontal, isGlobal ? 16 : 0)
                 .help(
@@ -156,16 +128,7 @@ struct ParametricEQView: View {
                         }
                     }.menuStyle(.borderlessButton).fixedSize()
                     Spacer()
-                    if processing && telemetry.limitingDB > 0.1 {
-                        Label(
-                            String(format: "Limiting −%.1f dB", telemetry.limitingDB),
-                            systemImage: "waveform.badge.minus"
-                        )
-                        .foregroundStyle(Color.orange)
-                        .help(
-                            "Automatic clipping protection is reducing output gain by this amount. Lower app volume or EQ boosts if this happens often. The EQ curve is shown before volume and limiting."
-                        )
-                    }
+                    LiveLimitingStatus(liveAudio: model.liveAudio, appID: appID, processing: processing)
                     Button(isGlobal ? "Reset EQ" : "Reset app") { model.edit(appID) { $0 = MixerSettings() } }
                 }.font(.system(size: 10)).buttonStyle(.borderless)
             }
@@ -236,10 +199,14 @@ struct ParametricEQView: View {
                                 .primary.opacity(0.45)), at: CGPoint(x: x(hz), y: rect.maxY + 12))
                     }
                 }
-                spectrumLayer
-                    .frame(width: rect.width, height: rect.height)
-                    .position(x: rect.midX, y: rect.midY)
-                    .allowsHitTesting(false)
+                LiveSpectrumLayer(
+                    liveAudio: model.liveAudio, appID: appID, processing: processing,
+                    apps: isGlobal ? spectrumApps.map { ($0.id, model.spectrumColor(for: $0)) } : []
+                )
+                .accessibilityHidden(true)
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+                .allowsHitTesting(false)
                 Canvas { context, size in
                     func x(_ hz: Double) -> CGFloat { rect.minX + log(hz / 20) / log(upper / 20) * rect.width }
                     func y(_ db: Double) -> CGFloat { rect.midY - db / 36 * rect.height }
@@ -300,26 +267,6 @@ struct ParametricEQView: View {
                 )
         }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: isGlobal ? 0 : 6))
     }
-    private var spectrumLayer: some View {
-        ZStack {
-            if processing, !telemetry.spectrum.isEmpty {
-                SpectrumTrace(levels: SpectrumPlotValues(spectrum: telemetry.spectrum), filled: true)
-                    .fill(Color.accentColor.opacity(0.16))
-                    .animation(reduceMotion ? nil : .linear(duration: 0.033), value: telemetry.spectrum)
-                    .id(telemetry.spectrum.count)
-                if isGlobal {
-                    ForEach(spectrumApps) { app in
-                        let bins = model.telemetry.apps[app.id]?.spectrum ?? []
-                        SpectrumTrace(levels: SpectrumPlotValues(spectrum: bins))
-                            .stroke(model.spectrumColor(for: app).opacity(0.85), lineWidth: 1)
-                            .animation(reduceMotion ? nil : .linear(duration: 0.033), value: bins)
-                            .id(bins.count)
-                    }
-                }
-            }
-        }.accessibilityHidden(true)
-    }
-
     private func resetBand(_ index: Int) {
         selected = index
         model.edit(appID) { $0.bands[index] = MixerSettings.defaultBands[index] }

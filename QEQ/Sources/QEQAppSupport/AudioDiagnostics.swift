@@ -16,7 +16,6 @@ public enum AudioDiagnostics {
             settings.bands[2].gain = -3
             let route = try AppAudioRoute(app: app, output: output, settings: settings)
             defer { route.stop() }
-            route.setAnalysis(true)
             let analyzer = SpectrumAnalyzer()
             var peak: Float = 0
             var spectrumFrames = 0
