@@ -8,6 +8,7 @@ struct MixerView: View {
     var updates: UpdateStore? = nil
     // Desktop documentation supplies a composited backdrop; live panels use AppKit.
     var drawsPanelBackground = true
+    var onPanelHeightChange: ((CGFloat) -> Void)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var globalBand = 0
     @State private var measured: [String: CGFloat] = [:]
@@ -91,6 +92,9 @@ struct MixerView: View {
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) { measured = heights }
+            }
+            .onChange(of: panelHeight, initial: true) { _, height in
+                onPanelHeightChange?(height)
             }
     }
     private var globalSection: some View {

@@ -1,12 +1,72 @@
 import AppKit
 import Combine
 import QEQAppSupport
+import QEQCore
 import QuartzCore
 import SwiftUI
 
 /// Native-renderer regression checks, run by the screenshot command in CI too.
 @MainActor
 enum VisualizationChecks {
+    static func verifyAdaptivePopover() throws {
+        let model = MixerModel(preview: true)
+        let popover = NSPopover()
+        let sizer = PopoverSizer(popover: popover)
+        let host = NSHostingController(
+            rootView: MixerView(
+                model: model,
+                onPanelHeightChange: { height in
+                    sizer.update(height: height)
+                }))
+        host.sizingOptions = []
+        popover.contentViewController = host
+        popover.contentSize = PopoverLayout.prepare(host, maximumHeight: model.maximumPanelHeight)
+
+        func settle() -> CGFloat {
+            for _ in 0..<12 {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.035))
+                host.view.layoutSubtreeIfNeeded()
+            }
+            return popover.contentSize.height
+        }
+        // Keep the same view identity and never manually resize or prepare it
+        // again: this is the late-discovery path after a login launch.
+        let empty = settle()
+        let apps = (0..<3).map {
+            AudioApplication(id: "resize-\($0)", name: "App \($0 + 1)", playing: true)
+        }
+        model.snapshot.apps = [apps[0]]
+        let oneApp = settle()
+        model.snapshot.apps = apps
+        let populated = settle()
+        guard populated > oneApp + 100, populated > empty + 100 else {
+            throw failure("Popover stayed compressed after late app discovery: \(empty), \(oneApp), \(populated)")
+        }
+        model.selectedEQ = apps[0].id
+        let expanded = settle()
+        guard expanded > populated else { throw failure("Popover did not grow for the app EQ editor") }
+        model.selectedEQ = nil
+        guard abs(settle() - populated) <= 1 else { throw failure("Popover did not shrink after closing app EQ") }
+        model.snapshot.error = "An app needs audio capture permission."
+        guard settle() > populated else { throw failure("Popover did not grow for the error banner") }
+        model.snapshot.error = nil
+        model.snapshot.apps = (0..<15).map {
+            AudioApplication(id: "long-\($0)", name: "App \($0 + 1)", playing: true)
+        }
+        guard abs(settle() - MixerModel.panelHeightLimit) <= 1 else {
+            throw failure("Popover did not grow to its long-list limit")
+        }
+        model.maximumPanelHeight = 460
+        guard abs(settle() - 460) <= 1 else { throw failure("Popover ignored the smaller screen limit") }
+        model.maximumPanelHeight = MixerModel.panelHeightLimit
+        guard abs(settle() - MixerModel.panelHeightLimit) <= 1 else {
+            throw failure("Popover did not grow after the screen limit increased")
+        }
+        model.snapshot.apps = []
+        guard abs(settle() - empty) <= 1 else { throw failure("Popover did not shrink after app removal") }
+        print("adaptive popover: late discovery, EQ, errors, long lists, screen changes and removal")
+    }
+
     static func verify(model: MixerModel, host: NSHostingController<some View>) throws {
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let views = descendants(host.view)

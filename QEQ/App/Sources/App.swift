@@ -215,6 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
     private var item: NSStatusItem!
     private let popover = NSPopover()
+    private lazy var popoverSizer = PopoverSizer(popover: popover)
     private var mixerHost: NSHostingController<MixerView>?
     private var performanceRecorder: PerformanceRecorder?
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -258,10 +259,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         item.button?.action = #selector(togglePopover)
         popover.behavior = .transient
         popover.delegate = self
-        let host = NSHostingController(rootView: MixerView(model: model, updates: updates))
-        host.sizingOptions = [.preferredContentSize]
+        let sizer = popoverSizer
+        let host = NSHostingController(
+            rootView: MixerView(
+                model: model, updates: updates,
+                onPanelHeightChange: { [weak sizer] height in
+                    sizer?.update(height: height)
+                }))
+        // The measured-height callback owns resizing, including late discovery.
+        host.sizingOptions = []
         popover.contentViewController = host
         mixerHost = host
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(updatePanelHeightLimit),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
         // Show the controls once at launch so a menu-bar-only app is easy to find.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self else { return }
@@ -288,13 +299,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func showPopover() {
         guard let button = item.button, let host = mixerHost else { return }
         model.animateEQReveal = false
-        model.maximumPanelHeight = min(
-            MixerModel.panelHeightLimit,
-            max(280, (button.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
+        updatePanelHeightLimit()
         popover.contentSize = PopoverLayout.prepare(host, maximumHeight: model.maximumPanelHeight)
         model.setPanelVisible(true)
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+    @objc private func updatePanelHeightLimit() {
+        model.maximumPanelHeight = min(
+            MixerModel.panelHeightLimit,
+            max(280, (item.button?.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 768) - 48)
     }
     func popoverDidClose(_ notification: Notification) { model.setPanelVisible(false) }
     func applicationWillTerminate(_ notification: Notification) {

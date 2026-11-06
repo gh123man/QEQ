@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the popup height in sync as apps arrive after startup, EQ panels expand or collapse, and available screen space changes.
+
 ## 1.0.2 — 2026-11-04
 
 - Keep audio routes independent of popup visibility to prevent UI-driven playback interruptions.

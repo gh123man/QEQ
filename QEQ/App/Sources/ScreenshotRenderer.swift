@@ -10,6 +10,7 @@ import SwiftUI
 struct ScreenshotRenderer {
     static func render(to directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try VisualizationChecks.verifyAdaptivePopover()
         let model = MixerModel(preview: true)
         model.snapshot.outputName = "MacBook Pro Speakers"
         model.snapshot.timing = "256 frames · 5.3 ms I/O buffer · 48 kHz"
