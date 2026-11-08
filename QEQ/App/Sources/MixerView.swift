@@ -33,6 +33,10 @@ struct MixerView: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                         .help("Off restores original audio for every app.")
                     Menu {
+                        if !model.hardwareStatus.isEmpty {
+                            Text(model.hardwareStatus)
+                            Divider()
+                        }
                         Button("Settings…") { model.showSettings?() }.keyboardShortcut(",")
                         Divider()
                         Button("Quit") { NSApp.terminate(nil) }
@@ -241,6 +245,9 @@ struct MixerView: View {
         )
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
         .contextMenu {
+            if !model.hardwareStatus.isEmpty {
+                Button("Use hardware controls") { model.selectHardwareApp(app.id) }
+            }
             Button("Exclude") { model.exclusions.exclude(app) }
         }
     }

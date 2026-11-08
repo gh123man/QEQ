@@ -52,6 +52,7 @@ targets:
     dependencies:
       - target: QEQCore
       - target: MixerDSP
+      - sdk: CoreMIDI.framework
     settings:
       base:
         PRODUCT_NAME: QEQAppSupport

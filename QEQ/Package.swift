@@ -22,12 +22,14 @@ let package = Package(
         .target(
             name: "QEQAppSupport",
             dependencies: ["QEQCore", "MixerDSP"],
-            path: "Sources/QEQAppSupport"
+            path: "Sources/QEQAppSupport",
+            linkerSettings: [.linkedFramework("CoreMIDI")]
         ),
         .testTarget(
             name: "QEQTests",
             dependencies: ["QEQCore", "QEQAppSupport", "MixerDSP"],
-            path: "Tests/QEQTests"
+            path: "Tests/QEQTests",
+            resources: [.process("Fixtures")]
         ),
     ],
     cxxLanguageStandard: .cxx17
