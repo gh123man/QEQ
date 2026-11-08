@@ -1,5 +1,9 @@
 # Native QEQ display streaming
 
+Hardware V2 is now the default development board; see [HARDWARE-V2.md](HARDWARE-V2.md).
+The `stream` firmware and physical setup below apply to the original prototype,
+not V2. Preserve this implementation while adding V2 support separately.
+
 QEQ automatically discovers the purpose-built board's vendor display interface
 and renders its selected-app screen with Metal. No Python worker, Homebrew USB
 library, launch argument, raster file, or helper process is required.

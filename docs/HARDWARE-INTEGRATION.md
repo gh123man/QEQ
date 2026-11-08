@@ -1,5 +1,10 @@
 # QEQ hardware integration plan
 
+**Current board: hardware V2.** Use `hardware-dev` in both repositories and read
+[the V2 baseline](HARDWARE-V2.md) before building or flashing. The model-1 and
+prototype wiring sections below describe the existing host integration; V2
+four-app control remains separate work.
+
 Status: initial native integration implemented, 2026-11-08. The ESP32-S3 MIDI
 build has been flashed and bidirectional QEQ feedback verified. General-purpose
 MIDI Learn, arbitrary board profiles, and broader reliability work remain planned.
@@ -143,7 +148,8 @@ LED/display renderers. It must never generate another input event.
 
 ## Validation and repository workflow
 
-- QEQ work lives on `codex/qeq-hardware-integration`; firmware may stay on `main`.
+- QEQ and firmware work live on `hardware-dev` or feature branches based on it.
+  Hardware V2 is the default; see [the V2 baseline](HARDWARE-V2.md).
   Use small milestones and record compatible commit/protocol versions across repos.
 - QEQ baseline and each implementation milestone: `swift test --package-path QEQ`
   with local hardware tests enabled. App changes also require the generated macOS

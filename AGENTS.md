@@ -6,6 +6,7 @@ Goal: shortest path from request to the exact files, commands, and constraints n
 
 | Task | Open First | Usually Validate With |
 |---|---|---|
+| Hardware / controller firmware | `docs/HARDWARE-V2.md`; `docs/HARDWARE-INTEGRATION.md` | `swift test --package-path QEQ`; firmware `./run.sh test` |
 | App UI or lifecycle | `QEQ/App/Sources/` | `./QEQ/scripts/xcodebuild_generated.sh -scheme QEQ -destination 'generic/platform=macOS' build` |
 | Core logic | `QEQ/Sources/QEQCore/` | `swift test --package-path QEQ` |
 | App support/services | `QEQ/Sources/QEQAppSupport/` | `swift test --package-path QEQ` |
@@ -38,3 +39,15 @@ Update `QEQ/release.json` and matching release notes before committing. Run `cut
 ## Branding and UI captures
 
 The user-facing app and artifacts are QEQ. Modules and directories use QEQ; the legacy `local.AppMixer` bundle identity remains stable for settings and permission compatibility. See `docs/DEVELOPMENT.md` for screenshot generation and diagnostics. Screenshots must use the app-owned renderer, never desktop capture or computer use.
+
+## Hardware development default
+
+Assume **hardware V2** for all future hardware work unless the user explicitly
+requests the original prototype. Use `hardware-dev` or a feature branch based on
+it in both QEQ and the separate `vol-firmware` repository. Read
+`docs/HARDWARE-V2.md` for the physical GPIO map, firmware build/flash commands,
+validation status, and the current integration boundary. Firmware `WIRING.md` and
+`include/board_profiles.h` are authoritative. The old prototype `midi`/`stream`
+images use different pins and must not be flashed to V2. The current V2 default is
+the serial-only `test-four-manual` image, not four-app host control. Keep rotary
+diagnostics at the top of the test display while its damaged LCD is replaced.
