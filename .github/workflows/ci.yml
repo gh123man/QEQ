@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
-    runs-on: macos-26-intel
+    runs-on: macos-26
     timeout-minutes: 20
     env:
       QEQ_HARDWARE_TESTS: '0'
@@ -24,7 +24,7 @@ jobs:
           xcodebuild -version
           swift --version
           xcodegen --version
-      - name: Format, tests, and universal app build
+      - name: Format, tests, and Apple Silicon app build
         run: |
           python3 QEQ/scripts/screenshots.py --check
           ./QEQ/scripts/check.sh

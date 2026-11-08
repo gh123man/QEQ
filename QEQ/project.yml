@@ -8,6 +8,7 @@ configs:
   Release: release
 settings:
   base:
+    ARCHS: arm64
     SWIFT_VERSION: 6.0
     OTHER_LDFLAGS: ["$(inherited)", "-lc++"]
     CURRENT_PROJECT_VERSION: 1
@@ -17,6 +18,23 @@ packages:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.9.3
 targets:
+  QEQHardware:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/QEQHardware
+        excludes: ["LZ4/LICENSE"]
+    dependencies:
+      - sdk: IOUSBHost.framework
+      - sdk: IOKit.framework
+      - sdk: libz.tbd
+    settings:
+      base:
+        PRODUCT_NAME: QEQHardware
+        DEFINES_MODULE: YES
+        CLANG_ENABLE_OBJC_ARC: YES
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Sources/QEQHardware/include"
+        MODULEMAP_FILE: "$(SRCROOT)/Sources/QEQHardware/include/module.modulemap"
   MixerDSP:
     type: library.static
     platform: macOS
@@ -50,8 +68,11 @@ targets:
     sources:
       - path: Sources/QEQAppSupport
     dependencies:
+      - target: QEQHardware
+      - sdk: Metal.framework
       - target: QEQCore
       - target: MixerDSP
+      - sdk: CoreMIDI.framework
     settings:
       base:
         PRODUCT_NAME: QEQAppSupport
@@ -80,6 +101,10 @@ targets:
       - target: QEQCore
       - target: MixerDSP
       - target: QEQAppSupport
+      - target: QEQHardware
+      - sdk: IOUSBHost.framework
+      - sdk: IOKit.framework
+      - sdk: libz.tbd
       - package: Sparkle
         product: Sparkle
     scheme:
@@ -94,6 +119,8 @@ targets:
     sources:
       - path: Tests/QEQTests
     dependencies:
+      - target: DisplayReceiverTestSupport
+      - target: QEQHardware
       - target: QEQCore
       - target: MixerDSP
       - target: QEQAppSupport
@@ -101,3 +128,19 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: local.AppMixer.tests
+
+  DisplayReceiverTestSupport:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Tests/DisplayReceiverSupport
+        excludes: ["README.md"]
+    dependencies:
+      - target: QEQHardware
+    settings:
+      base:
+        PRODUCT_NAME: DisplayReceiverTestSupport
+        DEFINES_MODULE: YES
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        HEADER_SEARCH_PATHS: ["$(SRCROOT)/Tests/DisplayReceiverSupport/include", "$(SRCROOT)/Sources/QEQHardware/LZ4"]
+        MODULEMAP_FILE: "$(SRCROOT)/Tests/DisplayReceiverSupport/include/module.modulemap"

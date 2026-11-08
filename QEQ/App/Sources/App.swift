@@ -11,6 +11,8 @@ final class MixerModel: ObservableObject {
     static let globalEQID = MixerEngine.globalEQID
     @Published var enabled = false
     @Published var changing = false
+    @Published var hardwareStatus = ""
+    private lazy var hardware = HardwareMixerController(model: self)
     @Published var selectedEQ: String?
     @Published var animateEQReveal = false
     // High-frequency audio readings must not invalidate the controls/layout.
@@ -47,6 +49,7 @@ final class MixerModel: ObservableObject {
             }
             self.telemetry = AudioTelemetry()
             self.engine.setExcludedApps(ids)
+            self.hardware.refreshFeedback()
         }
         enabled = preferences.enabled
         if let data = UserDefaults.standard.data(forKey: "appSettings"),
@@ -74,21 +77,31 @@ final class MixerModel: ObservableObject {
                 guard let self else { return }
                 var visible = value
                 visible.apps.removeAll { AppExclusions.contains($0, ids: self.exclusions.ids) }
-                if self.snapshot != visible { self.snapshot = visible }
+                if self.snapshot != visible {
+                    self.snapshot = visible
+                    self.hardware.refreshFeedback()
+                }
                 if self.enabled != value.enabled { self.enabled = value.enabled }
                 if self.changing { self.changing = false }
                 let paths = Set(value.apps.compactMap(\.path))
                 self.icons = self.icons.filter { paths.contains($0.key) }
             }
         }
+        hardware.start()
         let center = NSWorkspace.shared.notificationCenter
         observers.append(
             center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.engine.suspend(true) }
+                Task { @MainActor in
+                    self?.hardware.stop()
+                    self?.engine.suspend(true)
+                }
             })
         observers.append(
             center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.engine.suspend(false) }
+                Task { @MainActor in
+                    self?.engine.suspend(false)
+                    self?.hardware.start()
+                }
             })
     }
     var diagnostics: String {
@@ -106,7 +119,8 @@ final class MixerModel: ObservableObject {
         var values = settings.filter { $0.value.shouldPersist }
         values[Self.globalEQID] = globalEQ
         let data = (try? encoder.encode(values)) ?? Data()
-        return diagnostics + "\nExcluded apps: \(exclusions.ids.sorted())\n\nEQ settings\n"
+        return diagnostics
+            + "\nHardware: \(hardware.diagnostics)\nExcluded apps: \(exclusions.ids.sorted())\n\nEQ settings\n"
             + String(decoding: data, as: UTF8.self)
     }
     func toggle(_ value: Bool) {
@@ -115,6 +129,7 @@ final class MixerModel: ObservableObject {
         if !preview { preferences.enabled = value }
         changing = true
         engine.setEnabled(value)
+        if !preview { hardware.refreshFeedback() }
     }
     func value(_ id: String) -> MixerSettings { id == Self.globalEQID ? globalEQ : settings[id] ?? MixerSettings() }
     func icon(for app: AudioApplication) -> NSImage? {
@@ -138,8 +153,12 @@ final class MixerModel: ObservableObject {
         return icon
     }
     func spectrumColor(for app: AudioApplication) -> Color {
-        Color(nsColor: spectrumColors.color(for: app.id, icon: icon(for: app)))
+        Color(nsColor: appAccentColor(for: app))
     }
+    func appAccentColor(for app: AudioApplication) -> NSColor {
+        spectrumColors.color(for: app.id, icon: icon(for: app))
+    }
+    func selectHardwareApp(_ id: String) { hardware.selectApp(id) }
     func edit(_ id: String, _ edit: (inout MixerSettings) -> Void) {
         var value = value(id)
         edit(&value)
@@ -157,6 +176,7 @@ final class MixerModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in self?.save() }
         saveWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+        if !preview { hardware.refreshFeedback() }
     }
     func save() {
         guard !preview else { return }
@@ -192,6 +212,7 @@ final class MixerModel: ObservableObject {
     func shutdown() {
         guard !preview else { return }
         save()
+        hardware.stop()
         engine.shutdown()
     }
 }

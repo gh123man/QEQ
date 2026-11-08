@@ -44,6 +44,8 @@ def validate_appcast(path, archive, config):
         raise SystemExit('Update archive length mismatch')
     if item.findtext(f'{{{SPARKLE_NS}}}version') != str(config['build']):
         raise SystemExit('Update build number mismatch')
+    if item.findtext(f'{{{SPARKLE_NS}}}hardwareRequirements') != 'arm64':
+        raise SystemExit('Update must require Apple Silicon hardware')
     signature = enclosure.get(f'{{{SPARKLE_NS}}}edSignature', '')
     if len(base64.b64decode(signature, validate=True)) != 64:
         raise SystemExit('Missing or invalid archive signature')

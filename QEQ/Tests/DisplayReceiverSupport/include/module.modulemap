@@ -1,0 +1,4 @@
+module DisplayReceiverTestSupport {
+    header "DisplayReceiverTestSupport.h"
+    export *
+}

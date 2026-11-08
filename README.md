@@ -5,7 +5,7 @@
 <h1 align="center">QEQ</h1>
 <p align="center"><strong>Quick EQ</strong><br>Per-app mixer and equalizer for macOS.</p>
 <h2 align="center"><a href="https://github.com/gh123man/QEQ/releases">Download</a></h2>
-<p align="center">macOS 14.4+ · Apple Silicon & Intel</p>
+<p align="center">macOS 14.4+ · Apple Silicon</p>
 
 <p align="center">
   <img src="docs/media/desktop-app-equalizer.png" alt="FaceTime EQ expanded with Chrome and Spotify volume controls in QEQ" width="1000">
