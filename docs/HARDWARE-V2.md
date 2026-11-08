@@ -3,8 +3,9 @@
 Hardware V2 is the default board for future work. Both the QEQ app and the
 separate `vol-firmware` repository use `hardware-dev`; feature branches should
 start there. The app's existing MIDI/display-streaming implementations remain
-available for the original prototype. They do not yet provide V2 four-app
-bindings or V2 graphics streaming. Do not use prototype firmware on V2.
+available for the original prototype. The `stream-v2` image now uses those existing
+single-app controls and native graphics streaming on V2 pins. It does not provide
+four-app bindings. Do not use prototype firmware on V2.
 
 ## Physical wiring
 
@@ -80,12 +81,36 @@ order also remain pending.
 Raw captures stay ignored in the firmware repository's `reports/`. The summary
 and pin map are tracked so future work does not depend on local report files.
 
-## Host integration boundary
+## Single-app QEQ integration
 
-V2 profile model 2 has four slider/button pairs. It remains `testOnly`, so a
-`midi-four` build does not activate its GPIOs/MIDI. QEQ's existing profile is for
-the original model-1 controller. Future V2 integration must explicitly add
-per-slot app bindings, feedback, and the intended rotary behavior before claiming
-normal-operation support. Native display-streaming code is preserved on
-`hardware-dev`, but the existing `stream` firmware environment is explicitly for
-the original prototype's pin map.
+The user selected the existing single-app behavior for V2. From the firmware repo,
+run `./run.sh build stream-v2` and `./run.sh upload PORT stream-v2`. The leftmost
+slider (GPIO11) controls selected-app volume with pickup, its button (GPIO35)
+toggles mute, and LED1 (GPIO12/13/14) shows the app accent. Rotary GPIO21/47 adjusts
+system output volume; its GPIO48 push toggles global bypass. The existing native
+USB display interface streams QEQ graphics to the V2 SPI pin map. Right-click an
+app and choose **Use hardware controls** to select the target. Other slider/button
+pairs are inactive and their LEDs remain off.
+
+The firmware `v2-single-app` compatibility profile advertises the existing model-1
+logical handshake with one slider/button pair while retaining V2 wiring policy.
+No QEQ host protocol change is required. USB product is **QEQ Test Board V2 Display**;
+the display serial retains the host's `-D1` convention. This is distinct from the
+full model-2 four-slot profile, which remains `testOnly` and is used by validation
+images. Future four-app integration still requires per-slot bindings and feedback.
+The explicit legacy `stream` firmware continues to use the prototype pin map.
+
+## Connection validation status
+
+The `stream-v2` image has been flashed and its QEQ MIDI handshake and feedback
+verified. Connection stability remains unresolved: the user reported intermittent
+disconnections, including one after slider movement. An initial inspection found
+the board absent from USB. After changing the USB connection, a 242.905-second
+capture contained 2,430 consecutive samples with no feedback losses after startup,
+queue buildup, overflows, or heap decline.
+
+Following a later reported failure, USB/MIDI remained online and firmware uptime
+continued past seven minutes with active feedback at 25% volume. This does not
+establish a full-board crash; a display-session failure is still a possibility.
+See firmware `WIRING.md` for the measurements. Do not treat the short successful
+run as proof of long-term stability. Raw bench captures remain local and ignored.

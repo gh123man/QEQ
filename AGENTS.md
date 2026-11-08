@@ -48,6 +48,8 @@ it in both QEQ and the separate `vol-firmware` repository. Read
 `docs/HARDWARE-V2.md` for the physical GPIO map, firmware build/flash commands,
 validation status, and the current integration boundary. Firmware `WIRING.md` and
 `include/board_profiles.h` are authoritative. The old prototype `midi`/`stream`
-images use different pins and must not be flashed to V2. The current V2 default is
-the serial-only `test-four-manual` image, not four-app host control. Keep rotary
+images use different pins and must not be flashed to V2. `stream-v2` enables the
+existing single-app QEQ integration on the leftmost pair plus rotary and native
+USB display; other pairs are inactive. The default validation image remains
+`test-four-manual`; four-app host control is not implemented. Keep rotary
 diagnostics at the top of the test display while its damaged LCD is replaced.
