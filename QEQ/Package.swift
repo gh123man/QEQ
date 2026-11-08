@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "QEQCore", targets: ["QEQCore"]),
         .library(name: "QEQAppSupport", targets: ["QEQAppSupport"]),
+        .executable(name: "QEQDisplayBench", targets: ["QEQDisplayBench"]),
     ],
     targets: [
         .target(
@@ -25,6 +26,7 @@ let package = Package(
             path: "Sources/QEQAppSupport",
             linkerSettings: [.linkedFramework("CoreMIDI")]
         ),
+        .executableTarget(name: "QEQDisplayBench", dependencies: ["QEQAppSupport"]),
         .testTarget(
             name: "QEQTests",
             dependencies: ["QEQCore", "QEQAppSupport", "MixerDSP"],

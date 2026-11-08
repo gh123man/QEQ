@@ -15,6 +15,7 @@ final class HardwareMixerController {
     private weak var model: MixerModel?
     private let midi = HardwareMIDIService()
     private let systemVolume = SystemOutputVolume()
+    private let displayExporter = HardwareDisplayExporter()
     private var sessions: [UInt32: Session] = [:]
     var diagnostics: String { midi.status + (systemVolume.error.map { "; \($0)" } ?? "") }
     init(model: MixerModel) { self.model = model }
@@ -94,10 +95,17 @@ final class HardwareMixerController {
         }
         let accent = (channel(color?.redComponent ?? 0), channel(color?.greenComponent ?? 0),
                       channel(color?.blueComponent ?? 0))
+        let outputVolume = systemVolume.value()
+        displayExporter.publish(HardwareDisplayScene(label: app?.name ?? "App unavailable",
+            percent: Int((settings.volume * 100).rounded()), systemPercent: outputVolume.map { Int(($0 * 100).rounded()) },
+            available: session.available, muted: settings.muted, enabled: model.enabled,
+            pickup: !session.controls.pickedUp, red: Double(color?.redComponent ?? 0),
+            green: Double(color?.greenComponent ?? 0), blue: Double(color?.blueComponent ?? 0)),
+            icon: app.flatMap { model.icon(for: $0) })
         return device.identity.feedback(position: session.position ?? 1,
             percent: Int((settings.volume * 100).rounded()), available: session.available,
             muted: settings.muted, enabled: model.enabled,
             pickup: !session.controls.pickedUp, label: app?.name ?? "App unavailable",
-            accent: accent, systemVolume: systemVolume.value())
+            accent: accent, systemVolume: outputVolume)
     }
 }

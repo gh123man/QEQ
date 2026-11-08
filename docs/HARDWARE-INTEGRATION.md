@@ -161,3 +161,10 @@ LED/display renderers. It must never generate another input event.
   (newer upstream example, not evidence of compatibility with the pinned 2.0.17 core)
 - [Arduino ESP32 2.x to 3.0 migration](https://docs.espressif.com/projects/arduino-esp32/en/latest/migration_guides/2.x_to_3.0.html)
 - [Apple CoreMIDI client notifications](https://developer.apple.com/documentation/coremidi/midiclientcreatewithblock(_:_:_:))
+
+## Disposable display-streaming experiment
+
+`codex/usb-display-streaming` adds a shared AppKit hardware renderer and the opt-in
+`./run.sh --display-stream /absolute/directory` bridge. MIDI remains responsible for
+controls. See [measured results](DISPLAY-STREAMING-RESULTS.md) and the companion
+firmware's `DISPLAY-STREAMING.md` for USB framing, test commands, and rollback.

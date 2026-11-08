@@ -1,0 +1,369 @@
+{
+  "date": "2026-11-08",
+  "hardware": "ESP32-S3, GC9A01 240x240 round, RGB565 LE, SPI 10 MHz, native USB Full-Speed",
+  "firmware_sha256": "ac20c30f3aff76a4f9e3866ccaa26604ad4125ea9cc0de21c58fd425c74877b6",
+  "scenes": 75,
+  "tile_edge": 32,
+  "baseline_firmware": "42992ff",
+  "baseline_qeq": "a0d6df1",
+  "codecs": {
+    "raw": {
+      "status": "complete",
+      "summary": {
+        "frames": 75,
+        "wire_bytes": 1315158,
+        "raw_bytes": 1282560,
+        "payload_ratio": 1.0,
+        "prepare_us": {
+          "p50": 29.042,
+          "p95": 67.208,
+          "maximum": 167.917
+        },
+        "render_us": {
+          "p50": 2445.375,
+          "p95": 2710.666,
+          "maximum": 35632.958
+        },
+        "usb_write_us": {
+          "p50": 31040.458,
+          "p95": 45589.666,
+          "maximum": 211132.458
+        },
+        "ack_roundtrip_us": {
+          "p50": 34013.458,
+          "p95": 48510.75,
+          "maximum": 212584.416
+        },
+        "decode_us": {
+          "p50": 53,
+          "p95": 83,
+          "maximum": 426
+        },
+        "verify_us": {
+          "p50": 3628,
+          "p95": 5516,
+          "maximum": 25935
+        },
+        "lcd_us": {
+          "p50": 14723,
+          "p95": 22167,
+          "maximum": 104235
+        },
+        "device_frame_us": {
+          "p50": 33282,
+          "p95": 47946,
+          "maximum": 211565
+        },
+        "input_poll_gap_max_us": {
+          "p50": 3002,
+          "p95": 3002,
+          "maximum": 3002
+        }
+      },
+      "full_refresh": {
+        "frame": 1,
+        "full": true,
+        "changed_tiles": 64,
+        "raw_tiles": 64,
+        "raw_bytes": 115200,
+        "encoded_bytes": 115200,
+        "wire_bytes": 118074,
+        "prepare_us": 167.917,
+        "scene": "000-Music-volume.qras",
+        "render_us": 35632.958,
+        "decode_us": 426,
+        "verify_us": 25935,
+        "lcd_us": 104235,
+        "device_frame_us": 211565,
+        "device_tiles": 64,
+        "device_wire_bytes": 118074,
+        "input_poll_gap_max_us": 3002,
+        "usb_write_us": 211132.458,
+        "ack_roundtrip_us": 212584.416
+      }
+    },
+    "lz4": {
+      "status": "complete",
+      "summary": {
+        "frames": 75,
+        "wire_bytes": 287121,
+        "raw_bytes": 1282560,
+        "payload_ratio": 0.19844919535928143,
+        "prepare_us": {
+          "p50": 53.667,
+          "p95": 136.584,
+          "maximum": 665.917
+        },
+        "render_us": {
+          "p50": 2445.375,
+          "p95": 2710.666,
+          "maximum": 35632.958
+        },
+        "usb_write_us": {
+          "p50": 6362.292,
+          "p95": 8196.416,
+          "maximum": 118448.417
+        },
+        "ack_roundtrip_us": {
+          "p50": 21840.625,
+          "p95": 30870.667,
+          "maximum": 146024.0
+        },
+        "decode_us": {
+          "p50": 1069,
+          "p95": 1306,
+          "maximum": 7239
+        },
+        "verify_us": {
+          "p50": 3600,
+          "p95": 5461,
+          "maximum": 25736
+        },
+        "lcd_us": {
+          "p50": 14555,
+          "p95": 21902,
+          "maximum": 102514
+        },
+        "device_frame_us": {
+          "p50": 21162,
+          "p95": 30226,
+          "maximum": 144994
+        },
+        "input_poll_gap_max_us": {
+          "p50": 3002,
+          "p95": 3002,
+          "maximum": 3002
+        }
+      },
+      "full_refresh": {
+        "frame": 1,
+        "full": true,
+        "changed_tiles": 64,
+        "raw_tiles": 0,
+        "raw_bytes": 115200,
+        "encoded_bytes": 18601,
+        "wire_bytes": 21475,
+        "prepare_us": 665.917,
+        "scene": "000-Music-volume.qras",
+        "render_us": 35632.958,
+        "decode_us": 7239,
+        "verify_us": 25736,
+        "lcd_us": 102514,
+        "device_frame_us": 144994,
+        "device_tiles": 64,
+        "device_wire_bytes": 21475,
+        "input_poll_gap_max_us": 3002,
+        "usb_write_us": 118448.417,
+        "ack_roundtrip_us": 146024.0
+      }
+    },
+    "hc": {
+      "status": "complete",
+      "summary": {
+        "frames": 75,
+        "wire_bytes": 245375,
+        "raw_bytes": 1282560,
+        "payload_ratio": 0.16590023078842314,
+        "prepare_us": {
+          "p50": 314.375,
+          "p95": 693.708,
+          "maximum": 1789.0
+        },
+        "render_us": {
+          "p50": 2445.375,
+          "p95": 2710.666,
+          "maximum": 35632.958
+        },
+        "usb_write_us": {
+          "p50": 5632.417,
+          "p95": 7403.125,
+          "maximum": 130952.125
+        },
+        "ack_roundtrip_us": {
+          "p50": 21438.583,
+          "p95": 30893.959,
+          "maximum": 143680.5
+        },
+        "decode_us": {
+          "p50": 905,
+          "p95": 1237,
+          "maximum": 6255
+        },
+        "verify_us": {
+          "p50": 3605,
+          "p95": 5410,
+          "maximum": 25799
+        },
+        "lcd_us": {
+          "p50": 14516,
+          "p95": 21902,
+          "maximum": 102557
+        },
+        "device_frame_us": {
+          "p50": 20667,
+          "p95": 30000,
+          "maximum": 142992
+        },
+        "input_poll_gap_max_us": {
+          "p50": 3002,
+          "p95": 3002,
+          "maximum": 3002
+        }
+      },
+      "full_refresh": {
+        "frame": 1,
+        "full": true,
+        "changed_tiles": 64,
+        "raw_tiles": 0,
+        "raw_bytes": 115200,
+        "encoded_bytes": 15359,
+        "wire_bytes": 18233,
+        "prepare_us": 1010.5,
+        "scene": "000-Music-volume.qras",
+        "render_us": 35632.958,
+        "decode_us": 6255,
+        "verify_us": 25799,
+        "lcd_us": 102557,
+        "device_frame_us": 142992,
+        "device_tiles": 64,
+        "device_wire_bytes": 18233,
+        "input_poll_gap_max_us": 3002,
+        "usb_write_us": 130952.125,
+        "ack_roundtrip_us": 143680.5
+      }
+    }
+  },
+  "limits": [
+    "Render fixtures use the same QEQ controller renderer as the live app.",
+    "ACK is SPI completion, not photon latency.",
+    "Live latency begins at Mac render start, not physical control motion.",
+    "LZ4 is exact for quantized RGB565 bytes; ratios depend on scene.",
+    "SPI speed has not been increased or electrically validated."
+  ],
+  "usb_only": {
+    "status": "complete",
+    "summary": {
+      "frames": 8,
+      "wire_bytes": 133088,
+      "raw_bytes": 131072,
+      "payload_ratio": 1.0,
+      "usb_write_us": {
+        "p50": 29840.083,
+        "p95": 29969.459,
+        "maximum": 30083.5
+      },
+      "ack_roundtrip_us": {
+        "p50": 30451.583,
+        "p95": 30547.417,
+        "maximum": 30668.416
+      },
+      "device_frame_us": {
+        "p50": 25755,
+        "p95": 25950,
+        "maximum": 25990
+      },
+      "input_poll_gap_max_us": {
+        "p50": 3002,
+        "p95": 3002,
+        "maximum": 3002
+      }
+    },
+    "bytes_per_second": 545964.9099891798
+  },
+  "live_changed_frames": {
+    "frames": 871,
+    "wire_bytes": 2269575,
+    "raw_bytes": 9981952,
+    "payload_ratio": 0.2008225445283648,
+    "prepare_us": {
+      "p50": 107.5,
+      "p95": 214.167,
+      "maximum": 1491.333
+    },
+    "render_us": {
+      "p50": 3621.791,
+      "p95": 5696.541,
+      "maximum": 9244.667
+    },
+    "usb_write_us": {
+      "p50": 5548.167,
+      "p95": 7155.083,
+      "maximum": 11807.083
+    },
+    "ack_roundtrip_us": {
+      "p50": 17625.292,
+      "p95": 22758.292,
+      "maximum": 32668.125
+    },
+    "source_to_ack_us": {
+      "p50": 30953.583,
+      "p95": 47287.875,
+      "maximum": 55449.416
+    },
+    "decode_us": {
+      "p50": 899,
+      "p95": 1189,
+      "maximum": 1246
+    },
+    "verify_us": {
+      "p50": 2754,
+      "p95": 3692,
+      "maximum": 3741
+    },
+    "lcd_us": {
+      "p50": 11064,
+      "p95": 14807,
+      "maximum": 14931
+    },
+    "device_frame_us": {
+      "p50": 16817,
+      "p95": 21997,
+      "maximum": 22244
+    },
+    "input_poll_gap_max_us": {
+      "p50": 3002,
+      "p95": 3002,
+      "maximum": 3002
+    }
+  },
+  "midi_health": {
+    "samples": 21,
+    "first": {
+      "ms": 175137,
+      "midi": {
+        "started": 1,
+        "mounted": 1,
+        "queued": 0,
+        "sent": 5711,
+        "received": 13102,
+        "overflows": 0,
+        "host": 1,
+        "flags": 5,
+        "percent": 100
+      },
+      "heap_free": 328408
+    },
+    "last": {
+      "ms": 177137,
+      "midi": {
+        "started": 1,
+        "mounted": 1,
+        "queued": 0,
+        "sent": 5745,
+        "received": 13142,
+        "overflows": 0,
+        "host": 1,
+        "flags": 5,
+        "percent": 100
+      },
+      "heap_free": 328408
+    },
+    "max_queued": 0,
+    "max_overflows": 0
+  },
+  "user_checks": [
+    "Mac-rendered icon/text correct; controls felt responsive.",
+    "Initial reconnect exposed stalled MIDI queue; corrected with TinyUSB task ownership.",
+    "User subsequently confirmed controls remained responsive after reconnect and continued use."
+  ]
+}

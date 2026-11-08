@@ -15,6 +15,7 @@ Options:
   --no-build    Launch the existing app bundle without rebuilding
   --profile     Record 30 seconds of CPU/route counters with the popup open/closed
   --profile-ui  Profile reproducible animated UI fixtures without capturing/playing audio
+  --display-stream  Export latest hardware raster to an absolute prototype directory
   -h, --help    Show this help
 USAGE
 }
@@ -41,6 +42,11 @@ SKIP_BUILD=false
 PROFILE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --display-stream)
+      [[ $# -ge 2 && "$2" == /* ]] || { echo "--display-stream requires an absolute directory" >&2; exit 1; }
+      PROFILE_ARGS=(--display-stream "$2")
+      shift 2
+      ;;
     --clean)
       CLEAN_BUILD=true
       shift
