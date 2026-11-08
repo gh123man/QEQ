@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    runs-on: macos-26-intel
+    runs-on: macos-26
     timeout-minutes: 90
     env:
       QEQ_HARDWARE_TESTS: '0'
@@ -47,7 +47,7 @@ jobs:
           PY
       - name: Install declared tools
         run: brew bundle
-      - name: Validate source and universal build
+      - name: Validate source and Apple Silicon build
         run: |
           python3 QEQ/scripts/screenshots.py --check
           ./QEQ/scripts/check.sh

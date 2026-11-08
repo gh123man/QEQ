@@ -162,9 +162,11 @@ LED/display renderers. It must never generate another input event.
 - [Arduino ESP32 2.x to 3.0 migration](https://docs.espressif.com/projects/arduino-esp32/en/latest/migration_guides/2.x_to_3.0.html)
 - [Apple CoreMIDI client notifications](https://developer.apple.com/documentation/coremidi/midiclientcreatewithblock(_:_:_:))
 
-## Disposable display-streaming experiment
+## Native display streaming
 
-`codex/usb-display-streaming` adds a shared AppKit hardware renderer and the opt-in
-`./run.sh --display-stream /absolute/directory` bridge. MIDI remains responsible for
-controls. See [measured results](DISPLAY-STREAMING-RESULTS.md) and the companion
-firmware's `DISPLAY-STREAMING.md` for USB framing, test commands, and rollback.
+Display streaming now starts automatically when compatible hardware connects.
+QEQ uses native macOS USB APIs, bundled LZ4, and an offscreen Metal renderer;
+there is no Python worker or `--display-stream` argument. See
+[native display integration](NATIVE-DISPLAY.md) for architecture, CPU measurements,
+compatibility, and the remaining physical-device smoke test. The earlier
+[prototype measurements](DISPLAY-STREAMING-RESULTS.md) remain historical results.

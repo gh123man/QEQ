@@ -46,11 +46,16 @@ public final class HardwareMIDIService {
         let result = MIDIClientCreateWithBlock("QEQ Hardware" as CFString, &client) { @Sendable [weak self] _ in
             DispatchQueue.main.async { self?.refresh() }
         }
-        guard result == noErr else { status = "MIDI unavailable (\(result))"; return }
+        guard result == noErr else {
+            status = "MIDI unavailable (\(result))"
+            return
+        }
         let resultOut = MIDIOutputPortCreate(client, "QEQ Feedback" as CFString, &output)
         guard resultOut == noErr else {
-            MIDIClientDispose(client); client = 0
-            status = "MIDI output unavailable (\(resultOut))"; return
+            MIDIClientDispose(client)
+            client = 0
+            status = "MIDI output unavailable (\(resultOut))"
+            return
         }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval, repeats: true) { [weak self] _ in
@@ -58,16 +63,25 @@ public final class HardwareMIDIService {
         }
     }
     public func stop() {
-        timer?.invalidate(); timer = nil
-        feedbackWork?.cancel(); feedbackWork = nil
+        timer?.invalidate()
+        timer = nil
+        feedbackWork?.cancel()
+        feedbackWork = nil
         for connection in connections.values { MIDIPortDispose(connection.port) }
         connections = [:]
-        if output != 0 { MIDIPortDispose(output); output = 0 }
-        if client != 0 { MIDIClientDispose(client); client = 0 }
+        if output != 0 {
+            MIDIPortDispose(output)
+            output = 0
+        }
+        if client != 0 {
+            MIDIClientDispose(client)
+            client = 0
+        }
         changed()
     }
     public func reconnect() {
-        stop(); start()
+        stop()
+        start()
     }
     /// Send the latest state on the next 16 ms control update, independently of heartbeat.
     public func requestFeedback() {
@@ -81,7 +95,9 @@ public final class HardwareMIDIService {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(16), execute: work)
     }
     private func changed() {
-        status = devices.isEmpty ? (connections.isEmpty ? "No QEQ controller connected" : "Waiting for compatible QEQ firmware")
+        status =
+            devices.isEmpty
+            ? (connections.isEmpty ? "No QEQ controller connected" : "Waiting for compatible QEQ firmware")
             : "\(devices.count) QEQ controller(s) connected"
         onDevicesChanged?(devices)
     }
@@ -94,12 +110,18 @@ public final class HardwareMIDIService {
             if let old = connections.removeValue(forKey: source) { MIDIPortDispose(old.port) }
             var port: MIDIPortRef = 0
             let generation = UUID()
-            let result = MIDIInputPortCreateWithBlock(client, "QEQ Input" as CFString, &port) { @Sendable [weak self] list, _ in
+            let result = MIDIInputPortCreateWithBlock(client, "QEQ Input" as CFString, &port) {
+                @Sendable [weak self] list, _ in
                 let (copied, dropped) = Self.copyPacketBytes(list)
-                DispatchQueue.main.async { self?.receive(copied, source: source, generation: generation, overflow: dropped) }
+                DispatchQueue.main.async {
+                    self?.receive(copied, source: source, generation: generation, overflow: dropped)
+                }
             }
             guard result == noErr else { continue }
-            guard MIDIPortConnectSource(port, source, nil) == noErr else { MIDIPortDispose(port); continue }
+            guard MIDIPortConnectSource(port, source, nil) == noErr else {
+                MIDIPortDispose(port)
+                continue
+            }
             connections[source] = Connection(port: port, destination: destination, generation: generation)
         }
         for source in Array(connections.keys) where !sources.contains(source) {
@@ -118,44 +140,55 @@ public final class HardwareMIDIService {
             guard title.contains("QEQ Test Board") else { return nil }
             var entity: MIDIEntityRef = 0
             guard MIDIEndpointGetEntity(source, &entity) == noErr, entity != 0,
-                MIDIEntityGetNumberOfDestinations(entity) == 1 else { return nil }
+                MIDIEntityGetNumberOfDestinations(entity) == 1
+            else { return nil }
             return (source, MIDIEntityGetDestination(entity, 0))
         }
     }
     nonisolated static func copyPacketBytes(_ list: UnsafePointer<MIDIPacketList>) -> ([UInt8], Bool) {
-                // Copy packet storage before CoreMIDI reclaims it. Bound each callback batch.
-                var bytes: [UInt8] = []
-                var overflow = false
-                do {
-                    let first = UnsafeRawPointer(list).advanced(by: MemoryLayout<MIDIPacketList>.offset(of: \.packet)!)
-                        .assumingMemoryBound(to: MIDIPacket.self)
-                    var packet = first
-                    for _ in 0..<list.pointee.numPackets {
-                        let count = Int(packet.pointee.length)
-                        if bytes.count + count > 8192 { overflow = true; break }
-                        let data = UnsafeRawPointer(packet).advanced(by: MemoryLayout<MIDIPacket>.offset(of: \.data)!)
-                        bytes.append(contentsOf: UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: count))
-                        packet = UnsafePointer(MIDIPacketNext(packet))
-                    }
+        // Copy packet storage before CoreMIDI reclaims it. Bound each callback batch.
+        var bytes: [UInt8] = []
+        var overflow = false
+        do {
+            let first = UnsafeRawPointer(list).advanced(by: MemoryLayout<MIDIPacketList>.offset(of: \.packet)!)
+                .assumingMemoryBound(to: MIDIPacket.self)
+            var packet = first
+            for _ in 0..<list.pointee.numPackets {
+                let count = Int(packet.pointee.length)
+                if bytes.count + count > 8192 {
+                    overflow = true
+                    break
                 }
+                let data = UnsafeRawPointer(packet).advanced(by: MemoryLayout<MIDIPacket>.offset(of: \.data)!)
+                bytes.append(
+                    contentsOf: UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: count))
+                packet = UnsafePointer(MIDIPacketNext(packet))
+            }
+        }
         return (bytes, overflow)
     }
     private func receive(_ bytes: [UInt8], source: MIDIEndpointRef, generation: UUID, overflow: Bool) {
         guard var connection = connections[source], connection.generation == generation else { return }
         if overflow {
-            connection.decoder = MIDIStreamDecoder(); connection.identity = nil
-            connections[source] = connection; changed(); return
+            connection.decoder = MIDIStreamDecoder()
+            connection.identity = nil
+            connections[source] = connection
+            changed()
+            return
         }
         if Date().timeIntervalSince(connection.lastBytes) > 0.5 { connection.decoder = MIDIStreamDecoder() }
         connection.lastBytes = Date()
         let messages = connection.decoder.consume(bytes)
         connections[source] = connection
         for message in messages {
-            if case let .systemExclusive(data) = message, let identity = QEQHardwareIdentity(message: data) {
+            if case .systemExclusive(let data) = message, let identity = QEQHardwareIdentity(message: data) {
                 let different = connections[source]?.identity != identity
                 connections[source]?.identity = identity
                 connections[source]?.lastSeen = Date()
-                if different { connections[source]?.lastFeedback = nil; changed() }
+                if different {
+                    connections[source]?.lastFeedback = nil
+                    changed()
+                }
             } else if connections[source]?.identity != nil {
                 onMessage?(source, message)
             }
@@ -166,7 +199,8 @@ public final class HardwareMIDIService {
         var expired = false
         for source in Array(connections.keys) {
             if connections[source]?.identity != nil,
-               Date().timeIntervalSince(connections[source]!.lastSeen) > 3 {
+                Date().timeIntervalSince(connections[source]!.lastSeen) > 3
+            {
                 connections[source]?.identity = nil
                 connections[source]?.decoder = MIDIStreamDecoder()
                 expired = true
@@ -191,8 +225,9 @@ public final class HardwareMIDIService {
             withUnsafeMutablePointer(to: &list) { pointer in
                 let packet = MIDIPacketListInit(pointer)
                 // The fixed 64-byte protocol bound fits in this stack packet list.
-                MIDIPacketListAdd(pointer, MemoryLayout<MIDIPacketList>.size, packet, 0,
-                                  bytes.count, buffer.baseAddress!)
+                MIDIPacketListAdd(
+                    pointer, MemoryLayout<MIDIPacketList>.size, packet, 0,
+                    bytes.count, buffer.baseAddress!)
                 let result = MIDISend(output, destination, pointer)
                 if result != noErr { status = "MIDI feedback failed (\(result))" }
                 return result == noErr

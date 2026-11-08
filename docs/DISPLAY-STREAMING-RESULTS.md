@@ -1,5 +1,9 @@
 # USB display streaming prototype — 2026-11-08
 
+**Historical prototype report:** the separate worker has since been replaced by
+[native automatic USB streaming and Metal rendering](NATIVE-DISPLAY.md). Physical
+timings below describe the original Python-worker run.
+
 Implemented on disposable `codex/usb-display-streaming` branches in both repos.
 The original working integration is checkpointed separately: QEQ `a0d6df1`,
 firmware `42992ff`. No remote push or release.

@@ -15,27 +15,40 @@ final class HardwareMixerController {
     private weak var model: MixerModel?
     private let midi = HardwareMIDIService()
     private let systemVolume = SystemOutputVolume()
-    private let displayExporter = HardwareDisplayExporter()
+    private let display = HardwareDisplayService()
     private var sessions: [UInt32: Session] = [:]
-    var diagnostics: String { midi.status + (systemVolume.error.map { "; \($0)" } ?? "") }
+    var diagnostics: String {
+        midi.status + (systemVolume.error.map { "; \($0)" } ?? "")
+            + (display.status.isEmpty ? "" : "; \(display.status)")
+    }
     init(model: MixerModel) { self.model = model }
     func start() {
+        display.onNeedsScene = { [weak self] in self?.refreshFeedback() }
+        display.start()
         midi.onDevicesChanged = { [weak self] devices in
             guard let self else { return }
             let sources = Set(devices.map(\.source))
             self.sessions = self.sessions.filter { sources.contains($0.key) }
             for device in devices where self.sessions[device.source]?.identity != device.identity {
-                self.sessions[device.source] = Session(identity: device.identity,
+                self.sessions[device.source] = Session(
+                    identity: device.identity,
                     target: UserDefaults.standard.string(forKey: "hardwareTarget.\(device.identity.serial)"))
             }
-            self.model?.hardwareStatus = devices.isEmpty && self.midi.status == "No QEQ controller connected" ? "" : self.midi.status
+            self.model?.hardwareStatus =
+                devices.isEmpty && self.midi.status == "No QEQ controller connected" ? "" : self.midi.status
         }
         midi.onMessage = { [weak self] source, message in self?.receive(source, message: message) }
         midi.feedback = { [weak self] device in self?.feedback(device) ?? [] }
         midi.start()
     }
-    func stop() { midi.stop() }
-    func reconnect() { midi.reconnect() }
+    func stop() {
+        display.stop()
+        midi.stop()
+    }
+    func reconnect() {
+        stop()
+        start()
+    }
     func refreshFeedback() { midi.requestFeedback() }
     func selectApp(_ id: String) {
         guard model?.snapshot.apps.contains(where: { $0.id == id }) == true else { return }
@@ -61,18 +74,20 @@ final class HardwareMixerController {
         if session.position != position || session.maximum != settings.maximumVolume || session.available != available {
             session.controls.rearm()
         }
-        session.position = position; session.maximum = settings.maximumVolume; session.available = available
+        session.position = position
+        session.maximum = settings.maximumVolume
+        session.available = available
         return session
     }
     private func receive(_ source: UInt32, message: MIDIMessage) {
         guard let model, var session = synchronized(source) else { return }
         let action = session.controls.receive(message, targetPosition: session.position ?? 1)
         switch action {
-        case let .systemVolume(delta):
+        case .systemVolume(let delta):
             systemVolume.adjust(steps: delta)
         case .toggleGlobalBypass:
             model.toggle(!model.enabled)
-        case let .volume(position):
+        case .volume(let position):
             if session.available, let target = session.target {
                 let scale = VolumeSliderScale(maximum: model.value(target).maximumVolume)
                 model.edit(target) { $0.volume = scale.gain(at: position) }
@@ -93,16 +108,23 @@ final class HardwareMixerController {
         func channel(_ value: CGFloat) -> UInt8 {
             UInt8((min(1, max(0, value.isFinite ? value : 0)) * 127).rounded())
         }
-        let accent = (channel(color?.redComponent ?? 0), channel(color?.greenComponent ?? 0),
-                      channel(color?.blueComponent ?? 0))
+        let accent = (
+            channel(color?.redComponent ?? 0), channel(color?.greenComponent ?? 0),
+            channel(color?.blueComponent ?? 0)
+        )
         let outputVolume = systemVolume.value()
-        displayExporter.publish(HardwareDisplayScene(label: app?.name ?? "App unavailable",
-            percent: Int((settings.volume * 100).rounded()), systemPercent: outputVolume.map { Int(($0 * 100).rounded()) },
-            available: session.available, muted: settings.muted, enabled: model.enabled,
-            pickup: !session.controls.pickedUp, red: Double(color?.redComponent ?? 0),
-            green: Double(color?.greenComponent ?? 0), blue: Double(color?.blueComponent ?? 0)),
-            icon: app.flatMap { model.icon(for: $0) })
-        return device.identity.feedback(position: session.position ?? 1,
+        display.publish(
+            HardwareDisplayScene(
+                label: app?.name ?? "App unavailable",
+                percent: Int((settings.volume * 100).rounded()),
+                systemPercent: outputVolume.map { Int(($0 * 100).rounded()) },
+                available: session.available, muted: settings.muted, enabled: model.enabled,
+                pickup: !session.controls.pickedUp, red: Double(color?.redComponent ?? 0),
+                green: Double(color?.greenComponent ?? 0), blue: Double(color?.blueComponent ?? 0)),
+            serial: device.identity.serial, icon: app.flatMap { model.icon(for: $0) }, iconKey: app?.id ?? "unavailable"
+        )
+        return device.identity.feedback(
+            position: session.position ?? 1,
             percent: Int((settings.volume * 100).rounded()), available: session.available,
             muted: settings.muted, enabled: model.enabled,
             pickup: !session.controls.pickedUp, label: app?.name ?? "App unavailable",

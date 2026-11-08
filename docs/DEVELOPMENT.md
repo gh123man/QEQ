@@ -76,9 +76,10 @@ The single-callback private aggregate topology builds on [CoreAudioTapKit](https
 
 The source repository is [gh123man/QEQ](https://github.com/gh123man/QEQ).
 
-- `./QEQ/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the universal app.
+- `./QEQ/scripts/check.sh` checks Swift formatting and script syntax, runs the full test suite, and builds the Apple Silicon app.
 - `xcrun swift-format format --in-place --recursive QEQ/App/Sources QEQ/Sources QEQ/Tests QEQ/Package.swift` applies the checked-in formatting rules.
-- GitHub Actions validates pull requests and pushes to `main` on Intel, complementing local Apple Silicon tests. Headless CI sets `QEQ_HARDWARE_TESTS=0` to skip the two physical-output tests; local tests include them by default.
+- GitHub Actions validates pull requests and pushes to `main` on Apple Silicon using the `macos-26` runner. Headless CI sets `QEQ_HARDWARE_TESTS=0` to skip hardware-dependent audio and Metal tests; local tests include them by default.
+- New app builds require Apple Silicon (`ARCHS: arm64`). Release validation rejects other architectures and requires Sparkle's generated `hardwareRequirements=arm64` feed entry, so existing Intel installations are not offered an incompatible update. Published historical releases and their notes remain unchanged.
 - `QEQ/release.json` records each version, build number, bundle identifier, and required signing/notarization policy. Notes live in `QEQ/ReleaseNotes/`.
 
 Before each release, update the record and notes, then regenerate the README screenshots from the real app:
@@ -94,7 +95,7 @@ Review and commit the application changes, `docs/media/*.png`, and `docs/media/s
 ./QEQ/scripts/cut_release.sh --publish
 ```
 
-The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the Apple and update-signing secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the universal app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
+The command requires clean, pushed main with passing CI, screenshots matching the current UI source, and the Apple and update-signing secrets. It runs local tests and pushes an annotated version tag. Without `--publish`, it validates readiness. The tag starts `.github/workflows/release-dmg.yml`, adapted from OpenSnek: validate the tagged source, import the Developer ID certificate into a temporary Keychain, build/sign the Apple Silicon app with hardened runtime and a secure timestamp, submit it to Apple, staple its ticket, then package/sign/notarize/staple the DMG. Gatekeeper checks must pass before publishing. The ZIP contains the stapled app too.
 
 The workflow renders screenshots again from the tagged source, checks the layouts, and publishes their ZIP alongside the app ZIP, DMG, SHA256SUMS, and a manifest containing the source commit and accepted notarization submission IDs. It refuses to replace an existing release. For a failed run, use GitHub's rerun command, or dispatch the workflow with its existing tag. Signing material is removed in an always-run cleanup step; only release artifacts and notarization diagnostics are uploaded.
 

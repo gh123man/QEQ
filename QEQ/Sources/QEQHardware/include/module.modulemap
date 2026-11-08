@@ -1,0 +1,4 @@
+module QEQHardware {
+    header "QEQHardware.h"
+    export *
+}

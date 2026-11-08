@@ -77,7 +77,10 @@ final class MixerModel: ObservableObject {
                 guard let self else { return }
                 var visible = value
                 visible.apps.removeAll { AppExclusions.contains($0, ids: self.exclusions.ids) }
-                if self.snapshot != visible { self.snapshot = visible; self.hardware.refreshFeedback() }
+                if self.snapshot != visible {
+                    self.snapshot = visible
+                    self.hardware.refreshFeedback()
+                }
                 if self.enabled != value.enabled { self.enabled = value.enabled }
                 if self.changing { self.changing = false }
                 let paths = Set(value.apps.compactMap(\.path))
@@ -88,11 +91,17 @@ final class MixerModel: ObservableObject {
         let center = NSWorkspace.shared.notificationCenter
         observers.append(
             center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.hardware.stop(); self?.engine.suspend(true) }
+                Task { @MainActor in
+                    self?.hardware.stop()
+                    self?.engine.suspend(true)
+                }
             })
         observers.append(
             center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.engine.suspend(false); self?.hardware.start() }
+                Task { @MainActor in
+                    self?.engine.suspend(false)
+                    self?.hardware.start()
+                }
             })
     }
     var diagnostics: String {
@@ -110,7 +119,8 @@ final class MixerModel: ObservableObject {
         var values = settings.filter { $0.value.shouldPersist }
         values[Self.globalEQID] = globalEQ
         let data = (try? encoder.encode(values)) ?? Data()
-        return diagnostics + "\nHardware: \(hardware.diagnostics)\nExcluded apps: \(exclusions.ids.sorted())\n\nEQ settings\n"
+        return diagnostics
+            + "\nHardware: \(hardware.diagnostics)\nExcluded apps: \(exclusions.ids.sorted())\n\nEQ settings\n"
             + String(decoding: data, as: UTF8.self)
     }
     func toggle(_ value: Bool) {

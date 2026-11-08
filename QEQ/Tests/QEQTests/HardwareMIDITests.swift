@@ -1,16 +1,17 @@
+import CoreMIDI
 import Foundation
 import QEQCore
 import Testing
-import CoreMIDI
 import os
+
 @testable import QEQAppSupport
 
 private final class HardwareFixtureBundle {}
 private func hardwareFixture(_ name: String) throws -> [UInt8] {
     #if SWIFT_PACKAGE
-    let bundle = Bundle.module
+        let bundle = Bundle.module
     #else
-    let bundle = Bundle(for: HardwareFixtureBundle.self)
+        let bundle = Bundle(for: HardwareFixtureBundle.self)
     #endif
     let url = bundle.url(forResource: "HardwareMIDI", withExtension: "txt")!
     let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
@@ -23,17 +24,24 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
     let identity = try #require(QEQHardwareIdentity(message: bytes))
     #expect(identity.serial == "001122AABBCC")
     #expect(identity.boot == [1, 2, 3, 4])
-    #expect(identity.feedback(position: 64.0 / 127, percent: 50, available: true,
-        muted: false, enabled: true, pickup: true, label: "Music", accent: (32, 64, 96), systemVolume: 0.75) == (try hardwareFixture("feedback")))
+    #expect(
+        identity.feedback(
+            position: 64.0 / 127, percent: 50, available: true,
+            muted: false, enabled: true, pickup: true, label: "Music", accent: (32, 64, 96), systemVolume: 0.75)
+            == (try hardwareFixture("feedback")))
     for index in [5, 7, 15, 27, 29, 40] {
-        var corrupt = bytes; corrupt[index] = 0x7E
+        var corrupt = bytes
+        corrupt[index] = 0x7E
         #expect(QEQHardwareIdentity(message: corrupt) == nil)
     }
     #expect(QEQHardwareIdentity(message: Array(bytes.dropLast())) == nil)
     // Four-channel firmware must wait for per-slot host support instead of binding as a prototype.
     #expect(QEQHardwareIdentity(message: try hardwareFixture("identity_four")) == nil)
-    #expect(identity.feedback(position: .nan, percent: 999, available: false,
-        muted: false, enabled: false, pickup: false, label: String(repeating: "é", count: 100)).count == 44)
+    #expect(
+        identity.feedback(
+            position: .nan, percent: 999, available: false,
+            muted: false, enabled: false, pickup: false, label: String(repeating: "é", count: 100)
+        ).count == 44)
 }
 
 @Test func midiDecoderHandlesFragmentationRunningStatusAndRealtime() throws {
@@ -45,10 +53,12 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
         #expect(first + second == [.systemExclusive(identity)])
     }
     var decoder = MIDIStreamDecoder()
-    #expect(decoder.consume([0xBF, 16, 0xF8, 64, 17, 1, 0xCF, 5, 0xBF, 18, 127]) == [
-        .control(channel: 15, number: 16, value: 64),
-        .control(channel: 15, number: 17, value: 1),
-        .control(channel: 15, number: 18, value: 127)])
+    #expect(
+        decoder.consume([0xBF, 16, 0xF8, 64, 17, 1, 0xCF, 5, 0xBF, 18, 127]) == [
+            .control(channel: 15, number: 16, value: 64),
+            .control(channel: 15, number: 17, value: 1),
+            .control(channel: 15, number: 18, value: 127),
+        ])
     #expect(decoder.consume([0xF0] + Array(repeating: 1, count: 2000) + [0xF7]).isEmpty)
     #expect(decoder.consume([0xF0, 1, 0xBF, 16, 20]) == [.control(channel: 15, number: 16, value: 20)])
 }
@@ -94,11 +104,13 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
     var destination: MIDIEndpointRef = 0
     let received = OSAllocatedUnfairLock(initialState: [UInt8]())
     try #require(MIDISourceCreate(client, "QEQ test source" as CFString, &source) == noErr)
-    try #require(MIDIDestinationCreateWithBlock(client, "QEQ test feedback" as CFString, &destination) { @Sendable list, _ in
-        let (bytes, overflow) = HardwareMIDIService.copyPacketBytes(list)
-        if !overflow { received.withLock { $0.append(contentsOf: bytes) } }
-    } == noErr)
-    let input = source, output = destination
+    try #require(
+        MIDIDestinationCreateWithBlock(client, "QEQ test feedback" as CFString, &destination) { @Sendable list, _ in
+            let (bytes, overflow) = HardwareMIDIService.copyPacketBytes(list)
+            if !overflow { received.withLock { $0.append(contentsOf: bytes) } }
+        } == noErr)
+    let input = source
+    let output = destination
     // A long heartbeat proves state changes use the fast path rather than timer polling.
     let service = HardwareMIDIService(candidates: { [(input, output)] }, heartbeatInterval: 60)
     defer { service.stop() }
@@ -112,7 +124,8 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
         bytes.withUnsafeBufferPointer { buffer in
             withUnsafeMutablePointer(to: &list) { pointer in
                 let packet = MIDIPacketListInit(pointer)
-                MIDIPacketListAdd(pointer, MemoryLayout<MIDIPacketList>.size, packet, 0, bytes.count, buffer.baseAddress!)
+                MIDIPacketListAdd(
+                    pointer, MemoryLayout<MIDIPacketList>.size, packet, 0, bytes.count, buffer.baseAddress!)
                 #expect(MIDIReceived(input, pointer) == noErr)
             }
         }
@@ -121,7 +134,8 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
     try await Task.sleep(for: .milliseconds(80))
     #expect(events.isEmpty)
     let identity = try hardwareFixture("identity")
-    emit(Array(identity.prefix(13))); emit(Array(identity.dropFirst(13)))
+    emit(Array(identity.prefix(13)))
+    emit(Array(identity.dropFirst(13)))
     emit([0xBF, 16, 30])
     for _ in 0..<30 {
         if !received.withLock({ $0.isEmpty }) { break }

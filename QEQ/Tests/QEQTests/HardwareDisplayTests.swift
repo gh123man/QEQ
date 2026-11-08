@@ -1,10 +1,12 @@
 import Foundation
-import Testing
 import QEQAppSupport
+import Testing
 
 @Test @MainActor func hardwareRasterUsesNegotiatedGeometryAndExactPixelBytes() throws {
     let scene = HardwareDisplayScene(label: "Music", percent: 56, systemPercent: 42)
-    for c in [HardwareDisplayCapabilities(), HardwareDisplayCapabilities(width: 320, height: 180, orientation: 1, shape: 0)] {
+    for c in [
+        HardwareDisplayCapabilities(), HardwareDisplayCapabilities(width: 320, height: 180, orientation: 1, shape: 0),
+    ] {
         let first = try HardwareDisplayRenderer.render(scene, capabilities: c)
         let second = try HardwareDisplayRenderer.render(scene, capabilities: c)
         #expect(first.count == 32 + c.width * c.height * 2)

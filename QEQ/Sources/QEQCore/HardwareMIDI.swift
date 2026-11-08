@@ -14,14 +14,27 @@ public struct MIDIStreamDecoder: Sendable {
     public mutating func consume(_ bytes: [UInt8]) -> [MIDIMessage] {
         var result: [MIDIMessage] = []
         for byte in bytes {
-            if byte >= 0xF8 { continue } // Realtime bytes may interrupt any message.
-            if byte == 0xF0 { sysex = [byte]; status = 0; data = []; continue }
+            if byte >= 0xF8 { continue }  // Realtime bytes may interrupt any message.
+            if byte == 0xF0 {
+                sysex = [byte]
+                status = 0
+                data = []
+                continue
+            }
             if byte == 0xF7 {
-                if var message = sysex { message.append(byte); result.append(.systemExclusive(message)) }
-                sysex = nil; status = 0; data = []; continue
+                if var message = sysex {
+                    message.append(byte)
+                    result.append(.systemExclusive(message))
+                }
+                sysex = nil
+                status = 0
+                data = []
+                continue
             }
             if byte & 0x80 != 0 {
-                sysex = nil; data = []; status = byte < 0xF0 ? byte : 0
+                sysex = nil
+                data = []
+                status = byte < 0xF0 ? byte : 0
                 continue
             }
             if sysex != nil {
@@ -56,12 +69,15 @@ public struct QEQHardwareIdentity: Equatable, Sendable {
             Array(message[28..<40]) == Self.testBoardControls,
             message[15..<27].allSatisfy({ (48...57).contains($0) || (65...70).contains($0) })
         else { return nil }
-        firmware = Array(message[8..<11]); boot = Array(message[11..<15])
+        firmware = Array(message[8..<11])
+        boot = Array(message[11..<15])
         serial = String(decoding: message[15..<27], as: UTF8.self)
     }
-    public func feedback(position: Double, percent: Int, available: Bool, muted: Bool,
-                         enabled: Bool, pickup: Bool, label: String,
-                         accent: (UInt8, UInt8, UInt8) = (0, 0, 0), systemVolume: Double? = nil) -> [UInt8] {
+    public func feedback(
+        position: Double, percent: Int, available: Bool, muted: Bool,
+        enabled: Bool, pickup: Bool, label: String,
+        accent: (UInt8, UInt8, UInt8) = (0, 0, 0), systemVolume: Double? = nil
+    ) -> [UInt8] {
         let flags: UInt8 = (available ? 1 : 0) | (muted ? 2 : 0) | (enabled ? 4 : 0) | (pickup ? 8 : 0)
         let value = UInt8((min(1, max(0, position.isFinite ? position : 0)) * 127).rounded())
         let percent = min(200, max(0, percent))
@@ -92,9 +108,12 @@ public struct HardwareControlState: Sendable {
     private var previous: Double?
     private var buttons: [UInt8: Bool] = [:]
     public init() {}
-    public mutating func rearm() { pickedUp = false; previous = nil }
+    public mutating func rearm() {
+        pickedUp = false
+        previous = nil
+    }
     public mutating func receive(_ message: MIDIMessage, targetPosition: Double) -> HardwareAction? {
-        guard case let .control(channel, number, value) = message, channel == 15 else { return nil }
+        guard case .control(let channel, let number, let value) = message, channel == 15 else { return nil }
         switch number {
         case 16:
             let position = Double(value) / 127
@@ -103,7 +122,8 @@ public struct HardwareControlState: Sendable {
             guard let previous else { return nil }
             if abs(position - previous) < 0.0001 { return nil }
             if !pickedUp {
-                pickedUp = abs(position - targetPosition) <= 0.5 / 127
+                pickedUp =
+                    abs(position - targetPosition) <= 0.5 / 127
                     || (min(previous, position)...max(previous, position)).contains(targetPosition)
             }
             return pickedUp ? .volume(position) : nil

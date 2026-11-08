@@ -23,12 +23,20 @@ class UpdateArtifactTests(unittest.TestCase):
             item = ET.SubElement(channel, 'item')
             build = ET.SubElement(item, f'{{{updates.SPARKLE_NS}}}version')
             build.text = '7'
+            hardware = ET.SubElement(item, f'{{{updates.SPARKLE_NS}}}hardwareRequirements')
+            hardware.text = 'arm64'
             attributes = {'url': f'https://github.com/gh123man/QEQ/releases/download/v0.1.0-rc.7/{archive.name}',
                           'length': str(archive.stat().st_size),
                           f'{{{updates.SPARKLE_NS}}}edSignature': base64.b64encode(bytes(64)).decode()}
             enclosure = ET.SubElement(item, 'enclosure', attributes)
             ET.ElementTree(tree).write(feed)
             self.assertEqual(updates.validate_appcast(feed, archive, config), attributes[f'{{{updates.SPARKLE_NS}}}edSignature'])
+            for requirement in [None, 'x86_64', 'arm64,x86_64']:
+                hardware.text = requirement
+                ET.ElementTree(tree).write(feed)
+                with self.assertRaises(SystemExit):
+                    updates.validate_appcast(feed, archive, config)
+            hardware.text = 'arm64'
             for key, value in [('url', 'https://example.com/untrusted.zip'), ('length', '1'),
                                (f'{{{updates.SPARKLE_NS}}}edSignature', '')]:
                 enclosure.set(key, value)

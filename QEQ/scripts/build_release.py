@@ -92,7 +92,7 @@ def main():
         verify_signature(target, team, runtime=True)
     signature = verify_signature(app, team, runtime=True)
     architectures = run('lipo', '-archs', str(app / 'Contents/MacOS/QEQ'), capture=True).split()
-    require(set(architectures) == {'arm64', 'x86_64'}, 'Release must be universal')
+    require(set(architectures) == {'arm64'}, 'Release must be Apple Silicon only (arm64)')
     submission = out / 'app-notary-submission.zip'
     run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(submission))
     app_submission = notarize(submission, 'app', logs)

@@ -20,8 +20,10 @@ public final class SystemOutputVolume {
             for (element, scalar) in zip(controls.elements, values) {
                 var address = Self.address(element)
                 var value = scalar
-                try checkAudio(AudioObjectSetPropertyData(controls.device, &address, 0, nil,
-                    UInt32(MemoryLayout<Float32>.size), &value), "Set system volume")
+                try checkAudio(
+                    AudioObjectSetPropertyData(
+                        controls.device, &address, 0, nil,
+                        UInt32(MemoryLayout<Float32>.size), &value), "Set system volume")
             }
             error = nil
         } catch {
@@ -40,7 +42,8 @@ public final class SystemOutputVolume {
     }
 
     private static func address(_ element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
-        AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar,
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
             mScope: kAudioDevicePropertyScopeOutput, mElement: element)
     }
 
@@ -57,7 +60,8 @@ public final class SystemOutputVolume {
         if writable(kAudioObjectPropertyElementMain) {
             elements = [kAudioObjectPropertyElementMain]
         } else {
-            var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
+            var address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
                 mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
             var channels: [UInt32] = [1, 2]
             var size = UInt32(2 * MemoryLayout<UInt32>.size)

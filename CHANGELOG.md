@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Require Apple Silicon (arm64) for new builds; drop Intel support and move CI/releases to Apple Silicon runners.
+
+- Support the purpose-built QEQ MIDI controller with app volume/mute, system volume, global bypass, and app accent feedback.
+- Automatically stream the hardware display over native USB with cached Metal rendering, lossless changed tiles, and acknowledged reconnect recovery; no external worker is required.
+
 - Keep the popup height in sync as apps arrive after startup, EQ panels expand or collapse, and available screen space changes.
 
 ## 1.0.2 — 2026-11-04
@@ -78,6 +83,8 @@
 - Require accepted Apple submissions, stapled tickets, and Gatekeeper approval for both app and DMG before publishing.
 
 ## Unreleased
+
+- Require Apple Silicon (arm64) for new builds; drop Intel support and move CI/releases to Apple Silicon runners.
 
 - Resolve Chrome/helper clients into their parent app’s name and icon; migrate helper settings.
 - Add per-app processing switches that preserve volume and EQ while bypassed.

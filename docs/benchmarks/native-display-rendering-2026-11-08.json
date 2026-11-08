@@ -1,0 +1,14 @@
+{
+  "metal" : {
+    "cpu_ms_per_frame" : 0.086085999999999885,
+    "frames" : 500,
+    "wall_ms_per_frame" : 0.22934016631916165
+  },
+  "metal_rasterized_layers" : 527,
+  "note" : "Process CPU includes driver work; warmed release builds, 500 changing scenes. No USB hardware or physical display latency measured.",
+  "reference" : {
+    "cpu_ms_per_frame" : 2.2246539999999997,
+    "frames" : 500,
+    "wall_ms_per_frame" : 2.2294034999795258
+  }
+}
