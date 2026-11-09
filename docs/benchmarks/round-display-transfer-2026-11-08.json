@@ -1,0 +1,150 @@
+{
+  "workload": "120 frames from the native round renderer at 30 Hz: home, carousel scroll, app details, slider takeover, return to menu. 52 changed frames transmitted per cycle.",
+  "before": {
+    "frames": 52,
+    "wire_bytes": 714223,
+    "raw_bytes": 3420672,
+    "payload_ratio": 0.18482537934066756,
+    "prepare_us": {
+      "p50": 417.75,
+      "p95": 716.709,
+      "maximum": 985.875
+    },
+    "render_us": {
+      "p50": 180.458,
+      "p95": 1114.625,
+      "maximum": 3935.625
+    },
+    "usb_write_us": {
+      "p50": 54493.292,
+      "p95": 95830.0,
+      "maximum": 107447.625
+    },
+    "ack_roundtrip_us": {
+      "p50": 92784.875,
+      "p95": 127906.542,
+      "maximum": 146297.042
+    },
+    "decode_us": {
+      "p50": 4119,
+      "p95": 5875,
+      "maximum": 6799
+    },
+    "verify_us": {
+      "p50": 16176,
+      "p95": 22221,
+      "maximum": 25598
+    },
+    "lcd_us": {
+      "p50": 64771,
+      "p95": 88547,
+      "maximum": 102702
+    },
+    "device_frame_us": {
+      "p50": 91830,
+      "p95": 126944,
+      "maximum": 145402
+    },
+    "input_poll_gap_max_us": {
+      "p50": 3486,
+      "p95": 3486,
+      "maximum": 3486
+    }
+  },
+  "after": {
+    "frames": 52,
+    "wire_bytes": 714223,
+    "raw_bytes": 3420672,
+    "payload_ratio": 0.18482537934066756,
+    "prepare_us": {
+      "p50": 378.167,
+      "p95": 689.667,
+      "maximum": 1070.417
+    },
+    "render_us": {
+      "p50": 180.458,
+      "p95": 1114.625,
+      "maximum": 3935.625
+    },
+    "usb_write_us": {
+      "p50": 27497.459,
+      "p95": 41441.166,
+      "maximum": 45527.834
+    },
+    "ack_roundtrip_us": {
+      "p50": 32869.292,
+      "p95": 44108.208,
+      "maximum": 50183.0
+    },
+    "decode_us": {
+      "p50": 4074,
+      "p95": 5824,
+      "maximum": 6887
+    },
+    "verify_us": {
+      "p50": 3100,
+      "p95": 4248,
+      "maximum": 4958
+    },
+    "lcd_us": {
+      "p50": 20621,
+      "p95": 28271,
+      "maximum": 32420
+    },
+    "device_frame_us": {
+      "p50": 32040,
+      "p95": 43202,
+      "maximum": 49403
+    },
+    "input_poll_gap_max_us": {
+      "p50": 3004,
+      "p95": 3004,
+      "maximum": 3004
+    }
+  },
+  "spi_hz_before": 10000000,
+  "spi_hz_after": 40000000,
+  "native_transport": {
+    "frames": 624,
+    "validated_acks": 624,
+    "ack_us": {
+      "p50": 33065.417,
+      "p95": 44071.375,
+      "maximum": 50387.834,
+      "mean": 30514.300080128207
+    },
+    "lcd_us": {
+      "p50": 20890,
+      "p95": 28524,
+      "maximum": 32657,
+      "mean": 18511.9391025641
+    },
+    "verify_us": {
+      "p50": 3167,
+      "p95": 4315,
+      "maximum": 4902,
+      "mean": 2808.9791666666665
+    },
+    "input_gap_us": {
+      "p50": 3006,
+      "p95": 3022,
+      "maximum": 3022,
+      "mean": 3012.8141025641025
+    }
+  },
+  "limitations": [
+    "Transfer timings include backpressure and end after SPI completion; they do not measure photon latency, tearing, or perceived smoothness.",
+    "The native transport run replays pre-rendered frames as fast as possible. The live app caps rendering at 30 Hz and coalesces input.",
+    "A whole-device disconnect recurred after app launch. Reconnection restored MIDI and display discovery; long-term stability remains unresolved."
+  ],
+  "post_reconnect_live_app_check": {
+    "samples": 451,
+    "duration_ms": 45000,
+    "sequence_gaps": 0,
+    "host_feedback_active_all_samples": true,
+    "midi_overflows": 0,
+    "queued_packets": 0,
+    "heap_free_min": 303916,
+    "heap_free_max": 303916
+  }
+}

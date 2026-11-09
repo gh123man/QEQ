@@ -31,6 +31,11 @@ public struct HardwareDisplayScene: Equatable, Sendable {
     public var red: Double
     public var green: Double
     public var blue: Double
+    public var roundScreen: HardwareRoundScreen?
+    public var roundShowsSystemVolume = false
+    public var roundSpectrumTraces: [HardwareSpectrumTrace] = []
+    public var roundVolumePosition = 1.0
+    public var reduceMotion = false
     public init(
         label: String, percent: Int, systemPercent: Int?, available: Bool = true,
         muted: Bool = false, enabled: Bool = true, pickup: Bool = false,

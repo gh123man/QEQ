@@ -1,6 +1,9 @@
 #include "display_stream.h"
 #include "lz4.h"
 #include <string.h>
+#ifdef ESP32
+#include "esp_rom_crc.h"
+#endif
 
 namespace stream {
 uint16_t u16(const uint8_t* p) { return uint16_t(p[0]) | uint16_t(p[1]) << 8; }
@@ -8,9 +11,27 @@ uint32_t u32(const uint8_t* p) { return uint32_t(u16(p)) | uint32_t(u16(p+2)) <<
 void put16(uint8_t* p, uint16_t v) { p[0]=v; p[1]=v>>8; }
 void put32(uint8_t* p, uint32_t v) { put16(p,v); put16(p+2,v>>16); }
 uint32_t crc32(const uint8_t* p, size_t size, uint32_t seed) {
+#ifdef ESP32
+  // ROM uses the same reflected IEEE polynomial and complemented seed/result.
+  return esp_rom_crc32_le(seed,p,size);
+#else
+  // IEEE CRC-32, same seeded wire checksum, one table lookup per byte.
+  // Constructed once on the receiver task; no per-frame allocation.
+  struct Table {
+    uint32_t values[256];
+    Table() {
+      for(uint32_t i=0;i<256;++i) {
+        uint32_t c=i;
+        for(int bit=0;bit<8;++bit) c=(c>>1) ^ (0xEDB88320u & (0u-(c&1)));
+        values[i]=c;
+      }
+    }
+  };
+  static const Table table;
   uint32_t crc=~seed;
-  while(size--) { crc ^= *p++; for(int i=0;i<8;++i) crc=(crc>>1) ^ (0xEDB88320u & (0u-(crc&1))); }
+  while(size--) crc=table.values[(crc^*p++)&255] ^ (crc>>8);
   return ~crc;
+#endif
 }
 size_t message(uint8_t* out, Type type, uint16_t flags, uint32_t session, uint32_t frame,
                uint32_t base, const uint8_t* payload, size_t size) {

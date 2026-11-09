@@ -166,3 +166,23 @@ private func hardwareFixture(_ name: String) throws -> [UInt8] {
     try await Task.sleep(for: .milliseconds(80))
     #expect(service.devices.count == 1)
 }
+
+@Test func sliderNoiseThresholdAccumulatesTravelFromLastAcceptedPosition() {
+    var motion = HardwareSliderMotion()
+    let initial = motion.accept(64)
+    #expect(initial)
+    for value: UInt8 in [63, 64, 65, 64, 65] {
+        let accepted = motion.accept(value)
+        #expect(!accepted)
+    }
+    #expect(motion.lastAccepted == 64)
+    let upward = motion.accept(66)
+    let jitter = motion.accept(65)
+    let downward = motion.accept(64)
+    let invalid = motion.accept(255)
+    #expect(upward)
+    #expect(!jitter)
+    #expect(downward)
+    #expect(!invalid)
+    #expect(motion.lastAccepted == 64)
+}

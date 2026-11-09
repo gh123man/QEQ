@@ -13,6 +13,7 @@ Usage:
 Options:
   --clean       Do a clean rebuild before launch
   --no-build    Launch the existing app bundle without rebuilding
+  --hardware-midi-only  Diagnose hardware USB with display streaming disabled
   --profile     Record 30 seconds of CPU/route counters with the popup open/closed
   --profile-ui  Profile reproducible animated UI fixtures without capturing/playing audio
   -h, --help    Show this help
@@ -39,6 +40,7 @@ terminate_existing_app() {
 CLEAN_BUILD=false
 SKIP_BUILD=false
 PROFILE_ARGS=()
+HARDWARE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clean)
@@ -57,6 +59,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-build)
       SKIP_BUILD=true
+      shift
+      ;;
+    --hardware-midi-only)
+      HARDWARE_ARGS=(--hardware-midi-only)
       shift
       ;;
     -h|--help)
@@ -84,6 +90,9 @@ if [[ "$SKIP_BUILD" == false ]]; then
   else
     "$SCRIPT_DIR/QEQ/scripts/build_macos_app.sh"
   fi
+fi
+if [[ ${#HARDWARE_ARGS[@]} -gt 0 ]]; then
+  PROFILE_ARGS+=("${HARDWARE_ARGS[@]}")
 fi
 if [[ ${#PROFILE_ARGS[@]} -gt 0 ]]; then
   exec "$SCRIPT_DIR/QEQ/scripts/run_macos_app.sh" "${PROFILE_ARGS[@]}"

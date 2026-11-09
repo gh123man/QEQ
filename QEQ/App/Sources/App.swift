@@ -28,6 +28,7 @@ final class MixerModel: ObservableObject {
     private var icons: [String: NSImage] = [:]
     private let preferences = MixerPreferences()
     private var panelVisible = false
+    private var hardwareSpectrumVisible = false
     private let engine = MixerEngine()
     private var observers: [NSObjectProtocol] = []
     private var saveWork: DispatchWorkItem?
@@ -200,12 +201,19 @@ final class MixerModel: ObservableObject {
         panelVisible = visible
         refreshAnalysis()
     }
+    func setHardwareSpectrumVisible(_ visible: Bool) {
+        guard hardwareSpectrumVisible != visible else { return }
+        hardwareSpectrumVisible = visible
+        if !panelVisible { refreshAnalysis() }
+    }
     private func refreshAnalysis() {
-        engine.setAnalysisApp(panelVisible ? (selectedEQ ?? Self.globalEQID) : nil, includeGlobal: panelVisible) {
+        let analysis = panelVisible ? (selectedEQ ?? Self.globalEQID) : hardwareSpectrumVisible ? Self.globalEQID : nil
+        engine.setAnalysisApp(analysis, includeGlobal: panelVisible || hardwareSpectrumVisible) {
             [weak self] value in
             Task { @MainActor in
                 guard let self else { return }
                 self.telemetry = value
+                self.hardware.audioDidUpdate(value)
             }
         }
     }

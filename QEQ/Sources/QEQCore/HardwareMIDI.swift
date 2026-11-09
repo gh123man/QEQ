@@ -102,6 +102,19 @@ public enum HardwareAction: Equatable, Sendable {
     case toggleGlobalBypass
 }
 
+/// Compare with the last accepted position so slow travel accumulates while
+/// sub-percent chatter neither changes volume nor retriggers the display.
+public struct HardwareSliderMotion: Sendable {
+    public private(set) var lastAccepted: UInt8?
+    public init() {}
+    public mutating func accept(_ value: UInt8) -> Bool {
+        guard value <= 127 else { return false }
+        if let lastAccepted, abs(Int(value) - Int(lastAccepted)) * 100 < 127 { return false }
+        lastAccepted = value
+        return true
+    }
+}
+
 /// Per-device state; a fresh session, target, or UI volume edit rearms pickup.
 public struct HardwareControlState: Sendable {
     public private(set) var pickedUp = false

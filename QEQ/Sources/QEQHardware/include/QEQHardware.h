@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface QEQUSBDevice : NSObject
 @property(nonatomic, readonly) uint64_t registryID;
 @property(nonatomic, readonly) NSString *serial;
+@property(nonatomic, readonly) NSString *productName;
 @property(nonatomic, readonly) io_service_t service;
 @end
 @interface QEQUSBDiscovery : NSObject
@@ -21,6 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable instancetype)initWithDevice:(QEQUSBDevice *)device error:(NSError **)error;
 - (BOOL)write:(NSData *)data error:(NSError **)error;
 - (nullable NSData *)readWithTimeout:(double)timeout error:(NSError **)error;
+- (NSString *)diagnosticStatus;
 - (void)close;
 @end
 NS_ASSUME_NONNULL_END

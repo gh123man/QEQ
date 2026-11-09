@@ -8,6 +8,7 @@ struct HardwareDisplayContent: @unchecked Sendable, Equatable {
     var scene: HardwareDisplayScene
     var icon: CGImage?
     var iconKey: String
+    var menuIcons: [String: CGImage] = [:]
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.scene == rhs.scene && lhs.iconKey == rhs.iconKey }
 }
 

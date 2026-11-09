@@ -227,6 +227,86 @@ private func eventually(_ predicate: @escaping @Sendable () -> Bool) async -> Bo
     #expect(second.writes.first { $0.kind == .begin }?.flags == 1)
 }
 
+@Test func identicalDisplayPixelsKeepTheUSBSessionAliveDuringSceneUpdates() async throws {
+    let port = ReceiverPort()
+    let renderer = CountingRenderer()
+    let worker = DisplayConnection(
+        label: "identical", makePort: { port }, makeRenderer: { _ in renderer }, onStatus: { _ in })
+    defer { worker.stop() }
+    worker.update(content(50))
+    worker.start()
+    #expect(await eventually { port.writes.contains { $0.kind == .commit } })
+    for step in 1...25 {
+        var updated = content(50)
+        updated.scene.roundVolumePosition = Double(step) / 25
+        worker.update(updated)
+        try await Task.sleep(for: .milliseconds(30))
+    }
+    #expect(port.writes.contains { $0.kind == .ping })
+    #expect(port.writes.filter { $0.kind == .commit }.count == 1)
+}
+
+@Test func roundDisplaySlidesFromVisibleFrameAndHonorsReduceMotion() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var home = content(50)
+    home.scene.roundShowsSystemVolume = true
+    home.scene.roundScreen = .home(Array(repeating: 140, count: 48))
+    let initial = renderer.render(home, now: 1)
+    #expect(initial.count == 240 * 240 * 2 && initial.prefix(2) == Data([0, 0]))
+    #expect(!renderer.animating)
+
+    var menu = home
+    menu.scene.roundScreen = .menu(
+        items: [
+            .init("Music controls", iconKey: "music"), .init("Music", iconKey: "app"), .init("Home", iconKey: "home"),
+        ], selected: 0)
+    #expect(renderer.render(menu, now: 2) == initial)
+    let middle = renderer.render(menu, now: 2.13)
+    #expect(renderer.animating && middle != initial)
+
+    var slider = home
+    slider.scene.roundScreen = .app(slider: true)
+    #expect(renderer.render(slider, now: 2.14) == middle)
+    let final = renderer.render(slider, now: 2.5)
+    #expect(!renderer.animating && final != middle)
+    slider.scene.percent = 10
+    slider.scene.roundVolumePosition = 0.5
+    #expect(renderer.render(slider, now: 3) == final)
+    #expect(renderer.animating)
+    var halfway = slider
+    halfway.scene.percent = 30
+    halfway.scene.roundVolumePosition = 0.75
+    let reference = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    #expect(renderer.render(slider, now: 3.09) == reference.render(halfway, now: 3.09))
+    #expect(renderer.render(slider, now: 3.2) != final)
+    #expect(!renderer.animating)
+
+    home.scene.reduceMotion = true
+    #expect(renderer.render(home, now: 4) == initial)
+    #expect(!renderer.animating)
+}
+
+@Test func roundVolumeKeepsMovingWhenKnobUpdatesRetargetTheAnimation() throws {
+    let caps = HardwareDisplayCapabilities()
+    let renderer = try RoundDisplayRenderer(caps)
+    var home = content(50)
+    home.scene.roundShowsSystemVolume = true
+    home.scene.roundScreen = .home([])
+    home.scene.systemPercent = 20
+    let start = renderer.render(home, now: 1)
+    home.scene.systemPercent = 60
+    #expect(renderer.render(home, now: 2) == start)
+    home.scene.systemPercent = 80
+    let reference = try RoundDisplayRenderer(caps)
+    var halfway = home
+    halfway.scene.systemPercent = 40
+    #expect(renderer.render(home, now: 2.09) == reference.render(halfway, now: 2.09))
+    let settled = renderer.render(home, now: 2.28)
+    home.scene.reduceMotion = true
+    #expect(settled == reference.render(home, now: 2.28))
+    #expect(!renderer.animating)
+}
+
 @Test @MainActor func nativeDisplayDiscoveryLifecycleIsIdempotent() async {
     let service = HardwareDisplayService()
     service.start()
@@ -255,4 +335,57 @@ private func eventually(_ predicate: @escaping @Sendable () -> Bool) async -> Bo
     let landscape = try MetalHardwareDisplayRenderer(
         capabilities: HardwareDisplayCapabilities(width: 320, height: 180, orientation: 1, shape: 0))
     #expect(try landscape.render(scene).count == 320 * 180 * 2)
+}
+
+@Test func carouselRetargetsFromVisibleIconsAndSettlesWithoutQueuedSteps() throws {
+    let caps = HardwareDisplayCapabilities()
+    let renderer = try RoundDisplayRenderer(caps)
+    var scene = content(50)
+    let items: [HardwareRoundScreen.Item] = [
+        .init("Music controls", iconKey: "music"), .init("Spotify", iconKey: "spotify"),
+        .init("Home", iconKey: "home"),
+    ]
+    scene.scene.roundScreen = .menu(items: items, selected: 0)
+    let initial = renderer.render(scene, now: 1)
+    // Ignore labels/dots: the carousel's icons should start exactly where the last
+    // delivered frame left them, including when the user reverses direction.
+    func icons(_ pixels: Data) -> Data { pixels.subdata(in: (60 * 240 * 2)..<(160 * 240 * 2)) }
+    scene.scene.roundScreen = .menu(items: items, selected: 2)
+    #expect(icons(renderer.render(scene, now: 2)) == icons(initial))
+    let middle = renderer.render(scene, now: 2.1)
+    #expect(renderer.animating && icons(middle) != icons(initial))
+    scene.scene.roundScreen = .menu(items: items, selected: 0)
+    #expect(icons(renderer.render(scene, now: 2.11)) == icons(middle))
+    #expect(renderer.render(scene, now: 2.5) == initial)
+    #expect(!renderer.animating)
+    scene.scene.reduceMotion = true
+    scene.scene.roundScreen = .menu(items: items, selected: 1)
+    _ = renderer.render(scene, now: 3)
+    #expect(!renderer.animating)
+}
+
+@Test func homeVolumeOverlayFadesAwayAndIdleSpectrumIgnoresVolume() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var home = content(50)
+    home.scene.roundScreen = .home([0, 60, 180, 90, 220, 30])
+    home.scene.systemPercent = 20
+    let idle = renderer.render(home, now: 1)
+    home.scene.systemPercent = 80
+    #expect(renderer.render(home, now: 2) == idle)
+    #expect(renderer.render(home, now: 2.3) == idle)
+    home.scene.roundShowsSystemVolume = true
+    #expect(renderer.render(home, now: 3) == idle)
+    let visible = renderer.render(home, now: 3.2)
+    #expect(visible != idle)
+    home.scene.roundShowsSystemVolume = false
+    #expect(renderer.render(home, now: 4) == visible)
+    #expect(renderer.animating)
+    #expect(renderer.render(home, now: 4.2) == idle)
+    #expect(!renderer.animating)
+    home.scene.reduceMotion = true
+    home.scene.roundShowsSystemVolume = true
+    #expect(renderer.render(home, now: 5) == visible)
+    #expect(!renderer.animating)
+    home.scene.roundShowsSystemVolume = false
+    #expect(renderer.render(home, now: 6) == idle)
 }

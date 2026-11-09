@@ -9,15 +9,20 @@ static CFMutableDictionaryRef matching(void) {
 static NSError *failure(NSString *description) {
     return [NSError errorWithDomain:@"QEQ.USBDisplay" code:1 userInfo:@{NSLocalizedDescriptionKey:description}];
 }
+static NSString *usbString(io_service_t service, CFStringRef key) {
+    CFTypeRef value = IORegistryEntrySearchCFProperty(service, kIOServicePlane, key,
+        kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+    NSString *result = value && CFGetTypeID(value) == CFStringGetTypeID() ? [(__bridge NSString *)value copy] : @"";
+    if (value) CFRelease(value);
+    return result;
+}
 @implementation QEQUSBDevice
 - (instancetype)initWithService:(io_service_t)service {
     if ((self = [super init])) {
         _service = service; IOObjectRetain(service);
         IORegistryEntryGetRegistryEntryID(service, &_registryID);
-        CFTypeRef value = IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR("USB Serial Number"),
-            kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
-        _serial = value && CFGetTypeID(value) == CFStringGetTypeID() ? [(__bridge NSString *)value copy] : @"";
-        if (value) CFRelease(value);
+        _serial = usbString(service, CFSTR("USB Serial Number"));
+        _productName = usbString(service, CFSTR("USB Product Name"));
     }
     return self;
 }
@@ -130,6 +135,36 @@ static void changed(void *context, io_iterator_t iterator) {
     if (![_input sendIORequestWithData:data bytesTransferred:&count completionTimeout:timeout error:error]) return nil;
     if (count > data.length) { if (error) *error = failure(@"Invalid USB read size"); return nil; }
     data.length = count; return data;
+}
+- (NSString *)diagnosticStatus {
+    if (!_interface || !_interface.interfaceDescriptor) return @"Display interface closed";
+    // Read-only EP0 snapshot; independent of bulk traffic. Older firmware may
+    // reject this optional request. Never reset the composite MIDI/CDC device.
+    IOUSBDeviceRequest request = { .bmRequestType = 0xc1, .bRequest = 0x51,
+        .wValue = OSSwapHostToLittleInt16(1),
+        .wIndex = OSSwapHostToLittleInt16(_interface.interfaceDescriptor->bInterfaceNumber),
+        .wLength = OSSwapHostToLittleInt16(160) };
+    NSMutableData *data = [NSMutableData dataWithLength:160];
+    NSUInteger count = 0; NSError *error = nil;
+    if (![_interface sendDeviceRequest:request data:data bytesTransferred:&count completionTimeout:0.25 error:&error])
+        return [NSString stringWithFormat:@"EP0 unavailable: %@", error];
+    if (count != 96 && count != 128 && count != 160) return [NSString stringWithFormat:@"Unexpected EP0 length: %lu", (unsigned long)count];
+    uint32_t words[40] = {}; memcpy(words, data.bytes, count);
+    for (NSUInteger i = 0; i < count / 4; ++i) words[i] = OSSwapLittleToHostInt32(words[i]);
+    if (words[0] != 0x31444751 || words[1] != 1) return @"Unknown EP0 diagnostic version";
+    NSArray<NSString *> *names = @[@"magic", @"version", @"uptime_ms", @"phase", @"receiver_at_ms",
+        @"pumps", @"usb_rx_bytes", @"fed_bytes", @"tiles", @"replies", @"reply_drops",
+        @"usb_tx_bytes", @"tx_completions", @"rx_buffer_bytes", @"reply_queue", @"pending_reply_bytes",
+        @"pump_scheduled", @"stack_free_bytes", @"last_reply_frame", @"vendor_rx_bytes",
+        @"out_busy", @"in_busy", @"max_input_gap_us", @"free_heap", @"endpoint",
+        @"in_control", @"in_size", @"in_interrupt", @"in_fifo_free", @"fifo_empty_mask",
+        @"global_interrupt", @"global_interrupt_mask", @"cdc_in_control", @"cdc_in_size",
+        @"cdc_in_interrupt", @"cdc_in_fifo_free", @"cdc_in_busy", @"midi_in_control",
+        @"midi_in_size", @"midi_in_fifo_free"];
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+    for (NSUInteger i = 1; i < count / 4; ++i) values[names[i]] = @(words[i]);
+    NSData *json = [NSJSONSerialization dataWithJSONObject:values options:NSJSONWritingSortedKeys error:nil];
+    return [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
 }
 - (void)close { _input = nil; _output = nil; [_interface destroy]; _interface = nil; }
 - (void)dealloc { [self close]; }
