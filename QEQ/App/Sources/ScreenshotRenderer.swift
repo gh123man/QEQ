@@ -199,6 +199,10 @@ struct ScreenshotRenderer {
             HardwareSlotBinding(serial: "fixture-v2", number: 4, appID: nil, appName: nil),
         ]
         model.hardwareBindings = model.hardwareSlots.filter { $0.appID != nil }
+        // A saved assignment on an unplugged board must not produce a slot
+        // number on the connected board's app badge.
+        model.hardwareBindings.append(
+            HardwareSlotBinding(serial: "fixture-disconnected", number: 2, appID: zoom.id, appName: zoom.name))
         try capture("hardware-slots", maximum: MixerModel.panelHeightLimit)
         let assignment = HardwareAssignmentTarget(id: chrome.id, name: chrome.name)
         model.hardwareAssignment = assignment

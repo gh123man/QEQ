@@ -11,6 +11,9 @@ one pair; never flash either profile to the other wiring revision.
 Hardware is optional. Slot buttons appear only while a controller is connected;
 disconnecting the last controller closes the picker and hides those buttons
 without clearing saved assignments.
+Slot badges describe connected controllers only. A picker notes when an app has
+a saved assignment on another, disconnected controller; that reservation is kept
+without presenting it as an active slot on the current board.
 When hardware is connected, click the slider icon beside an app’s volume control
 and choose a numbered slot. Assigned apps show their slot number on that button. Assignments
 are saved by controller serial and physical position, from left to right. One app
@@ -51,9 +54,10 @@ toggle immediately and show On/Off. Volume opens a gain
 view with one percentage-point step per detent, bounded to 100% or 200% when
 Boost is enabled. Clicking returns to the app actions.
 
-Volume remains visible but disabled for an app assigned to any hardware slot,
-including saved assignments on disconnected controllers. It shows **Use slider
-N**. Both entry and every volume adjustment recheck ownership; assigning the app
+Volume remains visible but disabled for an app assigned to a connected hardware
+slot. Saved assignments on disconnected controllers do not block dial volume.
+It shows **Use slider N** for an active assignment, while Slot describes the
+current controller's own binding. Both entry and every volume adjustment recheck ownership; assigning the app
 from the Mac while its volume view is open returns it to the action carousel.
 
 Slot opens a second carousel: Back, the current controller's numbered slots with

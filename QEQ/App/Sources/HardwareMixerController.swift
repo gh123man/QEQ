@@ -495,8 +495,8 @@ final class HardwareMixerController {
         }
     }
 
-    private func mappedSlot(_ id: String) -> HardwareSlotBinding? {
-        model?.hardwareBindings.first { $0.appID == id }
+    private func mappedSlot(_ id: String, serial: String? = nil) -> HardwareSlotBinding? {
+        model?.hardwareSlots.first { $0.appID == id && (serial == nil || $0.serial == serial) }
     }
     private static func navigationIcon(_ name: String) -> NSImage? {
         guard
@@ -547,7 +547,8 @@ final class HardwareMixerController {
             case .appActions(let id):
                 target = id
                 let settings = model.value(id)
-                let slot = mappedSlot(id)
+                let volumeSlot = mappedSlot(id)
+                let slot = mappedSlot(id, serial: session.identity.serial)
                 let symbols = [
                     "arrow.uturn.backward",
                     settings.boostEnabled ? "bolt.fill" : "bolt",
@@ -558,7 +559,7 @@ final class HardwareMixerController {
                 let details = [
                     "",
                     settings.boostEnabled ? "On" : "Off", settings.muted ? "On" : "Off",
-                    slot.map { "Use slider \($0.number)" } ?? "\(Int((settings.volume * 100).rounded()))%",
+                    volumeSlot.map { "Use slider \($0.number)" } ?? "\(Int((settings.volume * 100).rounded()))%",
                     slot.map { "Slot \($0.number)" } ?? "Unassigned",
                 ]
                 let items = HardwareAppAction.allCases.map { action in
@@ -567,7 +568,7 @@ final class HardwareMixerController {
                     menuIcons[key] = Self.navigationIcon(symbols[index])
                     return HardwareRoundScreen.Item(
                         names[index], iconKey: key, detail: details[index],
-                        enabled: action.canActivate(mapped: slot != nil))
+                        enabled: action.canActivate(mapped: volumeSlot != nil))
                 }
                 screen = .appActions(
                     appID: id, title: model.snapshot.apps.first(where: { $0.id == id })?.name ?? "App", items: items,

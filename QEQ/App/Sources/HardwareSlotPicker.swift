@@ -10,7 +10,7 @@ struct HardwareSlotButton: View {
     @ObservedObject var model: MixerModel
     let appID: String
     let appName: String
-    private var assigned: [HardwareSlotBinding] { model.hardwareBindings.filter { $0.appID == appID } }
+    private var assigned: [HardwareSlotBinding] { model.hardwareSlots.filter { $0.appID == appID } }
     var body: some View {
         Button {
             model.hardwareAssignment = HardwareAssignmentTarget(id: appID, name: appName)
@@ -43,6 +43,10 @@ struct HardwareSlotPicker: View {
     @ObservedObject var model: MixerModel
     let target: HardwareAssignmentTarget
     private var multipleDevices: Bool { Set(model.hardwareSlots.map(\.serial)).count > 1 }
+    private var savedOnDisconnectedController: Bool {
+        model.hardwareBindings.contains { $0.appID == target.id }
+            && !model.hardwareSlots.contains { $0.appID == target.id }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -100,7 +104,11 @@ struct HardwareSlotPicker: View {
                 }.frame(height: min(232, CGFloat(model.hardwareSlots.count) * 58 - 6))
             }
             HStack {
-                Text("Slots stay assigned when apps close.").font(.caption).foregroundStyle(.secondary)
+                Text(
+                    savedOnDisconnectedController
+                        ? "Saved on another controller." : "Slots stay assigned when apps close."
+                )
+                .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if model.hardwareBindings.contains(where: { $0.appID == target.id }) {
                     Button("Unassign") { model.unassignHardwareApp(target.id) }
