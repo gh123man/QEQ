@@ -128,13 +128,13 @@ struct DisplayFramePlanner {
     private(set) var baseline: Data?
     private(set) var pending: Pending?
 
-    mutating func prepare(_ pixels: Data) throws -> Pending? {
+    mutating func prepare(_ pixels: Data, forceFull: Bool = false) throws -> Pending? {
         guard pending == nil, acknowledged < UInt32.max else { throw DisplayWire.Failure.sequence }
         guard capabilities.supported, pixels.count == capabilities.width * capabilities.height * 2 else {
             throw DisplayWire.Failure.malformed
         }
         let frame = acknowledged + 1
-        let full = baseline == nil
+        let full = baseline == nil || forceFull
         var tileMessages = Data()
         var tileCount = 0
         for y in stride(from: 0, to: capabilities.height, by: 32) {

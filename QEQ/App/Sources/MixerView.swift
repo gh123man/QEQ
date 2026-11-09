@@ -237,7 +237,7 @@ struct MixerView: View {
                 .help("Bypass this app's volume and EQ while keeping its settings. Global EQ still applies.")
             }
             HStack(spacing: 9) {
-                if !model.hardwareSlots.isEmpty || model.hardwareBindings.contains(where: { $0.appID == app.id }) {
+                if !model.hardwareSlots.isEmpty {
                     HardwareSlotButton(model: model, appID: app.id, appName: app.name)
                 }
                 LiveAppMeter(

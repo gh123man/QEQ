@@ -102,6 +102,21 @@ private final class ReceiverPort: DisplayBulkPort, @unchecked Sendable {
     #expect(try recovered.send(changed))
 }
 
+@Test func settledSceneCanRepaintEveryTileWithoutResettingTheSession() throws {
+    let port = ReceiverPort()
+    let session = DisplayUSBSession(port: port, nonce: 91)
+    let caps = try session.negotiate()
+    let pixels = Data(repeating: 73, count: caps.width * caps.height * 2)
+    #expect(try session.send(pixels))
+    #expect(try !session.send(pixels))
+    #expect(try session.send(pixels, forceFull: true))
+    #expect(session.planner?.acknowledged == 2)
+    #expect(port.writes.filter { $0.kind == .begin }.last?.flags == 1)
+    #expect(port.writes.filter { $0.kind == .hello }.count == 1)
+    #expect(port.pixelCRC == DisplayWire.crc(pixels))
+    #expect(try !session.send(pixels))
+}
+
 @Test func nativeTilesUseLosslessLZ4AndRawFallbackAgainstFirmware() throws {
     let port = ReceiverPort()
     let session = DisplayUSBSession(port: ReceiverPort(), nonce: 12)

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum HardwareAppAction: Int, CaseIterable, Sendable {
-    case boost, mute, volume, slot, back
+    case back, boost, mute, volume, slot
     public func canActivate(mapped: Bool) -> Bool { self != .volume || !mapped }
     /// App gain uses percentage-point steps, with the same boost limits as QEQ.
     public static func adjustedVolume(_ value: Double, maximum: Double, steps: Int, mapped: Bool) -> Double? {

@@ -225,6 +225,13 @@ struct ScreenshotRenderer {
         let liveIDs = Set(model.snapshot.apps.map(\.id))
         model.snapshot.apps += retained.filter { !liveIDs.contains($0.id) }
         try capture("hardware-retained-apps", maximum: MixerModel.panelHeightLimit)
+        model.hardwareAssignment = assignment
+        let savedBindings = model.hardwareBindings
+        model.hardwareSlots = []
+        guard model.hardwareAssignment == nil, model.hardwareBindings == savedBindings else {
+            throw NSError(domain: "QEQ hardware disconnect", code: 1)
+        }
+        try capture("hardware-disconnected", maximum: MixerModel.panelHeightLimit)
         try renderSettings(to: directory, appearance: window.appearance, updates: updates)
         try renderSettings(to: directory, appearance: window.appearance, updates: updates, showExclusions: true)
     }

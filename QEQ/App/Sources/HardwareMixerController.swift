@@ -52,8 +52,8 @@ final class HardwareMixerController {
         var page = Page.home
         var menuIndex = 1
         var actionIndex = HardwareAppAction.boost.rawValue
-        var slotIndex = 0
-        var musicIndex = 1
+        var slotIndex = 1
+        var musicIndex = 2
         var musicStatus = ""
         var round = false
         var overlay: Task<Void, Never>?
@@ -393,7 +393,7 @@ final class HardwareMixerController {
         case .menu:
             session.menuIndex = min(menuApps().count + 1, max(0, session.menuIndex + delta))
         case .music:
-            session.musicIndex = ((session.musicIndex + delta) % 4 + 4) % 4
+            session.musicIndex = min(3, max(0, session.musicIndex + delta))
         case .appActions:
             session.actionIndex = min(HardwareAppAction.allCases.count - 1, max(0, session.actionIndex + delta))
         case .appSlots:
@@ -418,6 +418,10 @@ final class HardwareMixerController {
         if let overlay = session.overlay {
             overlay.cancel()
             session.overlay = nil
+            if let target = session.target {
+                session.actionIndex = HardwareAppAction.boost.rawValue
+                session.page = .appActions(target)
+            }
             return
         }
         switch session.page {
@@ -430,7 +434,7 @@ final class HardwareMixerController {
             if session.menuIndex == 0 {
                 session.page = .home
             } else if session.menuIndex == 1 {
-                session.musicIndex = 1
+                session.musicIndex = 2
                 session.musicStatus = ""
                 session.page = .music
             } else {
@@ -438,12 +442,14 @@ final class HardwareMixerController {
                 session.page = .appActions(apps[session.menuIndex - 2].id)
             }
         case .music:
-            if session.musicIndex == 3 {
+            if session.musicIndex == 0 {
                 session.page = .menu
             } else {
                 session.musicStatus = ""
                 let identity = session.identity
-                midi.sendMedia([HardwareMediaCommand.previous, .playPause, .next][session.musicIndex], source: source) {
+                midi.sendMedia(
+                    [HardwareMediaCommand.previous, .playPause, .next][session.musicIndex - 1], source: source
+                ) {
                     [weak self] accepted in
                     Task { @MainActor [weak self] in
                         guard let self, self.sessions[source]?.identity == identity else { return }
@@ -467,7 +473,7 @@ final class HardwareMixerController {
                 }
             case .volume: session.page = .appVolume(id)
             case .slot:
-                session.slotIndex = session.pairs.firstIndex(where: { $0.target == id }) ?? 0
+                session.slotIndex = (session.pairs.firstIndex(where: { $0.target == id }) ?? 0) + 1
                 session.page = .appSlots(id)
             case .back: session.page = .menu
             }
@@ -476,10 +482,10 @@ final class HardwareMixerController {
             session.actionIndex = HardwareAppAction.volume.rawValue
         case .appSlots(let id):
             let count = session.capabilities?.pairs.count ?? 1
-            if session.slotIndex < count {
+            if (1...count).contains(session.slotIndex) {
                 let name = model?.snapshot.apps.first(where: { $0.id == id })?.name ?? id
-                assignApp(id, name: name, number: session.slotIndex + 1, session: &session)
-            } else if session.slotIndex == count {
+                assignApp(id, name: name, number: session.slotIndex, session: &session)
+            } else if session.slotIndex == count + 1 {
                 unassignApp(id)
                 // unassignApp updates all devices; keep the current in-flight session in sync.
                 if let updated = sessions[source] { session.pairs = updated.pairs }
@@ -543,15 +549,17 @@ final class HardwareMixerController {
                 let settings = model.value(id)
                 let slot = mappedSlot(id)
                 let symbols = [
+                    "arrow.uturn.backward",
                     settings.boostEnabled ? "bolt.fill" : "bolt",
                     settings.muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                    "speaker.wave.2.fill", "slider.vertical.3", "arrow.uturn.backward",
+                    "speaker.wave.2.fill", "slider.vertical.3",
                 ]
-                let names = ["Boost", "Mute", "Volume", "Slot", "Back"]
+                let names = ["Back", "Boost", "Mute", "Volume", "Slot"]
                 let details = [
+                    "",
                     settings.boostEnabled ? "On" : "Off", settings.muted ? "On" : "Off",
                     slot.map { "Use slider \($0.number)" } ?? "\(Int((settings.volume * 100).rounded()))%",
-                    slot.map { "Slot \($0.number)" } ?? "Unassigned", "",
+                    slot.map { "Slot \($0.number)" } ?? "Unassigned",
                 ]
                 let items = HardwareAppAction.allCases.map { action in
                     let index = action.rawValue
@@ -568,7 +576,7 @@ final class HardwareMixerController {
                 target = id
                 let slots = assignments.slots(
                     serial: session.identity.serial, count: session.capabilities?.pairs.count ?? 1)
-                var items = slots.map { slot in
+                let slotItems = slots.map { slot in
                     let key = "slot.\(slot.number)"
                     menuIcons[key] = Self.navigationIcon("\(slot.number).circle")
                     return HardwareRoundScreen.Item(
@@ -577,10 +585,10 @@ final class HardwareMixerController {
                 }
                 menuIcons["slot.clear"] = Self.navigationIcon("xmark.circle")
                 menuIcons["slot.back"] = Self.navigationIcon("arrow.uturn.backward")
-                items += [
-                    .init("Unassign", iconKey: "slot.clear", enabled: mappedSlot(id) != nil),
-                    .init("Back", iconKey: "slot.back"),
-                ]
+                let items =
+                    [HardwareRoundScreen.Item("Back", iconKey: "slot.back")] + slotItems + [
+                        .init("Unassign", iconKey: "slot.clear", enabled: mappedSlot(id) != nil)
+                    ]
                 screen = .slots(
                     appID: id, title: model.snapshot.apps.first(where: { $0.id == id })?.name ?? "App", items: items,
                     selected: min(session.slotIndex, items.count - 1))

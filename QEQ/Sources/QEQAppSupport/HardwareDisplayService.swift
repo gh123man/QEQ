@@ -21,28 +21,31 @@ private final class NativeDisplayPort: DisplayBulkPort {
     func close() { endpoint.close() }
 }
 protocol DisplayPixelRenderer: AnyObject {
+    var needsFullRefresh: Bool { get }
     var animating: Bool { get }
     var frameInterval: TimeInterval { get }
     func pixels(_ content: HardwareDisplayContent) throws -> Data
 }
 extension DisplayPixelRenderer {
+    var needsFullRefresh: Bool { false }
     var animating: Bool { false }
     var frameInterval: TimeInterval { 0 }
 }
 private final class NativeDisplayRenderer: DisplayPixelRenderer {
     private let capabilities: HardwareDisplayCapabilities
     private var metal: MetalHardwareDisplayRenderer?
-    private let round: RoundDisplayRenderer
+    private let round: MetalRoundDisplayRenderer
     private var usesRoundScreen = false
     var animating: Bool { usesRoundScreen && round.animating }
+    var needsFullRefresh: Bool { usesRoundScreen && round.needsFullRefresh }
     var frameInterval: TimeInterval { usesRoundScreen ? 1.0 / 30 : 0 }
     init(_ capabilities: HardwareDisplayCapabilities) throws {
         self.capabilities = capabilities
-        round = try RoundDisplayRenderer(capabilities)
+        round = try MetalRoundDisplayRenderer(capabilities)
     }
     func pixels(_ content: HardwareDisplayContent) throws -> Data {
         usesRoundScreen = content.scene.roundScreen != nil
-        if usesRoundScreen { return round.render(content) }
+        if usesRoundScreen { return try round.render(content) }
         let renderer = try metal ?? MetalHardwareDisplayRenderer(capabilities: capabilities)
         metal = renderer
         return try renderer.render(content.scene, icon: content.icon, iconKey: content.iconKey)
@@ -51,6 +54,16 @@ private final class NativeDisplayRenderer: DisplayPixelRenderer {
 
 /// A synchronous session owned only by one background queue. ACK loss always discards this session.
 final class DisplayUSBSession {
+    struct FrameTiming {
+        var frame: UInt32
+        var bytes: Int
+        var tiles: Int
+        var prepareMS: Double
+        var transferMS: Double
+        var lcdMS: Double
+        var decodeMS: Double
+    }
+    private(set) var lastFrameTiming: FrameTiming?
     private(set) var activity = "opening"
     let port: any DisplayBulkPort
     let nonce: UInt32
@@ -77,16 +90,30 @@ final class DisplayUSBSession {
         }
         throw DisplayWire.Failure.sequence
     }
-    @discardableResult func send(_ pixels: Data) throws -> Bool {
+    @discardableResult func send(_ pixels: Data, forceFull: Bool = false) throws -> Bool {
+        let started = ProcessInfo.processInfo.systemUptime
         activity = "preparing frame"
         guard var planner else { throw DisplayWire.Failure.sequence }
-        guard let frame = try planner.prepare(pixels) else { return false }
+        guard let frame = try planner.prepare(pixels, forceFull: forceFull) else { return false }
         // Keep pending state until ACK validation succeeds; failures invalidate the whole session.
         self.planner = planner
+        let prepared = ProcessInfo.processInfo.systemUptime
         activity = "writing frame \(frame.frame) (\(frame.tiles) tiles, \(frame.wire.count) bytes)"
         try port.write(frame.wire)
         activity = "reading ACK for frame \(frame.frame)"
-        try planner.accept(readMessage())
+        let reply = try readMessage()
+        try planner.accept(reply)
+        let lcdUS = reply.payload.withUnsafeBytes {
+            UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 8, as: UInt32.self))
+        }
+        lastFrameTiming = FrameTiming(
+            frame: frame.frame, bytes: frame.wire.count, tiles: frame.tiles,
+            prepareMS: (prepared - started) * 1000,
+            transferMS: (ProcessInfo.processInfo.systemUptime - prepared) * 1000,
+            lcdMS: Double(lcdUS) / 1000,
+            decodeMS: reply.payload.withUnsafeBytes {
+                Double(UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 4, as: UInt32.self))) / 1000
+            })
         self.planner = planner
         return true
     }
@@ -136,6 +163,7 @@ final class DisplayConnection: @unchecked Sendable {
     private var heartbeatAt: TimeInterval = 0
     private var renderAt: TimeInterval = 0
     private var status = ""
+    private var timingReportedAt = 0.0
     init(
         label: String, makePort: @escaping @Sendable () throws -> any DisplayBulkPort,
         makeRenderer: @escaping @Sendable (HardwareDisplayCapabilities) throws -> any DisplayPixelRenderer,
@@ -212,9 +240,20 @@ final class DisplayConnection: @unchecked Sendable {
                 {
                     let started = ProcessInfo.processInfo.systemUptime
                     let pixels = try autoreleasepool { try renderer.pixels(content) }
+                    let rendered = ProcessInfo.processInfo.systemUptime
                     guard active else { throw DisplayWire.Failure.stopped }
-                    if try session?.send(pixels) == true {
+                    if try session?.send(pixels, forceFull: renderer.needsFullRefresh) == true {
                         heartbeatAt = ProcessInfo.processInfo.systemUptime + 0.5
+                        if let timing = session?.lastFrameTiming,
+                            timing.frame == 1
+                                || (timing.transferMS > 45 || timing.frame.isMultiple(of: 120))
+                                    && rendered - timingReportedAt > 2
+                        {
+                            timingReportedAt = rendered
+                            logger.info(
+                                "Display timing: frame=\(timing.frame) bytes=\(timing.bytes) tiles=\(timing.tiles) render_ms=\((rendered - started) * 1000) prepare_ms=\(timing.prepareMS) transfer_ms=\(timing.transferMS) lcd_ms=\(timing.lcdMS) decode_ms=\(timing.decodeMS)"
+                            )
+                        }
                     }
                     renderedVersion = snapshot.0
                     renderAt = started + renderer.frameInterval

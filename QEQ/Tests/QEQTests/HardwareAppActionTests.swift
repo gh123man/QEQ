@@ -2,7 +2,7 @@ import QEQCore
 import Testing
 
 @Test func appActionsKeepOrderAndLockOnlyMappedVolume() {
-    #expect(HardwareAppAction.allCases == [.boost, .mute, .volume, .slot, .back])
+    #expect(HardwareAppAction.allCases == [.back, .boost, .mute, .volume, .slot])
     for action in HardwareAppAction.allCases {
         #expect(action.canActivate(mapped: false))
         #expect(action.canActivate(mapped: true) == (action != .volume))

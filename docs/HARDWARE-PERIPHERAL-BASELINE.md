@@ -8,6 +8,9 @@ one pair; never flash either profile to the other wiring revision.
 
 ## QEQ operation
 
+Hardware is optional. Slot buttons appear only while a controller is connected;
+disconnecting the last controller closes the picker and hides those buttons
+without clearing saved assignments.
 When hardware is connected, click the slider icon beside an app’s volume control
 and choose a numbered slot. Assigned apps show their slot number on that button. Assignments
 are saved by controller serial and physical position, from left to right. One app
@@ -41,8 +44,8 @@ by QEQ automatically.
 
 ## App controls on the round display
 
-Selecting an app with the dial opens a carousel: **Boost, Mute, Volume, Slot,
-Back**. The app icon stays prominent above the smaller action and slot carousels,
+Selecting an app with the dial opens a carousel: **Back, Boost, Mute, Volume,
+Slot**, initially focused on Boost. The app icon stays prominent above the smaller action and slot carousels,
 with its live volume ring and percentage visible throughout. Boost and Mute
 toggle immediately and show On/Off. Volume opens a gain
 view with one percentage-point step per detent, bounded to 100% or 200% when
@@ -53,11 +56,13 @@ including saved assignments on disconnected controllers. It shows **Use slider
 N**. Both entry and every volume adjustment recheck ownership; assigning the app
 from the Mac while its volume view is open returns it to the action carousel.
 
-Slot opens a second carousel of the current controller's numbered slots with
-current owners, plus Unassign and Back. Selecting a slot uses the same persistent
+Slot opens a second carousel: Back, the current controller's numbered slots with
+current owners, and Unassign. It initially focuses the app's assigned slot, or
+Slot 1. Playback also puts Back at the left and initially selects Play/Pause. Selecting a slot uses the same persistent
 assignment/pickup path as the Mac UI. Unassign releases the app's bindings, as on
-the Mac. All pages retain the five-second idle return; slider overlays dismiss
-to their underlying page. Page changes zoom/fade, and both carousels scroll
+the Mac. All pages retain the five-second idle return; slider overlays time out
+to their underlying page. Clicking the dial while a slider's app is displayed
+opens that app's action carousel, initially focused on Boost. Page changes zoom/fade, and both carousels scroll
 horizontally with icons clipped by the round panel. This requires only a QEQ app
 update on the V2 firmware baseline.
 

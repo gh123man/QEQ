@@ -9,10 +9,10 @@ Use `stream-v2` for the complete four-pair peripheral on V2 pins. The explicit
 `stream` firmware and physical setup below apply to the original prototype.
 QEQ discovers and assigns each physical pair independently.
 
-QEQ automatically discovers the board's vendor display interface. The V2 round
-interface renders on the display worker using Core Graphics and Core Text. The
-original prototype uses the cached Metal renderer. Neither path requires a
-separate host process.
+QEQ automatically discovers the board's vendor display interface. Both HW1 and
+HW2 use the Metal round UI on the display worker. CoreText and Core Graphics only
+rasterize cached text/icon sprites; neither board requires a separate host process.
+The original seven-layer Metal screen remains available for non-round scenes.
 
 ## Hardware compatibility and setup
 
@@ -26,13 +26,13 @@ Discovery matches the development VID/PID 303a:1001 and vendor interface FF/51/0
 The native IOUSBHost client exclusively claims that interface only; it never seizes
 or resets the composite device, detaches kernel drivers, or opens the MIDI/CDC
 interfaces. A validated capabilities exchange selects dimensions, RGB565 format,
-orientation, and round/rectangular shape. USB serial `XXXXXXXXXXXX-D1` pairs with
+orientation, and round/rectangular shape. USB serial `XXXXXXXXXXXX-D1` or `XXXXXXXXXXXX-D2` pairs with
 the existing MIDI identity serial `XXXXXXXXXXXX`; each connected board has its own
 worker, scene, acknowledged pixel baseline, and reconnect state.
 
-Both profiles use the existing MIDI messages. The original prototype uses knob
-press for bypass. On V2 the same press opens or selects from the round display
-menu. See [the V2 controls](HARDWARE-V2.md#single-app-qeq-integration).
+Both profiles use the existing MIDI messages. With native round display streaming,
+knob press opens or selects from the menu on either board. Without that display,
+the original prototype retains its bypass mapping.
 
 ## Rendering and scheduling
 
@@ -41,27 +41,57 @@ the selected app's icon. A per-device background queue owns CoreText layer cachi
 Metal commands, tile comparison, LZ4, USB writes, and ACK handling. It never blocks
 the audio callback or waits on USB/Metal from the main actor.
 
-The prototype display is offscreen, so it uses a Metal compute pipeline rather than a
-CAMetalLayer with a Mac window drawable. Metal draws the background/ring, composites
-seven cached text/icon layers, and packs RGB565 directly into shared GPU memory.
-CoreText rasterizes only changed text layers; unchanged layers are reused. This is
-not a promise that font rasterization itself runs on the GPU. The CPU reference
-renderer remains for fixture and comparison tooling. The V2 round renderer
-zooms and fades between full page surfaces and scrolls a horizontal carousel of real app
-icons, with neighboring icons clipped by the circular panel. Carousel motion takes
-280 ms; page transitions take 340 ms. Entering menus, Playback, app details, and
-slider overlays moves inward; returning to a parent or home reverses the depth
-effect. Retargeting starts from the last visible position,
-so fast knob turns do not build a queue. The volume ring and number share one eased
-value. The home ring and percentage are transient (two seconds after the last
-volume change, with a 160 ms fade and a ring that shrinks in from outside the
-panel and expands outward on dismissal). The idle home screen uses the same shared
-bin-centered path geometry, dB scale, filled envelope and per-app trace colors as
-the app, clipped at the round panel edge. Playback uses a generic play/pause icon.
-The worker targets 30 frames per second and waits for the previous frame's
-SPI-complete ACK before sending another.
-It honors the Mac's Reduce Motion setting and stops rendering when the scene and
-animations settle.
+The round display uses an offscreen Metal compute pipeline, not a Mac window
+or CAMetalLayer. A bounded 96-slice texture atlas caches text and app icons.
+Metal composites the sprites, circular clipping, volume ring, app halo, spectrum
+and RGB565 output. The CPU reference renderer remains for comparison tests.
+
+The luminous spectrum preserves the horizontal frequency ordering and −90…0 dBFS
+normalization of the app. It resamples to 64 points, with fast attack, slower decay,
+three fading history traces and restrained per-app traces. Bloom and a continuous
+fill extend to the bottom of the circle. All movement follows real audio data;
+there are no generated beats or idle particles. The lower fill is anchored to the
+screen so it stays unchanged beneath moving peaks. A shared RGB565 luminance
+palette compresses the glow; static app gradients use fixed spatial dithering.
+Animated spectrum dithering is suppressed to reduce USB bandwidth.
+
+Navigation uses a scene graph: shared app icons interpolate between carousel,
+actions, slots and volume positions, while shared rings stay continuous. Other
+elements zoom/fade inward or outward according to navigation depth. Carousel
+motion is flat and linear, with slightly smaller off-focus icons and a fade at
+the circular edge rather than an inner rectangular clip. It takes 250 ms; page
+transitions take 340 ms. All display text uses at least 14 logical pixels. Interruptions retarget from the
+visible state. Ring and percentage use the same easing, and home volume remains
+transient with the existing timeout and inward/outward ring motion. The app icon
+and ring remain visible above the smaller action and slot carousels.
+
+The worker still targets 30 fps with at most one SPI-complete frame ACK pending.
+Reduce Motion bypasses navigation/spectrum interpolation. A full acknowledged repaint follows settled navigation to clear any residual
+partial-update artifacts; it does not reset the USB session or run a periodic
+redraw loop. Rendering stops when input and transitions settle. The new UI uses the existing pixel protocol and
+needs no firmware change on a compatible `stream` (HW1) or `stream-v2` (HW2) image.
+
+A warmed optimized host-only benchmark of 600 changing luminous-spectrum frames
+measured about 0.24 ms/frame on the development Mac before USB transfer. This is
+rendering cost, not measured visible panel frame rate. Physical tearing remains
+possible because the panel updates are not synchronized to a TE signal.
+
+HW1 comparison (2026-11-09): the same 247-frame native-rendered sequence before
+and after the anchored fill / glow-palette changes completed with no rejected
+ACKs. Median spectrum transfer-to-ACK time improved from 79.23 ms to 36.54 ms
+(about 13 to 27 frames/s); median transition delivery improved from 77.07 ms to
+54.31 ms. The sequence is a synthetic workload, not a guarantee of live frame
+rate or proof of visible panel correctness. Heavy full-screen transitions remain
+transport-limited. Bounded display timing logs separate render, tile preparation,
+transfer, and firmware LCD time for further diagnosis. Full repaint on settled
+navigation is regression-tested against the actual firmware receiver; visual
+artifact clearance still needs confirmation on the physical LCD.
+
+HW2 validation (2026-11-09): the user confirmed the standalone waiting screen,
+streamed UI, dial navigation, and slider-overlay click opening app settings.
+The deployed firmware retains the original raw/LZ4 tile transport and panel
+writer. HW1 remained blank after restoring that same baseline; its display issue
+is unresolved and is not evidence of a confirmed hardware failure.
 
 IOKit notifications drive connection/disconnection; there is no USB polling loop
 or frame-file polling. Updates replace one locked latest-state mailbox. At most

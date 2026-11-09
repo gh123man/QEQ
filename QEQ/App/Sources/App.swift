@@ -12,7 +12,11 @@ final class MixerModel: ObservableObject {
     @Published var enabled = false
     @Published var changing = false
     @Published var hardwareStatus = ""
-    @Published var hardwareSlots: [HardwareSlotBinding] = []
+    @Published var hardwareSlots: [HardwareSlotBinding] = [] {
+        didSet {
+            if hardwareSlots.isEmpty { hardwareAssignment = nil }
+        }
+    }
     @Published var hardwareBindings: [HardwareSlotBinding] = [] {
         didSet {
             guard hardwareBindings != oldValue, !preview else { return }

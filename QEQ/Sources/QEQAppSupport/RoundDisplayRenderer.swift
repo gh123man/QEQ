@@ -46,7 +46,7 @@ public enum HardwareRoundScreen: Equatable, Sendable {
         case .app(let slider): slider ? .slider : .app
         }
     }
-    fileprivate var carousel: (items: [Item], selected: Int, title: String, key: String)? {
+    var carousel: (items: [Item], selected: Int, title: String, key: String)? {
         switch self {
         case .menu(let items, let selected): return (items, selected, "", "menu")
         case .appActions(let id, let title, let items, let selected): return (items, selected, title, "actions." + id)
@@ -58,7 +58,7 @@ public enum HardwareRoundScreen: Equatable, Sendable {
 }
 
 extension HardwareRoundScreen.Page {
-    fileprivate var navigationDepth: Int {
+    var navigationDepth: Int {
         switch self {
         case .home: 0
         case .menu: 1
