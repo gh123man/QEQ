@@ -8,6 +8,7 @@ public final class HardwareMIDIService {
     public struct Device: Equatable, Sendable {
         public let source: MIDIEndpointRef
         public let identity: QEQHardwareIdentity
+        public let capabilities: HardwareCapabilities?
     }
     private struct Connection {
         var port: MIDIPortRef
@@ -15,6 +16,9 @@ public final class HardwareMIDIService {
         var generation: UUID
         var decoder = MIDIStreamDecoder()
         var identity: QEQHardwareIdentity?
+        var capabilities: HardwareCapabilities?
+        var restored = false
+        var lastLEDs: [[UInt8]] = []
         var lastSeen = Date.distantPast
         var lastBytes = Date.distantPast
         var lastFeedback: [UInt8]?
@@ -22,6 +26,84 @@ public final class HardwareMIDIService {
     public var onDevicesChanged: (([Device]) -> Void)?
     public var onMessage: ((MIDIEndpointRef, MIDIMessage) -> Void)?
     public var feedback: ((Device) -> [UInt8])?
+    public var ledFeedback: ((Device) -> [[UInt8]])?
+    public var onCalibrationChanged: ((MIDIEndpointRef, UInt8) -> Void)?
+    private struct Pending {
+        let source: MIDIEndpointRef
+        let boot: [UInt8]
+        let pair: UInt8
+        let setting: HardwareCalibration?
+        let completion: (HardwareCalibrationReading?) -> Void
+    }
+    private var pending: [UInt32: Pending] = [:]
+    private var mediaPending: [UInt32: (MIDIEndpointRef, (Bool) -> Void)] = [:]
+    private var token = UInt32.random(in: 0..<(1 << 28))
+    private func nextToken() -> UInt32 {
+        token = (token + 1) & 0x0FFF_FFFF
+        return token
+    }
+    private func calibrationKey(_ serial: String, _ pair: UInt8) -> String { "hardwareCalibration.\(serial).\(pair)" }
+    public func calibrate(
+        source: MIDIEndpointRef, pair: UInt8, setting: HardwareCalibration? = nil,
+        completion: @escaping (HardwareCalibrationReading?) -> Void
+    ) {
+        guard let connection = connections[source], let identity = connection.identity,
+            connection.capabilities?.hasCalibration == true,
+            connection.capabilities?.pairs.contains(where: { $0.id == pair }) == true,
+            !pending.values.contains(where: { $0.source == source && $0.pair == pair })
+        else {
+            completion(nil)
+            return
+        }
+        let token = nextToken()
+        guard let bytes = identity.calibration(pair: pair, token: token, setting: setting), output != 0 else {
+            completion(nil)
+            return
+        }
+        pending[token] = Pending(
+            source: source, boot: identity.boot, pair: pair, setting: setting, completion: completion)
+        if setting != nil { onCalibrationChanged?(source, pair) }
+        guard send(bytes, to: connection.destination) else {
+            pending.removeValue(forKey: token)?.completion(nil)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.pending.removeValue(forKey: token)?.completion(nil)
+        }
+    }
+    public func sendMedia(
+        _ command: HardwareMediaCommand, source: MIDIEndpointRef, completion: @escaping (Bool) -> Void
+    ) {
+        sendConsumerControl(usage: command.rawValue, source: source, completion: completion)
+    }
+    /// Generic Consumer-page output; adding software media actions needs no firmware command enum.
+    public func sendConsumerControl(
+        usage: UInt16, source: MIDIEndpointRef, completion: @escaping (Bool) -> Void
+    ) {
+        guard mediaPending.values.filter({ $0.0 == source }).count < 4 else {
+            completion(false)
+            return
+        }
+        guard let connection = connections[source], connection.capabilities?.hasMediaKeys == true,
+            let identity = connection.identity, output != 0
+        else {
+            completion(false)
+            return
+        }
+        let token = nextToken()
+        guard let bytes = identity.consumerControl(usage: usage, token: token) else {
+            completion(false)
+            return
+        }
+        mediaPending[token] = (source, completion)
+        guard send(bytes, to: connection.destination) else {
+            mediaPending.removeValue(forKey: token)?.1(false)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.mediaPending.removeValue(forKey: token)?.1(false)
+        }
+    }
     public private(set) var status = "No QEQ controller connected"
     private var client: MIDIClientRef = 0
     private var output: MIDIPortRef = 0
@@ -38,7 +120,7 @@ public final class HardwareMIDIService {
     }
     public var devices: [Device] {
         connections.compactMap { source, connection in
-            connection.identity.map { Device(source: source, identity: $0) }
+            connection.identity.map { Device(source: source, identity: $0, capabilities: connection.capabilities) }
         }.sorted { $0.source < $1.source }
     }
     public func start() {
@@ -63,6 +145,12 @@ public final class HardwareMIDIService {
         }
     }
     public func stop() {
+        let abandoned = pending
+        pending = [:]
+        for item in abandoned.values { item.completion(nil) }
+        let media = mediaPending
+        mediaPending = [:]
+        for item in media.values { item.1(false) }
         timer?.invalidate()
         timer = nil
         feedbackWork?.cancel()
@@ -187,10 +275,61 @@ public final class HardwareMIDIService {
                 connections[source]?.lastSeen = Date()
                 if different {
                     connections[source]?.lastFeedback = nil
+                    connections[source]?.capabilities = nil
+                    connections[source]?.restored = false
+                    connections[source]?.lastLEDs = []
                     changed()
                 }
-            } else if connections[source]?.identity != nil {
-                onMessage?(source, message)
+            } else if let identity = connections[source]?.identity {
+                if case .systemExclusive(let data) = message {
+                    if let caps = HardwareCapabilities(message: data, identity: identity) {
+                        if connections[source]?.capabilities != caps {
+                            connections[source]?.capabilities = caps
+                            changed()
+                        }
+                        // Send a heartbeat first: configuration requires a live host session.
+                        sendFeedback(force: true)
+                        if connections[source]?.restored == false {
+                            connections[source]?.restored = true
+                            for pair in caps.pairs {
+                                if let data = UserDefaults.standard.data(
+                                    forKey: calibrationKey(identity.serial, pair.id)),
+                                    let setting = try? JSONDecoder().decode(HardwareCalibration.self, from: data),
+                                    setting.valid
+                                {
+                                    calibrate(source: source, pair: pair.id, setting: setting) { [weak self] reading in
+                                        if reading == nil { self?.connections[source]?.restored = false }
+                                    }
+                                }
+                            }
+                        }
+                    } else if let reading = HardwareCalibrationReading(message: data, identity: identity),
+                        let item = pending[reading.token], item.source == source, item.boot == identity.boot,
+                        item.pair == reading.pair
+                    {
+                        pending.removeValue(forKey: reading.token)
+                        if let setting = item.setting {
+                            guard setting == reading.calibration else {
+                                item.completion(nil)
+                                continue
+                            }
+                            if let encoded = try? JSONEncoder().encode(setting) {
+                                UserDefaults.standard.set(
+                                    encoded, forKey: calibrationKey(identity.serial, reading.pair))
+                            }
+                            onCalibrationChanged?(source, reading.pair)
+                        }
+                        item.completion(reading)
+                    } else if data.count == 18, identity.matches(data, kind: 9), data[15] == 4 {
+                        let token = HardwareCalibrationReading.token(data)
+                        if let item = mediaPending[token], item.0 == source {
+                            mediaPending.removeValue(forKey: token)
+                            item.1(data[16] == 0)
+                        }
+                    }
+                } else if !pending.values.contains(where: { $0.source == source && $0.setting != nil }) {
+                    onMessage?(source, message)
+                }
             }
         }
         if !messages.isEmpty { requestFeedback() }
@@ -202,6 +341,7 @@ public final class HardwareMIDIService {
                 Date().timeIntervalSince(connections[source]!.lastSeen) > 3
             {
                 connections[source]?.identity = nil
+                connections[source]?.capabilities = nil
                 connections[source]?.decoder = MIDIStreamDecoder()
                 expired = true
             }
@@ -214,6 +354,13 @@ public final class HardwareMIDIService {
             if let bytes = feedback?(device), let destination = connections[device.source]?.destination {
                 if force || connections[device.source]?.lastFeedback != bytes {
                     if send(bytes, to: destination) { connections[device.source]?.lastFeedback = bytes }
+                }
+            }
+            if let destination = connections[device.source]?.destination, let frames = ledFeedback?(device) {
+                if force || connections[device.source]?.lastLEDs != frames {
+                    var success = true
+                    for bytes in frames { if !send(bytes, to: destination) { success = false } }
+                    if success { connections[device.source]?.lastLEDs = frames }
                 }
             }
         }

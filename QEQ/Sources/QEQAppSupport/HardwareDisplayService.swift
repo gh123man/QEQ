@@ -329,7 +329,8 @@ public final class HardwareDisplayService {
         onNeedsScene?()
     }
     nonisolated static func midiSerial(_ usbSerial: String) -> String? {
-        let serial = usbSerial.hasSuffix("-D1") ? String(usbSerial.dropLast(3)) : usbSerial
+        let serial =
+            usbSerial.hasSuffix("-D1") || usbSerial.hasSuffix("-D2") ? String(usbSerial.dropLast(3)) : usbSerial
         guard serial.count == 12, serial.utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) }) else {
             return nil
         }

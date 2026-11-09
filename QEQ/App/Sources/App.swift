@@ -12,6 +12,14 @@ final class MixerModel: ObservableObject {
     @Published var enabled = false
     @Published var changing = false
     @Published var hardwareStatus = ""
+    @Published var hardwareSlots: [HardwareSlotBinding] = []
+    @Published var hardwareBindings: [HardwareSlotBinding] = [] {
+        didSet {
+            guard hardwareBindings != oldValue, !preview else { return }
+            engine.setRetainedApplications(HardwareSlotAssignments.retainedApplications(from: hardwareBindings))
+        }
+    }
+    @Published var hardwareAssignment: HardwareAssignmentTarget?
     private lazy var hardware = HardwareMixerController(model: self)
     @Published var selectedEQ: String?
     @Published var animateEQReveal = false
@@ -84,7 +92,7 @@ final class MixerModel: ObservableObject {
                 }
                 if self.enabled != value.enabled { self.enabled = value.enabled }
                 if self.changing { self.changing = false }
-                let paths = Set(value.apps.compactMap(\.path))
+                let paths = Set(value.apps.compactMap(\.path) + value.apps.map(\.id))
                 self.icons = self.icons.filter { paths.contains($0.key) }
             }
         }
@@ -134,11 +142,16 @@ final class MixerModel: ObservableObject {
     }
     func value(_ id: String) -> MixerSettings { id == Self.globalEQID ? globalEQ : settings[id] ?? MixerSettings() }
     func icon(for app: AudioApplication) -> NSImage? {
-        guard let path = app.path else { return nil }
+        if let icon = icons[app.id] { return icon }
+        guard
+            let path = app.path
+                ?? (preview ? nil : NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.id)?.path)
+        else { return nil }
         if let icon = icons[path] { return icon }
         if !preview {
             let icon = NSWorkspace.shared.icon(forFile: path)
             icons[path] = icon
+            icons[app.id] = icon
             return icon
         }
         // Headless macOS runners can block indefinitely in IconServices. Fixture
@@ -159,7 +172,18 @@ final class MixerModel: ObservableObject {
     func appAccentColor(for app: AudioApplication) -> NSColor {
         spectrumColors.color(for: app.id, icon: icon(for: app))
     }
-    func selectHardwareApp(_ id: String) { hardware.selectApp(id) }
+    func selectHardwareApp(_ target: HardwareAssignmentTarget, slot: HardwareSlotBinding) {
+        hardware.selectApp(target.id, name: target.name, slot: slot)
+        hardwareAssignment = nil
+    }
+    func unassignHardwareApp(_ id: String) {
+        hardware.unassignApp(id)
+        hardwareAssignment = nil
+    }
+    func calibrateHardware(_ slot: HardwareSlotBinding) {
+        hardwareAssignment = nil
+        hardware.showCalibration(serial: slot.serial, pair: slot.number - 1)
+    }
     func edit(_ id: String, _ edit: (inout MixerSettings) -> Void) {
         var value = value(id)
         edit(&value)

@@ -246,7 +246,7 @@ private func eventually(_ predicate: @escaping @Sendable () -> Bool) async -> Bo
     #expect(port.writes.filter { $0.kind == .commit }.count == 1)
 }
 
-@Test func roundDisplaySlidesFromVisibleFrameAndHonorsReduceMotion() throws {
+@Test func roundDisplayZoomsFromVisibleFrameAndHonorsReduceMotion() throws {
     let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
     var home = content(50)
     home.scene.roundShowsSystemVolume = true
@@ -388,4 +388,105 @@ private func eventually(_ predicate: @escaping @Sendable () -> Bool) async -> Bo
     #expect(!renderer.animating)
     home.scene.roundShowsSystemVolume = false
     #expect(renderer.render(home, now: 6) == idle)
+}
+
+@Test func homeMenuDepthTransitionReversesFromTheVisibleFrame() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var home = content(50)
+    home.scene.roundScreen = .home([90, 180, 80, 160])
+    let idle = renderer.render(home, now: 1)
+    var menu = home
+    menu.scene.roundScreen = .menu(items: [.init("Playback", iconKey: "playback")], selected: 0)
+    #expect(renderer.render(menu, now: 2) == idle)
+    let middle = renderer.render(menu, now: 2.13)
+    #expect(middle != idle && renderer.animating)
+    #expect(middle.prefix(2) == Data([0, 0]))
+    #expect(renderer.render(home, now: 2.14) == middle)
+    #expect(renderer.render(home, now: 2.5) == idle)
+    #expect(!renderer.animating)
+    menu.scene.reduceMotion = true
+    let reference = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    #expect(renderer.render(menu, now: 3) == reference.render(menu, now: 3))
+    #expect(!renderer.animating)
+}
+
+@Test func systemVolumeRingCrossesTheDisplayEdgeBeforeSettling() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var home = content(50)
+    home.scene.roundScreen = .home([])
+    home.scene.systemPercent = 100
+    let idle = renderer.render(home, now: 1)
+    home.scene.roundShowsSystemVolume = true
+    #expect(renderer.render(home, now: 2) == idle)
+    let entering = renderer.render(home, now: 2.104)
+    let visible = renderer.render(home, now: 2.2)
+    func nearEdge(_ pixels: Data) -> Data { pixels.subdata(in: ((3 * 240 + 120) * 2)..<((3 * 240 + 121) * 2)) }
+    #expect(nearEdge(entering) != nearEdge(idle))
+    #expect(nearEdge(visible) == nearEdge(idle))
+    home.scene.roundShowsSystemVolume = false
+    #expect(renderer.render(home, now: 3) == visible)
+    #expect(nearEdge(renderer.render(home, now: 3.056)) != nearEdge(idle))
+    #expect(renderer.render(home, now: 3.2) == idle)
+}
+
+@Test func appActionAndSlotCarouselsAnimateAsSeparatePages() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var scene = content(50)
+    scene.scene.roundScreen = .menu(items: [.init("Music", iconKey: "music")], selected: 0)
+    let menu = renderer.render(scene, now: 1)
+    let actions: [HardwareRoundScreen.Item] = [
+        .init("Boost", iconKey: "boost", detail: "Off"),
+        .init("Mute", iconKey: "mute", detail: "Off"),
+        .init("Volume", iconKey: "volume", detail: "Use slider 2", enabled: false),
+        .init("Slot", iconKey: "slot"), .init("Back", iconKey: "back"),
+    ]
+    scene.scene.roundScreen = .appActions(appID: "music", title: "Music", items: actions, selected: 0)
+    #expect(renderer.render(scene, now: 2) == menu)
+    let entering = renderer.render(scene, now: 2.15)
+    #expect(renderer.animating && entering != menu)
+    let appMenu = renderer.render(scene, now: 2.5)
+    scene.scene.roundScreen = .appActions(appID: "music", title: "Music", items: actions, selected: 2)
+    _ = renderer.render(scene, now: 3)
+    let scrolling = renderer.render(scene, now: 3.12)
+    #expect(renderer.animating && scrolling != appMenu)
+    let selected = renderer.render(scene, now: 3.5)
+    scene.scene.roundScreen = .slots(
+        appID: "music", title: "Music", items: [.init("Slot 1", iconKey: "one", detail: "Available")], selected: 0)
+    #expect(renderer.render(scene, now: 4) == selected)
+    #expect(renderer.render(scene, now: 4.15) != selected && renderer.animating)
+    _ = renderer.render(scene, now: 4.5)
+    #expect(!renderer.animating)
+    scene.scene.reduceMotion = true
+    scene.scene.roundScreen = .appActions(appID: "music", title: "Music", items: actions, selected: 0)
+    _ = renderer.render(scene, now: 5)
+    #expect(!renderer.animating)
+}
+
+@Test func appCarouselsKeepHeaderStableAndShowLiveVolume() throws {
+    let renderer = try RoundDisplayRenderer(HardwareDisplayCapabilities())
+    var value = content(50)
+    value.scene.reduceMotion = true
+    value.scene.roundVolumePosition = 0.5
+    let items: [HardwareRoundScreen.Item] = [
+        .init("Boost", iconKey: "boost"), .init("Mute", iconKey: "mute"),
+    ]
+    for slots in [false, true] {
+        func screen(_ selected: Int) -> HardwareRoundScreen {
+            slots
+                ? .slots(appID: "music", title: "Music", items: items, selected: selected)
+                : .appActions(appID: "music", title: "Music", items: items, selected: selected)
+        }
+        value.scene.roundScreen = screen(0)
+        let first = renderer.render(value, now: 1)
+        value.scene.roundScreen = screen(1)
+        let second = renderer.render(value, now: 2)
+        // Navigation moves only the smaller carousel below the app and its volume.
+        #expect(first.prefix(240 * 150 * 2) == second.prefix(240 * 150 * 2))
+        #expect(first != second)
+        value.scene.roundVolumePosition = 1
+        let louder = renderer.render(value, now: 3)
+        // A changed gain position must update the ring, even with the same label.
+        #expect(louder != second)
+        value.scene.roundVolumePosition = 0.5
+    }
 }

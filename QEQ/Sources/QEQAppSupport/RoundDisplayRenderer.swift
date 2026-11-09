@@ -16,17 +16,23 @@ public struct HardwareSpectrumTrace: Equatable, Sendable {
 }
 
 public enum HardwareRoundScreen: Equatable, Sendable {
-    public enum Page: Equatable, Sendable { case home, menu, music, app, slider }
+    public enum Page: Equatable, Sendable { case home, menu, music, appActions, slots, app, slider }
     case home([UInt8])
     public struct Item: Equatable, Sendable {
         public var label: String
         public var iconKey: String
-        public init(_ label: String, iconKey: String) {
+        public var detail: String
+        public var enabled: Bool
+        public init(_ label: String, iconKey: String, detail: String = "", enabled: Bool = true) {
             self.label = label
             self.iconKey = iconKey
+            self.detail = detail
+            self.enabled = enabled
         }
     }
     case menu(items: [Item], selected: Int)
+    case appActions(appID: String, title: String, items: [Item], selected: Int)
+    case slots(appID: String, title: String, items: [Item], selected: Int)
     case music(player: String, selected: Int, status: String)
     case app(slider: Bool)
 
@@ -34,8 +40,31 @@ public enum HardwareRoundScreen: Equatable, Sendable {
         switch self {
         case .home: .home
         case .menu: .menu
+        case .appActions: .appActions
+        case .slots: .slots
         case .music: .music
         case .app(let slider): slider ? .slider : .app
+        }
+    }
+    fileprivate var carousel: (items: [Item], selected: Int, title: String, key: String)? {
+        switch self {
+        case .menu(let items, let selected): return (items, selected, "", "menu")
+        case .appActions(let id, let title, let items, let selected): return (items, selected, title, "actions." + id)
+        case .slots(let id, let title, let items, let selected): return (items, selected, title, "slots." + id)
+        default: return nil
+        }
+    }
+
+}
+
+extension HardwareRoundScreen.Page {
+    fileprivate var navigationDepth: Int {
+        switch self {
+        case .home: 0
+        case .menu: 1
+        case .music, .appActions: 2
+        case .slots, .app: 3
+        case .slider: 4
         }
     }
 }
@@ -51,7 +80,7 @@ final class RoundDisplayRenderer {
                 guard let value = scene.systemPercent else { return nil }
                 fraction = Double(value) / 100
                 percent = Double(value)
-            case .app, .slider:
+            case .app, .slider, .appActions, .slots:
                 guard scene.available else { return nil }
                 fraction = scene.roundVolumePosition
                 percent = Double(scene.percent)
@@ -78,8 +107,7 @@ final class RoundDisplayRenderer {
     private var lastPixels: Data?
     private var outgoing: Data?
     private var transitionStart = 0.0
-    private var slideAxis = 0
-    private var slideDirection = 1
+    private var zoomEntering = true
     private var menuFrom = 0.0
     private var menuPosition = 0.0
     private var menuStart = 0.0
@@ -114,10 +142,7 @@ final class RoundDisplayRenderer {
         let previousVolume = previous.flatMap(Volume.init)
         if previous?.roundScreen?.page != screen.page {
             outgoing = scene.reduceMotion ? nil : lastPixels
-            slideAxis = screen.page == .slider || previous?.roundScreen?.page == .slider ? 1 : 0
-            slideDirection =
-                previous?.roundScreen?.page == .slider || screen.page == .home
-                    || (screen.page == .menu && previous?.roundScreen?.page != .home) ? -1 : 1
+            zoomEntering = screen.page.navigationDepth > (previous?.roundScreen?.page.navigationDepth ?? 0)
             transitionStart = now
             volumeFrom = volume
         } else if previousVolume != volume {
@@ -128,10 +153,14 @@ final class RoundDisplayRenderer {
             volumeStart = now
         }
         var menuMoving = false
-        if case .menu(let items, let selected) = screen {
+        if let carousel = screen.carousel {
+            let items = carousel.items
+            let selected = carousel.selected
             let destination = Double(min(max(0, selected), max(0, items.count - 1)))
-            if case .menu(let oldItems, let oldSelected) = previous?.roundScreen, oldItems == items {
-                if oldSelected != selected {
+            if let old = previous?.roundScreen?.carousel, old.key == carousel.key,
+                old.items.map(\.iconKey) == items.map(\.iconKey)
+            {
+                if old.selected != selected {
                     menuFrom = menuPosition
                     menuStart = now
                 }
@@ -160,7 +189,10 @@ final class RoundDisplayRenderer {
         let pixels = draw(content, screen: screen, volume: displayedVolume)
         let blend = scene.reduceMotion ? 1 : Self.travel((now - transitionStart) / 0.34)
         if blend >= 1 { outgoing = nil }
-        let frame = outgoing.map { slide($0, pixels, fraction: blend) } ?? pixels
+        let frame =
+            outgoing.map {
+                zoomAndFade($0, pixels, fraction: blend, entering: zoomEntering)
+            } ?? pixels
         lastPixels = frame
         animating =
             visibilityMoving || menuMoving || outgoing != nil
@@ -216,15 +248,15 @@ final class RoundDisplayRenderer {
             CTLineDraw(clipped, context)
         }
 
-        func drawRing(_ color: CGColor) {
+        func drawRing(_ color: CGColor, radius: CGFloat = 110) {
             context.setLineWidth(6)
             context.setLineCap(.round)
             context.setStrokeColor(CGColor(red: 0.15, green: 0.21, blue: 0.27, alpha: 1))
-            context.strokeEllipse(in: frame.insetBy(dx: 10, dy: 10))
+            context.strokeEllipse(in: CGRect(x: 120 - radius, y: 120 - radius, width: radius * 2, height: radius * 2))
             guard let ring = volume?.fraction, ring > 0 else { return }
             context.setStrokeColor(color)
             context.addArc(
-                center: CGPoint(x: 120, y: 120), radius: 110, startAngle: -.pi / 2,
+                center: CGPoint(x: 120, y: 120), radius: radius, startAngle: -.pi / 2,
                 endAngle: -.pi / 2 + 2 * .pi * ring, clockwise: false)
             context.strokePath()
         }
@@ -249,7 +281,12 @@ final class RoundDisplayRenderer {
             }
             let levels = SpectrumPlotValues(values: bins.map { Double($0) / 255 })
             context.setFillColor(accent.copy(alpha: 0.16)!)
-            context.addPath(levels.path(in: plot, filled: true))
+            let fill = CGMutablePath()
+            fill.addPath(levels.path(in: plot, filled: true))
+            // Continue the same fill to the physical edge without changing the
+            // spectrum's dB scale or the positions of its per-app traces.
+            fill.addRect(CGRect(x: 0, y: plot.maxY, width: 240, height: frame.maxY - plot.maxY))
+            context.addPath(fill)
             context.fillPath()
             for trace in scene.roundSpectrumTraces {
                 let color = CGColor(
@@ -263,48 +300,106 @@ final class RoundDisplayRenderer {
             if volumeOpacity > 0 {
                 context.saveGState()
                 context.setAlpha(volumeOpacity)
-                drawRing(teal)
+                drawRing(teal, radius: 110 + 26 * (1 - volumeOpacity))
                 context.setFillColor(CGColor(red: 0.027, green: 0.046, blue: 0.069, alpha: 0.92))
                 context.addPath(
                     CGPath(
-                        roundedRect: CGRect(x: 69, y: 89, width: 102, height: 58),
+                        roundedRect: CGRect(x: 69, y: 68, width: 102, height: 96),
                         cornerWidth: 14, cornerHeight: 14, transform: nil))
                 context.fillPath()
-                text(volume?.label ?? "—", 130, 36, bold: true)
+                context.setFillColor(foreground)
+                context.move(to: CGPoint(x: 101, y: 91))
+                for point in [
+                    CGPoint(x: 108, y: 91), CGPoint(x: 117, y: 84), CGPoint(x: 117, y: 108),
+                    CGPoint(x: 108, y: 101), CGPoint(x: 101, y: 101),
+                ] { context.addLine(to: point) }
+                context.closePath()
+                context.fillPath()
+                context.setStrokeColor(foreground)
+                context.setLineWidth(2.2)
+                context.setLineCap(.round)
+                if (volume?.fraction ?? 0) > 0 {
+                    for radius in [13.0, 20.0] {
+                        context.addArc(
+                            center: CGPoint(x: 117, y: 96), radius: radius,
+                            startAngle: -.pi / 4, endAngle: .pi / 4, clockwise: false)
+                        context.strokePath()
+                    }
+                } else {
+                    context.move(to: CGPoint(x: 126, y: 92))
+                    context.addLine(to: CGPoint(x: 134, y: 100))
+                    context.move(to: CGPoint(x: 134, y: 92))
+                    context.addLine(to: CGPoint(x: 126, y: 100))
+                    context.strokePath()
+                }
+                text(volume?.label ?? "—", 147, 36, bold: true)
                 context.restoreGState()
             }
-        case .menu(let items, let selected):
-            text("QEQ", 42, 10, color: secondary)
+        case .menu, .appActions, .slots:
+            let carousel = screen.carousel!
+            let items = carousel.items
+            let selected = carousel.selected
+            let compact = screen.page != .menu
+            if compact {
+                drawRing(accent)
+                text(carousel.title, 37, 13, bold: true, width: 144)
+                if let icon = content.icon {
+                    context.saveGState()
+                    context.translateBy(x: 82, y: 124)
+                    context.scaleBy(x: 1, y: -1)
+                    context.draw(icon, in: CGRect(x: 0, y: 0, width: 76, height: 76))
+                    context.restoreGState()
+                } else {
+                    text("♪", 105, 48, color: accent)
+                }
+                text(volume?.label ?? "—", 145, 18, bold: true)
+                context.saveGState()
+                context.clip(to: CGRect(x: 32, y: 150, width: 176, height: 44))
+            }
             for (index, item) in items.enumerated() {
                 let distance = Double(index) - menuPosition
                 guard abs(distance) < 2.2 else { continue }
                 let scale = 1 - 0.31 * min(1, abs(distance))
-                let size = 104 * scale
-                let x = 120 + distance * 122
+                let size = (compact ? 44 : 104) * scale
+                let x = 120 + distance * (compact ? 49 : 122)
+                let centerY: CGFloat = compact ? 172 : 114
                 context.saveGState()
-                context.setAlpha(1 - 0.54 * min(1, abs(distance)))
+                context.setAlpha((1 - 0.54 * min(1, abs(distance))) * (item.enabled ? 1 : 0.3))
                 if let icon = content.menuIcons[item.iconKey] {
-                    context.translateBy(x: x, y: 114)
+                    context.translateBy(x: x, y: centerY)
                     context.rotate(by: distance * 0.12)
                     context.scaleBy(x: 1, y: -1)
                     context.draw(icon, in: CGRect(x: -size / 2, y: -size / 2, width: size, height: size))
                 } else {
-                    highlight(CGRect(x: x - size / 2, y: 114 - size / 2, width: size, height: size))
-                    text(item.iconKey == "home" ? "⌂" : "♪", 131, 45, x: x, width: size)
+                    highlight(CGRect(x: x - size / 2, y: centerY - size / 2, width: size, height: size))
+                    text(
+                        item.iconKey == "home" ? "⌂" : "♪", centerY + (compact ? 7 : 17), compact ? 20 : 45, x: x,
+                        width: size)
                 }
                 context.restoreGState()
             }
-            if items.indices.contains(selected) { text(items[selected].label, 189, 16, bold: true, width: 180) }
-            let visible = min(7, items.count)
+            if compact { context.restoreGState() }
+            if items.indices.contains(selected) {
+                let item = items[selected]
+                text(
+                    item.label, compact ? 207 : item.detail.isEmpty ? 189 : 183, compact ? 13 : 16,
+                    color: item.enabled ? foreground : secondary, bold: true, width: compact ? 128 : 180)
+                if !item.detail.isEmpty {
+                    text(
+                        item.detail, compact ? 220 : 200, compact ? 9 : 10, color: secondary, width: compact ? 96 : 174)
+                }
+            }
+            let visible = compact ? 0 : min(7, items.count)
             let start = min(max(0, selected - 3), max(0, items.count - visible))
             for index in 0..<visible {
                 let active = index + start == selected
                 context.setFillColor(active ? teal : secondary.copy(alpha: 0.4)!)
-                let width: CGFloat = active ? 12 : 4
+                let diameter: CGFloat = active ? 6 : 4
                 context.fillEllipse(
                     in: CGRect(
-                        x: 120 + CGFloat(index) * 10 - CGFloat(visible - 1) * 5 - width / 2,
-                        y: 205, width: width, height: 4))
+                        x: 120 + CGFloat(index) * 10 - CGFloat(visible - 1) * 5 - diameter / 2,
+                        y: (items.indices.contains(selected) && !items[selected].detail.isEmpty ? 216 : 207) - diameter
+                            / 2, width: diameter, height: diameter))
             }
         case .music(let player, let selected, let status):
             text("PLAYBACK", 47, 11, color: secondary)
@@ -317,7 +412,7 @@ final class RoundDisplayRenderer {
                 text(symbol, 141, 13, x: x, width: 42)
             }
             if selected == 3 { highlight(CGRect(x: 86, y: 164, width: 68, height: 28)) }
-            text("Back", 183, 13, color: selected == 3 ? foreground : secondary)
+            text("↩", 184, 23, color: selected == 3 ? foreground : secondary)
         case .app(let slider):
             drawRing(accent)
             text(scene.label, 57, 16, bold: true, width: 150)
@@ -338,8 +433,9 @@ final class RoundDisplayRenderer {
                     ? "Bypassed"
                     : scene.muted
                         ? "Muted"
-                        : slider ? (scene.pickup ? "Move to match" : "Slider 1") : "Press to go back"
-            text(status, 206, 11, color: secondary)
+                        : slider && scene.pickup ? "Pickup" : ""
+            let hint = scene.roundSliderHint.map { "Use slider \($0)" }
+            text(hint ?? status, 206, 11, color: secondary)
         }
         context.restoreGState()
         let count = caps.width * caps.height
@@ -357,13 +453,48 @@ final class RoundDisplayRenderer {
         return pixels
     }
 
-    // Move full rectangular surfaces, then apply the physical circular mask. Masking
-    // each surface before translation would leave black crescents inside the screen.
-    private func slide(_ from: Data, _ to: Data, fraction: Double) -> Data {
-        let width = caps.width
-        let height = caps.height
-        let extent = slideAxis == 0 ? width : height
-        let offset = Int((Double(extent) * fraction).rounded()) * slideDirection
+    // Scale complete surfaces before circular clipping to avoid black crescents.
+    // Bilinear sampling keeps text and icons smooth at fractional zoom positions.
+    private func zoomAndFade(_ from: Data, _ to: Data, fraction: Double, entering: Bool) -> Data {
+        guard fraction > 0 else { return from }
+        guard fraction < 1 else { return to }
+        struct Coordinate {
+            let low: Int
+            let high: Int
+            let weight: Int
+        }
+        func coordinates(_ count: Int, scale: Double, shift: Double = 0) -> [Coordinate] {
+            (0..<count).map { index in
+                let position = (Double(index) + 0.5 - Double(count) / 2 - shift) / scale + Double(count) / 2 - 0.5
+                guard position >= 0, position <= Double(count - 1) else {
+                    return Coordinate(low: -1, high: -1, weight: 0)
+                }
+                let low = Int(position)
+                return Coordinate(low: low, high: min(count - 1, low + 1), weight: Int((position - Double(low)) * 256))
+            }
+        }
+        let oldScale = entering ? 1 - 0.12 * fraction : 1 + 0.30 * fraction
+        let newScale = entering ? 1 + 0.30 * (1 - fraction) : 0.88 + 0.12 * fraction
+        let oldY = entering ? 0 : -14 * fraction
+        let newY = entering ? -14 * (1 - fraction) : 0
+        let oldXCoordinates = coordinates(caps.width, scale: oldScale)
+        let oldYCoordinates = coordinates(caps.height, scale: oldScale, shift: oldY * Double(caps.height) / 240)
+        let newXCoordinates = coordinates(caps.width, scale: newScale)
+        let newYCoordinates = coordinates(caps.height, scale: newScale, shift: newY * Double(caps.height) / 240)
+        let opacity = Int((fraction * 256).rounded())
+        func mix(_ a: UInt16, _ b: UInt16, _ weight: Int) -> UInt16 {
+            let inverse = 256 - weight
+            let red = (Int(a >> 11) * inverse + Int(b >> 11) * weight + 128) >> 8
+            let green = (Int((a >> 5) & 63) * inverse + Int((b >> 5) & 63) * weight + 128) >> 8
+            let blue = (Int(a & 31) * inverse + Int(b & 31) * weight + 128) >> 8
+            return UInt16(red << 11 | green << 5 | blue)
+        }
+        func sample(_ pixels: UnsafeBufferPointer<UInt16>, _ x: Coordinate, _ y: Coordinate) -> UInt16 {
+            guard x.low >= 0, y.low >= 0 else { return 0x0042 }  // The scene's dark background.
+            let top = mix(pixels[y.low * caps.width + x.low], pixels[y.low * caps.width + x.high], x.weight)
+            let bottom = mix(pixels[y.high * caps.width + x.low], pixels[y.high * caps.width + x.high], x.weight)
+            return mix(top, bottom, y.weight)
+        }
         var result = Data(count: to.count)
         from.withUnsafeBytes { oldBytes in
             to.withUnsafeBytes { newBytes in
@@ -371,13 +502,11 @@ final class RoundDisplayRenderer {
                     let old = oldBytes.bindMemory(to: UInt16.self)
                     let new = newBytes.bindMemory(to: UInt16.self)
                     let output = outputBytes.bindMemory(to: UInt16.self)
-                    for y in 0..<height {
-                        for x in 0..<width {
-                            let coordinate = (slideAxis == 0 ? x : y) + offset
-                            let incoming = coordinate < 0 || coordinate >= extent
-                            let source = incoming ? coordinate - extent * slideDirection : coordinate
-                            let index = slideAxis == 0 ? y * width + source : source * width + x
-                            output[y * width + x] = incoming ? new[index] : old[index]
+                    for y in 0..<caps.height {
+                        for x in 0..<caps.width {
+                            let before = sample(old, oldXCoordinates[x], oldYCoordinates[y])
+                            let after = sample(new, newXCoordinates[x], newYCoordinates[y])
+                            output[y * caps.width + x] = mix(before, after, opacity)
                         }
                     }
                 }

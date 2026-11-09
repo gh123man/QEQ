@@ -1,5 +1,9 @@
 # QEQ hardware integration plan
 
+> Current production baseline: [V2 peripheral firmware 0.3.0](HARDWARE-PERIPHERAL-BASELINE.md).
+> All four pairs and LEDs are exposed, with capability discovery, runtime slider
+> calibration and USB media keys. Earlier single-app notes below are historical.
+
 **Current board: hardware V2.** Use `hardware-dev` in both repositories and read
 [the V2 baseline](HARDWARE-V2.md) before building or flashing. The model-1 and
 prototype wiring sections below describe the existing host integration; V2

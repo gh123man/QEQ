@@ -586,3 +586,22 @@ private func processSamples(_ inputSamples: [Float], channels: Int, dsp: OpaqueP
     let measured = 20 * log10(rms(Array(output.suffix(24000))) / rms(Array(input.suffix(24000))))
     #expect(abs(measured - (settings.responseDB(at: 60, sampleRate: 48000) - 20)) < 0.08)
 }
+
+@Test func assignedAppListKeepsIdleClosedAndRelaunchedAppsWithoutStaleClients() throws {
+    var list = AudioAppList()
+    let assigned = AudioApplication(
+        id: "music", name: "Music", path: "/Applications/Music.app", processes: [101], playing: true)
+    let idle = AudioApplication(id: "music", name: "Music", processes: [202], playing: false)
+    let initial = list.visibleApps(from: [idle], settings: [:], retained: [assigned])
+    #expect(initial.count == 1 && initial[0].processes == [202] && !initial[0].playing)
+    let closed = list.visibleApps(from: [], settings: [:], retained: [assigned, assigned])
+    #expect(closed.count == 1 && closed[0].processes.isEmpty && !closed[0].playing)
+    #expect(closed[0].path == assigned.path)
+    // An app restart gets the new client IDs and one row, even before playback.
+    let relaunched = list.visibleApps(from: [idle], settings: [:], retained: [assigned])
+    #expect(relaunched.count == 1 && relaunched[0].processes == [202])
+    #expect(list.visibleApps(from: [], settings: [:], retained: []).isEmpty)
+    // The same saved metadata also restores the row in a fresh QEQ app-list instance.
+    var restarted = AudioAppList()
+    #expect(restarted.visibleApps(from: [], settings: [:], retained: [assigned]).first?.processes == [])
+}

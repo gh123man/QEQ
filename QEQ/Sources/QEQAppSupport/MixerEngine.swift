@@ -36,6 +36,7 @@ public final class MixerEngine: @unchecked Sendable {
     private var settings: [String: MixerSettings] = [:]
     private var globalEQ = MixerSettings()
     private var appList = AudioAppList()
+    private var retainedApps: [AudioApplication] = []
     private var excludedIDs: Set<String> = []
     private let identityCache = AppIdentityCache()
     private var enabled = false
@@ -87,6 +88,13 @@ public final class MixerEngine: @unchecked Sendable {
             failure = nil
             controller.resetFailures()
             if !value { stopRoutes() }
+            refresh()
+        }
+    }
+    public func setRetainedApplications(_ apps: [AudioApplication]) {
+        queue.async { [self] in
+            // These rows are presentation-only; routing always uses live discovery below.
+            retainedApps = apps.map { AudioApplication(id: $0.id, name: $0.name, path: $0.path) }
             refresh()
         }
     }
@@ -217,7 +225,9 @@ public final class MixerEngine: @unchecked Sendable {
                     snapshot.migratedIDs[alias] = app.id
                 }
             }
-            snapshot.apps = appList.visibleApps(from: discovered, settings: settings)
+            snapshot.apps = appList.visibleApps(
+                from: discovered, settings: settings,
+                retained: retainedApps.filter { !AppExclusions.contains($0, ids: excludedIDs) })
             let output = try readOutput()
             snapshot.outputName = output.name
             snapshot.sampleRate = output.sampleRate

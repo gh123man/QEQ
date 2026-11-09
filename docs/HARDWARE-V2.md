@@ -1,11 +1,15 @@
 # Hardware V2 development baseline
 
+> Current production baseline: [V2 peripheral firmware 0.3.0](HARDWARE-PERIPHERAL-BASELINE.md).
+> All four pairs and LEDs are exposed, with capability discovery, runtime slider
+> calibration and USB media keys. Earlier single-app notes below are historical.
+
 Hardware V2 is the default board for future work. Both the QEQ app and the
 separate `vol-firmware` repository use `hardware-dev`; feature branches should
 start there. The app's existing MIDI/display-streaming implementations remain
-available for the original prototype. The `stream-v2` image now uses those existing
-single-app controls and native graphics streaming on V2 pins. It does not provide
-four-app bindings. Do not use prototype firmware on V2.
+available for the original prototype. The `stream-v2` image exposes all four pairs,
+independent RGB LEDs, rotary, display and Consumer HID media keys with capability
+discovery and runtime calibration. Do not use prototype firmware on V2.
 
 ## Physical wiring
 
@@ -14,10 +18,10 @@ are the source of truth; this table mirrors the current V2 profile.
 
 | Position | Slider GPIO | Button GPIO | LED R / G / B GPIOs |
 | --- | --- | --- | --- |
-| 1 | 11 (ADC2) | 35 | 12 / 13 / 14 |
-| 2 | 8 (ADC1) | 36 | 3 / 9 / 10 |
-| 3 | 2 (ADC1) | 15 | 16 / 17 / 18 |
-| 4 | 1 (ADC1) | 4 | 5 / 6 / 7 |
+| 1 | 11 (ADC2) | 35 | 14 / 13 / 12 |
+| 2 | 8 (ADC1) | 36 | 10 / 9 / 3 |
+| 3 | 2 (ADC1) | 15 | 18 / 17 / 16 |
+| 4 | 1 (ADC1) | 4 | 7 / 6 / 5 |
 
 Rotary A/B/push: **21 / 47 / 48**. Display reset/CS/DC/MOSI/clock:
 **38 / 42 / 41 / 40 / 39**. Rotary GPIO21 was explicitly corrected from GPIO12;
@@ -82,43 +86,62 @@ order also remain pending.
 Raw captures stay ignored in the firmware repository's `reports/`. The summary
 and pin map are tracked so future work does not depend on local report files.
 
-## Single-app QEQ integration
+## QEQ integration
 
-The user selected the existing single-app behavior for V2. From the firmware repo,
-run `./run.sh build stream-v2` and `./run.sh upload PORT stream-v2`. The leftmost
-slider (GPIO11) controls selected-app volume with pickup, its button (GPIO35)
-toggles mute, and LED1 (GPIO12/13/14) shows the app accent. At rest the rotary
+Build `stream-v2` and flash with `./run.sh upload PORT stream-v2`. Click the hardware icon beside an app’s volume control and choose Slot 1…4.
+Assigned apps show the slot number and stay in the list while idle or closed,
+including after app/QEQ restarts. Use **Unassign** in the slot chooser to release
+the binding; a closed app never gives up its slot automatically. Each pair has independent
+pickup, volume and mute state; its RGB LED follows the assigned app's accent.
+The gear beside a slot opens endpoint and filtering configuration with
+live raw readings. QEQ saves verified settings per serial/pair and restores them
+on reconnect. Unassigned pairs do not change audio. At rest the rotary
 adjusts system volume while the display shows the same horizontal spectrum
-envelope and colored per-app traces as QEQ. The volume ring and percentage appear
-only during adjustment, then fade out two seconds after the last change. Press
+envelope and colored per-app traces as QEQ, with the fill continuing to the bottom
+of the circular panel. The volume ring, speaker icon, and percentage appear
+only during adjustment. The ring shrinks inward from beyond the circular edge,
+then expands outward and fades two seconds after the last change. Press
 the knob to open the menu with Playback selected. Home is immediately to its left,
 and apps follow on the right. The menu is a horizontal icon carousel: the selected icon is large,
 neighboring icons clip at the circular edge, and the knob animates between them.
-Page changes slide horizontally; the slider overlay slides vertically.
+All screen changes use the same zoom-and-fade effect: opening the menu, Playback,
+app details, or a slider overlay moves inward; returning to a parent screen or
+home reverses the effect. Carousel scrolling remains horizontal. The selected
+carousel indicator is circular.
 The visualizer has no title or menu prompt. Five seconds after the last accepted
 hardware interaction, every screen returns to the home visualizer. Audio updates,
 host feedback, and rejected slider noise do not restart this timer.
-Playback uses a neutral play/pause icon and sends previous, play/pause, and next commands
-to Music or Spotify, preferring the player that QEQ sees producing audio.
-macOS can ask to allow Automation on first use.
+Playback uses a neutral play/pause icon and sends generic USB HID Consumer
+previous, play/pause and next keys. macOS chooses the recipient. This replaces
+the former player-specific Apple Events implementation and needs no per-player
+Automation permission. Playback follows the normal five-second idle return.
 
-Moving the leftmost slider shows its assigned app icon, volume, and pickup status,
-then returns to the main menu after three seconds without accepted movement.
-Changes below 1% of slider travel are ignored relative to the last accepted value.
-The 7-bit MIDI range makes the minimum accepted change two ticks (about 1.57%).
-Ignored chatter does not alter volume or extend the overlay timeout. Right-click
-an app in QEQ and choose **Use hardware controls** to select the slider target.
-The on-device app list opens volume details. The other pairs are inactive.
+Moving any assigned slider shows its assigned app icon, volume, and pickup status,
+then returns to the previous screen after three seconds without accepted movement.
+The underlying page and menu selection stay intact, so an adjustment from the
+visualizer returns directly to the visualizer.
+If that app is already open from the carousel, slider changes update the existing
+view in place; the five-second idle return still applies. Turning the dial while
+viewing the slider-bound app shows **Use slider N** instead of changing volume.
+The firmware takes a five-sample median at 5 ms intervals, smooths it, and requires
+three consecutive samples beyond the movement threshold before reporting a change.
+Changes below 1% of slider travel are ignored relative to the last accepted value;
+the 7-bit MIDI range makes this two ticks (about 1.57%). Both ends of travel are
+explicit exceptions, so the final one-tick movement can reach exactly 0% or 100%.
+Ignored chatter does not alter volume or extend the overlay timeout. Routine
+navigation instructions are omitted; Playback uses an icon to return. Click an app’s hardware icon or slot number to select the pair.
+Pickup preserves the last known physical slider position when an app becomes
+available or the target changes. Repeated stationary snapshots are suppressed
+without losing the starting point for the first deliberate movement. A target
+at a different saved volume still uses pickup to avoid an unexpected volume jump.
+The on-device app list opens **Boost / Mute / Volume / Slot / Back**. Slot opens
+a numbered assignment carousel. Dial volume is available only for unmapped apps;
+mapped apps show **Use slider N**. Clicking the volume view returns to actions. The complete `v2-peripheral` profile
+uses model 2 and ten control descriptors, plus a separate capability description
+of physical groups and outputs. Streaming USB serials end in `-D2`; QEQ also
+accepts older `-D1` displays. The explicit `stream` firmware remains V1 only.
 
-The firmware `v2-single-app` compatibility profile advertises the existing model-1
-logical handshake with one slider/button pair while retaining V2 wiring policy.
-No QEQ host protocol change is required. USB product is **QEQ Test Board V2 Display**;
-the display serial retains the host's `-D1` convention. This is distinct from the
-full model-2 four-slot profile, which remains `testOnly` and is used by validation
-images. Future four-app integration still requires per-slot bindings and feedback.
-The explicit legacy `stream` firmware continues to use the prototype pin map.
-
-## Connection validation status
+## Earlier connection investigation (historical)
 
 The `stream-v2` image has been flashed and its QEQ MIDI handshake and feedback
 verified. Connection stability remains unresolved: the user reported intermittent

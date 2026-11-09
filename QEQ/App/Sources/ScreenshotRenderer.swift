@@ -192,6 +192,39 @@ struct ScreenshotRenderer {
                 \.controlActiveState, .active
             ).id("update-available")
         try capture("update-available", maximum: MixerModel.panelHeightLimit)
+        model.hardwareSlots = [
+            HardwareSlotBinding(serial: "fixture-v2", number: 1, appID: music.id, appName: music.name),
+            HardwareSlotBinding(serial: "fixture-v2", number: 2, appID: "offline-app", appName: "Safari"),
+            HardwareSlotBinding(serial: "fixture-v2", number: 3, appID: chrome.id, appName: chrome.name),
+            HardwareSlotBinding(serial: "fixture-v2", number: 4, appID: nil, appName: nil),
+        ]
+        model.hardwareBindings = model.hardwareSlots.filter { $0.appID != nil }
+        try capture("hardware-slots", maximum: MixerModel.panelHeightLimit)
+        let assignment = HardwareAssignmentTarget(id: chrome.id, name: chrome.name)
+        model.hardwareAssignment = assignment
+        let assignmentSize = layout()
+        let originalSlots = model.hardwareSlots
+        // Preserve the same hosting view while snapshots change and the target app
+        // disappears. The chooser must not belong to the removed row's lifetime.
+        for tick in 0..<20 {
+            model.snapshot.apps = tick.isMultiple(of: 2) ? [zoom, music, chrome] : [zoom, music]
+            model.snapshot.routeMessages[zoom.id] = "Update \(tick)"
+            model.telemetry = tick.isMultiple(of: 2) ? streaming : AudioTelemetry()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.025))
+            host.view.layoutSubtreeIfNeeded()
+        }
+        guard model.hardwareAssignment == assignment, model.hardwareSlots == originalSlots,
+            abs(layout().height - assignmentSize.height) <= 1
+        else {
+            throw NSError(domain: "QEQ hardware picker", code: 1)
+        }
+        try capture("hardware-slot-picker", maximum: MixerModel.panelHeightLimit)
+        print("hardware picker: retained across 20 updates and app removal; slot reservations unchanged")
+        model.hardwareAssignment = nil
+        let retained = HardwareSlotAssignments.retainedApplications(from: model.hardwareBindings)
+        let liveIDs = Set(model.snapshot.apps.map(\.id))
+        model.snapshot.apps += retained.filter { !liveIDs.contains($0.id) }
+        try capture("hardware-retained-apps", maximum: MixerModel.panelHeightLimit)
         try renderSettings(to: directory, appearance: window.appearance, updates: updates)
         try renderSettings(to: directory, appearance: window.appearance, updates: updates, showExclusions: true)
     }

@@ -1,9 +1,13 @@
 # Native QEQ display streaming
 
+> Current production baseline: [V2 peripheral firmware 0.3.0](HARDWARE-PERIPHERAL-BASELINE.md).
+> All four pairs and LEDs are exposed, with capability discovery, runtime slider
+> calibration and USB media keys. Earlier single-app notes below are historical.
+
 Hardware V2 is now the default development board; see [HARDWARE-V2.md](HARDWARE-V2.md).
-Use `stream-v2` for the current single-app integration on V2 pins. The explicit
+Use `stream-v2` for the complete four-pair peripheral on V2 pins. The explicit
 `stream` firmware and physical setup below apply to the original prototype.
-Four-app V2 assignments remain separate work.
+QEQ discovers and assigns each physical pair independently.
 
 QEQ automatically discovers the board's vendor display interface. The V2 round
 interface renders on the display worker using Core Graphics and Core Text. The
@@ -43,12 +47,15 @@ seven cached text/icon layers, and packs RGB565 directly into shared GPU memory.
 CoreText rasterizes only changed text layers; unchanged layers are reused. This is
 not a promise that font rasterization itself runs on the GPU. The CPU reference
 renderer remains for fixture and comparison tooling. The V2 round renderer
-slides between full page surfaces and scrolls a horizontal carousel of real app
+zooms and fades between full page surfaces and scrolls a horizontal carousel of real app
 icons, with neighboring icons clipped by the circular panel. Carousel motion takes
-280 ms; page slides take 340 ms. Retargeting starts from the last visible position,
+280 ms; page transitions take 340 ms. Entering menus, Playback, app details, and
+slider overlays moves inward; returning to a parent or home reverses the depth
+effect. Retargeting starts from the last visible position,
 so fast knob turns do not build a queue. The volume ring and number share one eased
 value. The home ring and percentage are transient (two seconds after the last
-volume change, with a 160 ms fade). The idle home screen uses the same shared
+volume change, with a 160 ms fade and a ring that shrinks in from outside the
+panel and expands outward on dismissal). The idle home screen uses the same shared
 bin-centered path geometry, dB scale, filled envelope and per-app trace colors as
 the app, clipped at the round panel edge. Playback uses a generic play/pause icon.
 The worker targets 30 frames per second and waits for the previous frame's

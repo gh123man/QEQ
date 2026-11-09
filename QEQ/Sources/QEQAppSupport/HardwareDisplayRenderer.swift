@@ -35,6 +35,7 @@ public struct HardwareDisplayScene: Equatable, Sendable {
     public var roundShowsSystemVolume = false
     public var roundSpectrumTraces: [HardwareSpectrumTrace] = []
     public var roundVolumePosition = 1.0
+    public var roundSliderHint: Int?
     public var reduceMotion = false
     public init(
         label: String, percent: Int, systemPercent: Int?, available: Bool = true,

@@ -44,7 +44,5 @@
 	<true/>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>QEQ processes audio from apps you choose so you can adjust their volume and equalizer. Audio is never recorded or sent anywhere.</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>QEQ uses the hardware knob to control playback in Music or Spotify.</string>
 </dict>
 </plist>

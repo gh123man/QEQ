@@ -62,13 +62,30 @@ public struct QEQHardwareIdentity: Equatable, Sendable {
     public static let prefix: [UInt8] = [0xF0, 0x7D, 0x51, 0x45, 0x51, 2]
     // Logical ID, kind (absolute / relative / button), controller number.
     public static let testBoardControls: [UInt8] = [1, 0, 16, 2, 1, 17, 3, 2, 18, 4, 2, 19]
+    public struct Control: Equatable, Sendable {
+        public let id: UInt8
+        public let kind: UInt8
+        public let controller: UInt8
+    }
+    public let model: UInt8
+    public let controls: [Control]
     public init?(message: [UInt8]) {
-        guard message.count == 41, Array(message.prefix(7)) == Self.prefix + [2],
-            message.last == 0xF7, message[7] == 1,
-            message[8..<40].allSatisfy({ $0 < 128 }), message[27] == 4,
-            Array(message[28..<40]) == Self.testBoardControls,
+        guard message.count >= 32, message.count <= 64,
+            Array(message.prefix(7)) == Self.prefix + [2], message.last == 0xF7,
+            message[7] > 0, message[8..<(message.count - 1)].allSatisfy({ $0 < 128 }),
+            message[27] > 0, message.count == 29 + Int(message[27]) * 3,
             message[15..<27].allSatisfy({ (48...57).contains($0) || (65...70).contains($0) })
         else { return nil }
+        var decoded: [Control] = []
+        for offset in stride(from: 28, to: message.count - 1, by: 3) {
+            let control = Control(id: message[offset], kind: message[offset + 1], controller: message[offset + 2])
+            guard control.id > 0, control.kind <= 2,
+                !decoded.contains(where: { $0.id == control.id || $0.controller == control.controller })
+            else { return nil }
+            decoded.append(control)
+        }
+        model = message[7]
+        controls = decoded
         firmware = Array(message[8..<11])
         boot = Array(message[11..<15])
         serial = String(decoding: message[15..<27], as: UTF8.self)
@@ -109,7 +126,11 @@ public struct HardwareSliderMotion: Sendable {
     public init() {}
     public mutating func accept(_ value: UInt8) -> Bool {
         guard value <= 127 else { return false }
-        if let lastAccepted, abs(Int(value) - Int(lastAccepted)) * 100 < 127 { return false }
+        if let lastAccepted {
+            if value == lastAccepted { return false }
+            // Always finish at the rails, even when the final MIDI step is <1%.
+            if value != 0, value != 127, abs(Int(value) - Int(lastAccepted)) * 100 < 127 { return false }
+        }
         lastAccepted = value
         return true
     }
@@ -121,9 +142,12 @@ public struct HardwareControlState: Sendable {
     private var previous: Double?
     private var buttons: [UInt8: Bool] = [:]
     public init() {}
-    public mutating func rearm() {
+    public mutating func rearm(sliderPosition: UInt8? = nil) {
         pickedUp = false
-        previous = nil
+        // Reuse the physical baseline when an app appears or its target changes.
+        // The motion gate suppresses duplicate snapshots, so they cannot restore
+        // a discarded baseline before the user's first deliberate movement.
+        previous = sliderPosition.flatMap { $0 <= 127 ? Double($0) / 127 : nil }
     }
     public mutating func receive(_ message: MIDIMessage, targetPosition: Double) -> HardwareAction? {
         guard case .control(let channel, let number, let value) = message, channel == 15 else { return nil }

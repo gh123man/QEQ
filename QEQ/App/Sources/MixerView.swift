@@ -11,14 +11,18 @@ struct MixerView: View {
     var onPanelHeightChange: ((CGFloat) -> Void)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var globalBand = 0
+    @State private var assignmentHeight: CGFloat?
     @State private var measured: [String: CGFloat] = [:]
     private var isAppEQExpanded: Bool {
         model.snapshot.apps.contains { $0.id == model.selectedEQ }
     }
+    private var contentHeight: CGFloat {
+        measured["header", default: 100] + measured["apps", default: 110]
+    }
     private var panelHeight: CGFloat {
         min(
             model.maximumPanelHeight,
-            measured["header", default: 100] + measured["apps", default: 110])
+            model.hardwareAssignment == nil ? contentHeight : assignmentHeight ?? max(390, contentHeight))
     }
     var body: some View {
         VStack(spacing: 0) {
@@ -88,6 +92,20 @@ struct MixerView: View {
         }.frame(width: 500, height: panelHeight, alignment: .top).clipped().tint(.accentColor)
             .background {
                 if drawsPanelBackground { PanelBackground().allowsHitTesting(false) }
+            }
+            .overlay {
+                // Presentation belongs to the stable panel, not an audio-updated row or native menu.
+                if let target = model.hardwareAssignment {
+                    Color.black.opacity(0.18).contentShape(Rectangle())
+                        .onTapGesture { model.hardwareAssignment = nil }
+                    HardwareSlotPicker(model: model, target: target).id(target.id)
+                        .padding(20)
+                }
+            }
+            .onExitCommand { model.hardwareAssignment = nil }
+            .onChange(of: model.hardwareAssignment?.id) { _, target in
+                // Keep click targets still even if app discovery changes the underlying list.
+                assignmentHeight = target == nil ? nil : max(390, contentHeight)
             }
             .onPreferenceChange(PanelHeights.self) { heights in
                 guard measured != heights else { return }
@@ -219,6 +237,9 @@ struct MixerView: View {
                 .help("Bypass this app's volume and EQ while keeping its settings. Global EQ still applies.")
             }
             HStack(spacing: 9) {
+                if !model.hardwareSlots.isEmpty || model.hardwareBindings.contains(where: { $0.appID == app.id }) {
+                    HardwareSlotButton(model: model, appID: app.id, appName: app.name)
+                }
                 LiveAppMeter(
                     liveAudio: model.liveAudio, appID: app.id,
                     value: Binding(
@@ -245,9 +266,6 @@ struct MixerView: View {
         )
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.primary.opacity(0.06)))
         .contextMenu {
-            if !model.hardwareStatus.isEmpty {
-                Button("Use hardware controls") { model.selectHardwareApp(app.id) }
-            }
             Button("Exclude") { model.exclusions.exclude(app) }
         }
     }
@@ -255,6 +273,7 @@ struct MixerView: View {
         model.enabled && app.playing && model.snapshot.active.contains(app.id)
     }
     private func status(_ app: AudioApplication, settings: MixerSettings) -> String? {
+        if !app.playing, model.hardwareBindings.contains(where: { $0.appID == app.id }) { return "Not playing" }
         if !settings.enabled && !(model.enabled && model.globalEQ.hasEnabledEQ) { return nil }
         if !model.enabled { return nil }
         if let message = model.snapshot.routeMessages[app.id] { return message }

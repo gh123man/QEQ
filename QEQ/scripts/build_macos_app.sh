@@ -94,9 +94,6 @@ python3 "$SCRIPT_DIR/configure_bundle.py" "$APP_BUNDLE"
 
 require_cmd codesign
 codesign --force --deep --preserve-metadata=entitlements --sign - "$APP_BUNDLE"
-# The Xcode build above is unsigned. Apply QEQ's entitlement to the outer app
-# without changing the entitlements of Sparkle's nested helpers.
-codesign --force --entitlements "$PACKAGE_DIR/App/QEQ.entitlements" --sign - "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 echo "App bundle ready: $APP_BUNDLE"
