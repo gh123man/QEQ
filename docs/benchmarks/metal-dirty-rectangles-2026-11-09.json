@@ -1,0 +1,494 @@
+{
+  "date": "2026-11-09",
+  "board": "ESP32-S3 hardware V2",
+  "panel": "GC9A01 240x240 RGB565, 40 MHz SPI",
+  "renderer": "MetalRoundDisplayRenderer",
+  "app_base": "24a5060",
+  "firmware_base": "bf31f26",
+  "method": "Four alternating baseline/candidate runs on the same firmware, 600 logical 30 Hz source frames per run, actual GPU render through production planner/HC9/native USB and SPI-complete ACK. Real QEQ MIDI feedback and one continuous CDC reader remain active. Each idle session expires before the next run. No optical timing or physical input gestures measured.",
+  "baseline_configuration": "Legacy full-cell tiles with the eight original full-refresh boundaries per workload.",
+  "candidate_configuration": "Negotiated bounding rectangles within each 32x32 cell; only reconnect/session start forces a full image. Identical rendered pixels, HC9, DMA, safe decoding and CRC checks retained.",
+  "steady_spectrum_definition": "Source frames 1...179, excluding the cold first frame and later transition back to Home. Included in all/phases as well.",
+  "baseline": {
+    "all": {
+      "frames": 924,
+      "wire_bytes": 9158562,
+      "over_33_333_ms": 160,
+      "total_ms": {
+        "p50": 28.832,
+        "p95": 67.291,
+        "maximum": 83.293
+      },
+      "render_ms": {
+        "p50": 0.762,
+        "p95": 2.048,
+        "maximum": 17.624
+      },
+      "prepare_ms": {
+        "p50": 1.074,
+        "p95": 3.168,
+        "maximum": 4.649
+      },
+      "transfer_ms": {
+        "p50": 26.707,
+        "p95": 61.851,
+        "maximum": 73.567
+      }
+    },
+    "phases": {
+      "actions": {
+        "frames": 94,
+        "wire_bytes": 826700,
+        "over_33_333_ms": 22,
+        "total_ms": {
+          "p50": 9.77,
+          "p95": 73.74,
+          "maximum": 74.855
+        },
+        "render_ms": {
+          "p50": 0.848,
+          "p95": 3.668,
+          "maximum": 5.369
+        },
+        "prepare_ms": {
+          "p50": 0.707,
+          "p95": 4.151,
+          "maximum": 4.608
+        },
+        "transfer_ms": {
+          "p50": 7.207,
+          "p95": 68.99,
+          "maximum": 69.431
+        }
+      },
+      "menu": {
+        "frames": 76,
+        "wire_bytes": 856414,
+        "over_33_333_ms": 25,
+        "total_ms": {
+          "p50": 30.815,
+          "p95": 45.362,
+          "maximum": 59.728
+        },
+        "render_ms": {
+          "p50": 0.85,
+          "p95": 3.032,
+          "maximum": 17.624
+        },
+        "prepare_ms": {
+          "p50": 0.902,
+          "p95": 2.344,
+          "maximum": 2.528
+        },
+        "transfer_ms": {
+          "p50": 28.829,
+          "p95": 41.851,
+          "maximum": 43.154
+        }
+      },
+      "playback": {
+        "frames": 24,
+        "wire_bytes": 453692,
+        "over_33_333_ms": 22,
+        "total_ms": {
+          "p50": 49.267,
+          "p95": 82.86,
+          "maximum": 83.293
+        },
+        "render_ms": {
+          "p50": 0.929,
+          "p95": 12.102,
+          "maximum": 13.265
+        },
+        "prepare_ms": {
+          "p50": 3.38,
+          "p95": 4.492,
+          "maximum": 4.649
+        },
+        "transfer_ms": {
+          "p50": 44.445,
+          "p95": 67.661,
+          "maximum": 69.295
+        }
+      },
+      "slider": {
+        "frames": 58,
+        "wire_bytes": 293774,
+        "over_33_333_ms": 2,
+        "total_ms": {
+          "p50": 11.395,
+          "p95": 16.525,
+          "maximum": 77.868
+        },
+        "render_ms": {
+          "p50": 0.72,
+          "p95": 1.495,
+          "maximum": 1.539
+        },
+        "prepare_ms": {
+          "p50": 0.728,
+          "p95": 1.178,
+          "maximum": 3.599
+        },
+        "transfer_ms": {
+          "p50": 9.858,
+          "p95": 14.714,
+          "maximum": 73.567
+        }
+      },
+      "slots": {
+        "frames": 76,
+        "wire_bytes": 321622,
+        "over_33_333_ms": 2,
+        "total_ms": {
+          "p50": 8.783,
+          "p95": 21.207,
+          "maximum": 74.893
+        },
+        "render_ms": {
+          "p50": 0.797,
+          "p95": 1.494,
+          "maximum": 2.454
+        },
+        "prepare_ms": {
+          "p50": 0.724,
+          "p95": 1.306,
+          "maximum": 4.28
+        },
+        "transfer_ms": {
+          "p50": 7.222,
+          "p95": 19.098,
+          "maximum": 69.928
+        }
+      },
+      "spectrum": {
+        "frames": 418,
+        "wire_bytes": 5178930,
+        "over_33_333_ms": 65,
+        "total_ms": {
+          "p50": 30.993,
+          "p95": 40.552,
+          "maximum": 48.1
+        },
+        "render_ms": {
+          "p50": 0.702,
+          "p95": 0.831,
+          "maximum": 2.108
+        },
+        "prepare_ms": {
+          "p50": 1.547,
+          "p95": 1.882,
+          "maximum": 3.049
+        },
+        "transfer_ms": {
+          "p50": 29.035,
+          "p95": 37.684,
+          "maximum": 44.864
+        }
+      },
+      "volume": {
+        "frames": 178,
+        "wire_bytes": 1227430,
+        "over_33_333_ms": 22,
+        "total_ms": {
+          "p50": 12.563,
+          "p95": 74.983,
+          "maximum": 78.114
+        },
+        "render_ms": {
+          "p50": 1.234,
+          "p95": 1.563,
+          "maximum": 3.175
+        },
+        "prepare_ms": {
+          "p50": 0.804,
+          "p95": 3.706,
+          "maximum": 4.521
+        },
+        "transfer_ms": {
+          "p50": 10.572,
+          "p95": 69.55,
+          "maximum": 73.334
+        }
+      }
+    },
+    "steady_spectrum": {
+      "frames": 358,
+      "wire_bytes": 4305420,
+      "over_33_333_ms": 26,
+      "total_ms": {
+        "p50": 30.715,
+        "p95": 33.406,
+        "maximum": 35.996
+      },
+      "render_ms": {
+        "p50": 0.701,
+        "p95": 0.826,
+        "maximum": 1.104
+      },
+      "prepare_ms": {
+        "p50": 1.526,
+        "p95": 1.752,
+        "maximum": 1.842
+      },
+      "transfer_ms": {
+        "p50": 28.635,
+        "p95": 31.145,
+        "maximum": 33.481
+      }
+    },
+    "max_input_gap_us": 9091
+  },
+  "partial": {
+    "all": {
+      "frames": 922,
+      "wire_bytes": 7764146,
+      "over_33_333_ms": 90,
+      "total_ms": {
+        "p50": 26.03,
+        "p95": 52.381,
+        "maximum": 82.85
+      },
+      "render_ms": {
+        "p50": 0.779,
+        "p95": 2.333,
+        "maximum": 15.32
+      },
+      "prepare_ms": {
+        "p50": 0.866,
+        "p95": 2.705,
+        "maximum": 4.911
+      },
+      "transfer_ms": {
+        "p50": 24.057,
+        "p95": 44.933,
+        "maximum": 67.804
+      }
+    },
+    "phases": {
+      "actions": {
+        "frames": 94,
+        "wire_bytes": 647358,
+        "over_33_333_ms": 20,
+        "total_ms": {
+          "p50": 5.627,
+          "p95": 71.403,
+          "maximum": 72.527
+        },
+        "render_ms": {
+          "p50": 0.849,
+          "p95": 3.773,
+          "maximum": 5.829
+        },
+        "prepare_ms": {
+          "p50": 0.345,
+          "p95": 3.982,
+          "maximum": 4.911
+        },
+        "transfer_ms": {
+          "p50": 3.712,
+          "p95": 66.723,
+          "maximum": 67.804
+        }
+      },
+      "menu": {
+        "frames": 76,
+        "wire_bytes": 765376,
+        "over_33_333_ms": 16,
+        "total_ms": {
+          "p50": 27.765,
+          "p95": 44.932,
+          "maximum": 56.439
+        },
+        "render_ms": {
+          "p50": 0.865,
+          "p95": 3.229,
+          "maximum": 15.32
+        },
+        "prepare_ms": {
+          "p50": 0.964,
+          "p95": 2.6,
+          "maximum": 2.655
+        },
+        "transfer_ms": {
+          "p50": 25.65,
+          "p95": 40.465,
+          "maximum": 41.588
+        }
+      },
+      "playback": {
+        "frames": 22,
+        "wire_bytes": 403066,
+        "over_33_333_ms": 16,
+        "total_ms": {
+          "p50": 48.952,
+          "p95": 81.214,
+          "maximum": 82.85
+        },
+        "render_ms": {
+          "p50": 0.877,
+          "p95": 12.755,
+          "maximum": 13.139
+        },
+        "prepare_ms": {
+          "p50": 3.161,
+          "p95": 4.013,
+          "maximum": 4.488
+        },
+        "transfer_ms": {
+          "p50": 44.827,
+          "p95": 66.491,
+          "maximum": 67.742
+        }
+      },
+      "slider": {
+        "frames": 58,
+        "wire_bytes": 135712,
+        "over_33_333_ms": 0,
+        "total_ms": {
+          "p50": 7.761,
+          "p95": 9.972,
+          "maximum": 10.723
+        },
+        "render_ms": {
+          "p50": 0.735,
+          "p95": 1.493,
+          "maximum": 1.59
+        },
+        "prepare_ms": {
+          "p50": 0.41,
+          "p95": 0.53,
+          "maximum": 0.564
+        },
+        "transfer_ms": {
+          "p50": 6.599,
+          "p95": 8.567,
+          "maximum": 9.025
+        }
+      },
+      "slots": {
+        "frames": 76,
+        "wire_bytes": 124894,
+        "over_33_333_ms": 0,
+        "total_ms": {
+          "p50": 4.915,
+          "p95": 11.044,
+          "maximum": 12.257
+        },
+        "render_ms": {
+          "p50": 0.812,
+          "p95": 1.619,
+          "maximum": 2.373
+        },
+        "prepare_ms": {
+          "p50": 0.343,
+          "p95": 0.501,
+          "maximum": 0.545
+        },
+        "transfer_ms": {
+          "p50": 3.661,
+          "p95": 9.302,
+          "maximum": 10.035
+        }
+      },
+      "spectrum": {
+        "frames": 418,
+        "wire_bytes": 4863248,
+        "over_33_333_ms": 20,
+        "total_ms": {
+          "p50": 28.012,
+          "p95": 32.54,
+          "maximum": 46.421
+        },
+        "render_ms": {
+          "p50": 0.711,
+          "p95": 0.84,
+          "maximum": 2.514
+        },
+        "prepare_ms": {
+          "p50": 1.31,
+          "p95": 1.529,
+          "maximum": 2.876
+        },
+        "transfer_ms": {
+          "p50": 26.099,
+          "p95": 29.945,
+          "maximum": 43.01
+        }
+      },
+      "volume": {
+        "frames": 178,
+        "wire_bytes": 824492,
+        "over_33_333_ms": 18,
+        "total_ms": {
+          "p50": 8.46,
+          "p95": 64.973,
+          "maximum": 70.37
+        },
+        "render_ms": {
+          "p50": 1.271,
+          "p95": 1.57,
+          "maximum": 3.145
+        },
+        "prepare_ms": {
+          "p50": 0.439,
+          "p95": 3.17,
+          "maximum": 3.997
+        },
+        "transfer_ms": {
+          "p50": 6.897,
+          "p95": 59.898,
+          "maximum": 65.998
+        }
+      }
+    },
+    "steady_spectrum": {
+      "frames": 358,
+      "wire_bytes": 4037384,
+      "over_33_333_ms": 0,
+      "total_ms": {
+        "p50": 27.781,
+        "p95": 30.546,
+        "maximum": 31.311
+      },
+      "render_ms": {
+        "p50": 0.706,
+        "p95": 0.832,
+        "maximum": 0.912
+      },
+      "prepare_ms": {
+        "p50": 1.299,
+        "p95": 1.463,
+        "maximum": 1.537
+      },
+      "transfer_ms": {
+        "p50": 25.763,
+        "p95": 28.348,
+        "maximum": 29.546
+      }
+    },
+    "max_input_gap_us": 9091
+  },
+  "stress": {
+    "elapsed_s": 120.09348041703925,
+    "samples": 1194,
+    "errors": [],
+    "sequence_gaps": 0,
+    "midi_overflows": 0,
+    "midi_received": [
+      25358,
+      37598
+    ],
+    "midi_sent": [
+      10136,
+      15056
+    ],
+    "heap_range": [
+      293300,
+      295364
+    ],
+    "validated_frame_acks": 1846,
+    "sessions": 4,
+    "note": "Input gap is a cumulative since-boot maximum, 9.091 ms in both modes, not per-frame physical latency. MIDI counters advanced with no overflows; heap range includes the transient disconnected-screen canvas."
+  }
+}

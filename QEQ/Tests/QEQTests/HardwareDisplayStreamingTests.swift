@@ -16,7 +16,10 @@ private final class ReceiverPort: DisplayBulkPort, @unchecked Sendable {
         var holding = false
         var closed = false
     }
-    let state = OSAllocatedUnfairLock(initialState: State(handle: qeq_test_receiver_create()!))
+    let state: OSAllocatedUnfairLock<State>
+    init(width: UInt16 = 64, height: UInt16 = 32) {
+        state = OSAllocatedUnfairLock(initialState: State(handle: qeq_test_receiver_create_display(width, height)!))
+    }
     let waiting = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
     deinit { state.withLock { qeq_test_receiver_destroy($0.handle) } }
     func write(_ data: Data) throws {
@@ -301,4 +304,128 @@ private func eventually(_ predicate: @escaping @Sendable () -> Bool) async -> Bo
     service.stop()
     await Task.yield()
     #expect(service.status.isEmpty)
+}
+
+@Test func partialTilesPreservePixelsAcrossSparseChangesAndGridEdges() throws {
+    let port = ReceiverPort()
+    let session = DisplayUSBSession(port: port, nonce: 93)
+    let caps = try session.negotiate()
+    #expect(session.planner?.partialTiles == true)
+    var pixels = Data((0..<(caps.width * caps.height * 2)).map { UInt8(truncatingIfNeeded: $0 * 19) })
+    _ = try session.send(pixels)
+    for (index, points) in [[(5, 7)], [(31, 31), (32, 31), (63, 31)], [(10, 3), (12, 5)]].enumerated() {
+        let start = port.writes.count
+        for (x, y) in points { pixels[(y * caps.width + x) * 2] ^= 0x71 }
+        #expect(try session.send(pixels))
+        #expect(port.pixelCRC == DisplayWire.crc(pixels))
+        let tiles = port.writes.dropFirst(start).filter { $0.kind == .tile }
+        #expect(tiles.allSatisfy { $0.payload[9] == 1 })
+        #expect(tiles.reduce(0) { $0 + Int($1.payload[10]) + Int($1.payload[11]) * 256 } == [2, 66, 18][index])
+    }
+    #expect(try !session.send(pixels))
+}
+
+private final class LegacyReceiverPort: DisplayBulkPort {
+    let receiver = ReceiverPort()
+    var response: Data?
+    var handshakes: [UInt16] = []
+    func write(_ data: Data) throws {
+        var decoder = DisplayWire.Decoder()
+        let messages = try decoder.feed(Data(data.prefix(min(data.count, 28))))
+        if let first = messages.first, first.kind == .hello {
+            handshakes.append(first.flags)
+            if first.flags != 0 {
+                var payload = Data(repeating: 0, count: 32)
+                payload[0] = 1  // Original firmware rejects flags before it adopts the nonce.
+                response = DisplayWire.Message(kind: .ack, session: 0, payload: payload).encoded()
+                return
+            }
+        }
+        try receiver.write(data)
+    }
+    func read(timeout: TimeInterval) throws -> Data {
+        if let response {
+            self.response = nil
+            return response
+        }
+        return try receiver.read(timeout: timeout)
+    }
+    func close() { receiver.close() }
+}
+
+@Test func newSenderFallsBackToLegacyFirmwareWithoutPartialTiles() throws {
+    let port = LegacyReceiverPort()
+    let session = DisplayUSBSession(port: port, nonce: 94)
+    _ = try session.negotiate()
+    #expect(port.handshakes == [1, 0])
+    #expect(session.planner?.partialTiles == false)
+    var pixels = Data(repeating: 0, count: 4096)
+    _ = try session.send(pixels)
+    pixels[3] = 7
+    _ = try session.send(pixels)
+    #expect(port.receiver.writes.filter { $0.kind == .tile }.last?.payload[9] == 0)
+    #expect(port.receiver.pixelCRC == DisplayWire.crc(pixels))
+}
+
+@Test func metalPageTransitionsNeedOnlyAcknowledgedDeltas() throws {
+    guard ProcessInfo.processInfo.environment["QEQ_HARDWARE_TESTS"] != "0" else { return }
+    let port = ReceiverPort(width: 240, height: 240)
+    let session = DisplayUSBSession(port: port, nonce: 95)
+    let renderer = try MetalRoundDisplayRenderer(session.negotiate())
+    var scene = HardwareDisplayScene(label: "Music", percent: 65, systemPercent: 50)
+    let pages: [HardwareRoundScreen] = [
+        .home(Array(repeating: 50, count: 32)),
+        .menu(items: [.init("Music", iconKey: "music")], selected: 0),
+        .app(slider: false), .music(player: "Music", selected: 1, status: "Playing"),
+    ]
+    for index in 0..<60 {
+        scene.roundScreen = pages[(index / 9) % pages.count]  // Retarget before the prior transition settles.
+        scene.reduceMotion = index >= 40
+        let content = HardwareDisplayContent(scene: scene, icon: nil, iconKey: "music")
+        let pixels = try renderer.render(content, now: 1 + Double(index) / 30)
+        _ = try session.send(pixels)
+        #expect(port.pixelCRC == DisplayWire.crc(pixels))
+    }
+    #expect(port.writes.filter { $0.kind == .begin && $0.flags == 1 }.count == 1)
+}
+
+@Test func trimmedUpdatesRespectPartialCellsAtTheDisplayEdge() throws {
+    let port = ReceiverPort(width: 65, height: 33)
+    let session = DisplayUSBSession(port: port)
+    _ = try session.negotiate()
+    var pixels = Data(repeating: 0, count: 65 * 33 * 2)
+    _ = try session.send(pixels)
+    for (x, y) in [(64, 32), (64, 30), (63, 32), (0, 32)] {
+        pixels[(y * 65 + x) * 2] = 255
+        _ = try session.send(pixels)
+        #expect(port.pixelCRC == DisplayWire.crc(pixels))
+        let tile = try #require(port.writes.last { $0.kind == .tile })
+        #expect(tile.payload[10] == 2 && tile.payload[11] == 0)
+    }
+}
+
+private final class StaleRejectionPort: DisplayBulkPort {
+    let receiver = ReceiverPort()
+    var stale = true
+    func write(_ data: Data) throws { try receiver.write(data) }
+    func read(timeout: TimeInterval) throws -> Data {
+        if stale {
+            stale = false
+            var payload = Data(repeating: 0, count: 32)
+            payload[0] = 1
+            return DisplayWire.Message(kind: .ack, session: 999, payload: payload).encoded()
+        }
+        return try receiver.read(timeout: timeout)
+    }
+    func close() { receiver.close() }
+}
+
+@Test func staleRejectionCannotAdoptCapabilitiesFromAnAbandonedHandshake() throws {
+    let port = StaleRejectionPort()
+    let session = DisplayUSBSession(port: port, nonce: .max)
+    _ = try session.negotiate()
+    #expect(session.nonce == 1 && session.planner?.partialTiles == false)
+    let pixels = Data(repeating: 42, count: 4096)
+    #expect(try session.send(pixels))
+    #expect(port.receiver.pixelCRC == DisplayWire.crc(pixels))
 }

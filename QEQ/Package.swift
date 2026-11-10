@@ -30,7 +30,7 @@ let package = Package(
             path: "Sources/QEQAppSupport",
             linkerSettings: [.linkedFramework("CoreMIDI"), .linkedFramework("Metal")]
         ),
-        .executableTarget(name: "QEQDisplayBench", dependencies: ["QEQAppSupport"]),
+        .executableTarget(name: "QEQDisplayBench", dependencies: ["QEQAppSupport", "QEQHardware"]),
         .target(
             name: "DisplayReceiverTestSupport", dependencies: ["QEQHardware"],
             path: "Tests/DisplayReceiverSupport", exclude: ["README.md"], publicHeadersPath: "include",

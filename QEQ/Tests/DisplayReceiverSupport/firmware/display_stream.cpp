@@ -82,12 +82,13 @@ void Receiver::process() {
   const auto caps=sink_.caps();
   const uint16_t columns=(caps.width+tileEdge-1)/tileEdge, rows=(caps.height+tileEdge-1)/tileEdge;
   if(type==hello) {
-    if(!session || frame || base || flags || length || !columns || !rows || uint32_t(columns)*rows>1024 || caps.format!=1) { fail(malformed); return; }
+    if(!session || frame || base || flags>1 || length || !columns || !rows || uint32_t(columns)*rows>1024 || caps.format!=1) { fail(malformed); return; }
     active_=false; probing_=false; hasBaseline_=false; acknowledged_=0; frame_=0; session_=session;
+    partialTiles_=flags==1; // Opt-in; legacy HELLO keeps the original capability mask and tile rules.
     lastActivity_=sink_.microsNow(); sink_.disconnected();
     uint8_t payload[24]={}, output[headerSize+24];
     put16(payload,caps.width); put16(payload+2,caps.height); put16(payload+4,tileEdge); put16(payload+6,tileEdge);
-    payload[8]=caps.format; payload[9]=caps.orientation; payload[10]=caps.shape; payload[11]=3; // raw + LZ4 block
+    payload[8]=caps.format; payload[9]=caps.orientation; payload[10]=caps.shape; payload[11]=partialTiles_?7:3; // raw + LZ4 + optional sub-tile rectangles
     put32(payload+12,maxPayload); put32(payload+16,caps.spiHz); put32(payload+20,caps.boot);
     sink_.reply(output,message(output,capabilities,0,session_,0,0,payload,sizeof(payload))); return;
   }
@@ -122,8 +123,14 @@ void Receiver::process() {
   if(type==tile) {
     if(length<16 || received_>=wanted_) { fail(bounds); return; }
     const uint16_t x=u16(data), y=u16(data+2), w=u16(data+4), h=u16(data+6), decoded=u16(data+10);
-    if(x>=caps.width || y>=caps.height || x%tileEdge || y%tileEdge || data[9] ||
-       w!=(caps.width-x<tileEdge?caps.width-x:tileEdge) || h!=(caps.height-y<tileEdge?caps.height-y:tileEdge) || decoded!=w*h*2) { fail(bounds); return; }
+    if(x>=caps.width || y>=caps.height || !w || !h || w>tileEdge || h>tileEdge ||
+       uint32_t(x)+w>caps.width || uint32_t(y)+h>caps.height || decoded!=w*h*2) { fail(bounds); return; }
+    if(data[9]==1) {
+      // One rectangle per grid cell, only against an acknowledged complete image.
+      // Never let a partial rectangle satisfy full-refresh coverage or cross a cell.
+      if(!partialTiles_ || full_ || x%tileEdge+w>tileEdge || y%tileEdge+h>tileEdge) { fail(bounds); return; }
+    } else if(data[9] || x%tileEdge || y%tileEdge ||
+       w!=(caps.width-x<tileEdge?caps.width-x:tileEdge) || h!=(caps.height-y<tileEdge?caps.height-y:tileEdge)) { fail(bounds); return; }
     const size_t index=(y/tileEdge)*columns+x/tileEdge;
     if(seen_[index/8] & (1u<<(index%8))) { fail(sequence); return; }
     const uint32_t start=sink_.microsNow();

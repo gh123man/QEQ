@@ -1,15 +1,70 @@
 import AppKit
 import QEQAppSupport
+@preconcurrency import QEQHardware
+import os
 
-/// Offline workload from the production Metal renderer. No USB client or alternate UI.
+/// Current UI workload, optionally sent through the production USB session at a 30 Hz target.
 @main struct DisplayBench {
     @MainActor static func main() throws {
-        guard CommandLine.arguments.count == 2, CommandLine.arguments[1].hasPrefix("/") else {
-            fatalError("Usage: QEQDisplayBench ABSOLUTE_OUTPUT_DIRECTORY")
+        let args = CommandLine.arguments
+        guard args.count >= 2, args[1].hasPrefix("/") else {
+            fatalError(
+                "Usage: QEQDisplayBench ABS_OUTPUT [--stream SERIAL] [--legacy-tiles] [--refresh-boundaries ABS_MANIFEST]"
+            )
         }
-        let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        var serial: String?
+        var boundaries: String?
+        var partialTiles = true
+        var argument = 2
+        while argument < args.count {
+            switch args[argument] {
+            case "--stream", "--refresh-boundaries":
+                guard argument + 1 < args.count else { fatalError("Missing argument for \(args[argument])") }
+                if args[argument] == "--stream" { serial = args[argument + 1] } else { boundaries = args[argument + 1] }
+                argument += 2
+            case "--legacy-tiles":
+                partialTiles = false
+                argument += 1
+            default: fatalError("Unknown option: \(args[argument])")
+            }
+        }
+        var forceRefresh = Set<String>()
+        if let boundaries {
+            let manifest =
+                try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: boundaries)))
+                as! [String: Any]
+            for row in manifest["frames"] as! [[String: Any]] where row["force_full"] as? Bool == true {
+                forceRefresh.insert(row["file"] as! String)
+            }
+        }
+        var link: HardwareDisplayBenchmark?
+        if let serial {
+            let discovery = QEQUSBDiscovery()
+            let found = OSAllocatedUnfairLock(initialState: [QEQUSBDevice]())
+            let ready = DispatchSemaphore(value: 0)
+            discovery.start { devices in
+                let matching = devices.filter { $0.serial == serial }
+                if matching.count == 1 {
+                    found.withLock { $0 = matching }
+                    ready.signal()
+                }
+            }
+            let result = ready.wait(timeout: .now() + 5)
+            discovery.stop()
+            guard result == .success, let device = found.withLock({ $0.first }) else {
+                fatalError("Exactly one display with serial \(serial) must be attached")
+            }
+            link = try HardwareDisplayBenchmark(device: device, partialTiles: partialTiles)
+            print(
+                "Connected \(serial), partial tiles: \(link!.partialTiles). Stop QEQ's display client before benchmarking."
+            )
+        }
+        let directory = URL(fileURLWithPath: args[1], isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let caps = HardwareDisplayCapabilities()
+        let caps = link?.capabilities ?? HardwareDisplayCapabilities()
+        guard caps.width == 240, caps.height == 240, caps.shape == 1 else {
+            fatalError("This workload requires the 240x240 round display")
+        }
         let renderer = try MetalRoundDisplayRenderer(caps)
         let capabilityJSON: [String: Int] = [
             "width": 240, "height": 240, "format": 1, "orientation": 0, "shape": 1,
@@ -79,6 +134,21 @@ import QEQAppSupport
                 let start = DispatchTime.now().uptimeNanoseconds
                 let pixels = try renderer.render(content, now: time)
                 let duration = DispatchTime.now().uptimeNanoseconds - start
+                let name = String(format: "%04d-%@.qras", frame, phase)
+                var row: [String: Any] = [
+                    "file": name, "phase": phase, "render_us": Double(duration) / 1000,
+                    "force_full": forceRefresh.contains(name), "animating": renderer.animating,
+                ]
+                if let link {
+                    for (key, value) in try link.send(pixels, forceFull: forceRefresh.contains(name)) {
+                        row[key] = value
+                    }
+                    let total = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+                    row["total_ms"] = total
+                    frames.append(row)
+                    Thread.sleep(forTimeInterval: max(0, 1.0 / 30 - total / 1000))
+                    return
+                }
                 var raster = Data("QRAS".utf8)
                 func put<T: FixedWidthInteger>(_ value: T) {
                     var little = value.littleEndian
@@ -91,18 +161,15 @@ import QEQAppSupport
                 put(duration)
                 put(UInt32(0))
                 raster.append(pixels)
-                let name = String(format: "%04d-%@.qras", frame, phase)
                 try raster.write(to: directory.appendingPathComponent(name))
-                frames.append([
-                    "file": name, "phase": phase, "render_us": Double(duration) / 1000,
-                    "force_full": renderer.needsFullRefresh, "animating": renderer.animating,
-                ])
+                frames.append(row)
             }
         }
         let report: [String: Any] = [
             "renderer": "MetalRoundDisplayRenderer", "frames": frames, "sample_hz": 30,
+            "mode": link == nil ? "offline" : "live", "partial_tiles": link?.partialTiles ?? false,
             "note":
-                "Production GPU UI; deterministic synthetic spectrum and navigation. Offline rendering, not display FPS.",
+                "Production GPU UI; deterministic synthetic spectrum/navigation. Live total_ms covers rendering, planning, encoding and SPI-complete ACK; offline timings cover rendering only. Neither measures visible panel scanout.",
         ]
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
             .write(to: directory.appendingPathComponent("workload.json"))

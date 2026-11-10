@@ -34,7 +34,6 @@ extension DisplayPixelRenderer {
 private final class NativeDisplayRenderer: DisplayPixelRenderer {
     private let renderer: MetalRoundDisplayRenderer
     var animating: Bool { renderer.animating }
-    var needsFullRefresh: Bool { renderer.needsFullRefresh }
     var frameInterval: TimeInterval { 1.0 / 30 }
     init(_ capabilities: HardwareDisplayCapabilities) throws {
         renderer = try MetalRoundDisplayRenderer(capabilities)
@@ -52,31 +51,51 @@ final class DisplayUSBSession {
         var transferMS: Double
         var lcdMS: Double
         var decodeMS: Double
+        var verifyMS: Double
+        var inputGapUS: UInt32
     }
     private(set) var lastFrameTiming: FrameTiming?
     private(set) var activity = "opening"
     let port: any DisplayBulkPort
-    let nonce: UInt32
+    private(set) var nonce: UInt32
+    let requestPartialTiles: Bool
     private var decoder = DisplayWire.Decoder()
     private var received: [DisplayWire.Message] = []
     private(set) var planner: DisplayFramePlanner?
-    init(port: any DisplayBulkPort, nonce: UInt32 = UInt32.random(in: 1...UInt32.max)) {
+    init(
+        port: any DisplayBulkPort, nonce: UInt32 = UInt32.random(in: 1...UInt32.max),
+        requestPartialTiles: Bool = true
+    ) {
         self.port = port
         self.nonce = nonce
+        self.requestPartialTiles = requestPartialTiles
     }
     func negotiate() throws -> HardwareDisplayCapabilities {
         activity = "writing HELLO"
-        try port.write(DisplayWire.Message(kind: .hello, session: nonce).encoded())
+        var requestingPartialTiles = requestPartialTiles
+        try port.write(DisplayWire.Message(kind: .hello, flags: requestPartialTiles ? 1 : 0, session: nonce).encoded())
         activity = "reading capabilities"
         for _ in 0..<8 {
             let reply = try readMessage()
+            // Pre-extension receivers reject HELLO flags before adopting the nonce.
+            // Retry their original handshake once, retaining full-cell tile encoding.
+            if requestingPartialTiles, reply.kind == .ack, reply.flags == 0, reply.payload.count == 32,
+                reply.payload.prefix(4) == Data([1, 0, 0, 0])
+            {
+                requestingPartialTiles = false
+                // A stale rejection may precede this attempt's capabilities. Give the
+                // fallback a distinct nonce so those buffered replies cannot be adopted.
+                nonce = nonce == .max ? 1 : nonce + 1
+                try port.write(DisplayWire.Message(kind: .hello, session: nonce).encoded())
+                continue
+            }
             if reply.session != nonce { continue }  // A prior host's expiry reply may still be buffered.
             guard reply.kind == .capabilities, reply.flags == 0, reply.frame == 0, reply.base == 0 else {
                 throw DisplayWire.Failure.sequence
             }
-            let caps = try DisplayWire.Capabilities(reply.payload).display
-            planner = DisplayFramePlanner(capabilities: caps, session: nonce)
-            return caps
+            let caps = try DisplayWire.Capabilities(reply.payload)
+            planner = DisplayFramePlanner(capabilities: caps.display, session: nonce, partialTiles: caps.partialTiles)
+            return caps.display
         }
         throw DisplayWire.Failure.sequence
     }
@@ -103,6 +122,12 @@ final class DisplayUSBSession {
             lcdMS: Double(lcdUS) / 1000,
             decodeMS: reply.payload.withUnsafeBytes {
                 Double(UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 4, as: UInt32.self))) / 1000
+            },
+            verifyMS: reply.payload.withUnsafeBytes {
+                Double(UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 28, as: UInt32.self))) / 1000
+            },
+            inputGapUS: reply.payload.withUnsafeBytes {
+                UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 24, as: UInt32.self))
             })
         self.planner = planner
         return true
@@ -391,3 +416,37 @@ public final class HardwareDisplayService {
         connections.values.contains { $0.serial == serial && $0.round }
     }
 }
+
+#if SWIFT_PACKAGE
+    /// Development benchmark uses the exact shipping session, planner, codec and ACK validation.
+    /// Excluded from the Xcode app; the caller owns pacing and must stop the app's display client first.
+    public final class HardwareDisplayBenchmark {
+        private let session: DisplayUSBSession
+        public let capabilities: HardwareDisplayCapabilities
+        public var partialTiles: Bool { session.planner?.partialTiles == true }
+        private var heartbeatAt = 0.0
+        public init(device: QEQUSBDevice, partialTiles: Bool = true) throws {
+            session = DisplayUSBSession(port: try NativeDisplayPort(device), requestPartialTiles: partialTiles)
+            do { capabilities = try session.negotiate() } catch {
+                session.close()
+                throw error
+            }
+        }
+        deinit { session.close() }
+        public func send(_ pixels: Data, forceFull: Bool = false) throws -> [String: Double] {
+            if try session.send(pixels, forceFull: forceFull), let t = session.lastFrameTiming {
+                heartbeatAt = ProcessInfo.processInfo.systemUptime + 0.5
+                return [
+                    "sent": 1, "frame": Double(t.frame), "wire_bytes": Double(t.bytes), "tiles": Double(t.tiles),
+                    "prepare_ms": t.prepareMS, "transfer_ms": t.transferMS, "lcd_ms": t.lcdMS, "decode_ms": t.decodeMS,
+                    "verify_ms": t.verifyMS, "input_gap_us": Double(t.inputGapUS),
+                ]
+            }
+            if ProcessInfo.processInfo.systemUptime >= heartbeatAt {
+                try session.heartbeat()
+                heartbeatAt = ProcessInfo.processInfo.systemUptime + 0.5
+            }
+            return ["sent": 0]
+        }
+    }
+#endif

@@ -70,8 +70,6 @@ public final class MetalRoundDisplayRenderer {
     private var history = Array(repeating: Float(0), count: 4 * 64)
     private var spectrumInitialized = false
     public private(set) var animating = false
-    public private(set) var needsFullRefresh = false
-    private var pageMoving = false
     public private(set) var rasterizedLayers = 0
     public private(set) var renderedFrames = 0
     private(set) var elementRects: [String: SIMD4<Float>] = [:]
@@ -162,11 +160,8 @@ public final class MetalRoundDisplayRenderer {
         let transition = reduced ? 1 : Self.travel(Float((now - transitionStart) / 0.34))
         visible = outgoing.map { blend($0, destination, progress: transition) } ?? destination
         if transition >= 1 { outgoing = nil }
-        // Repair at page boundaries, not after every rotary detent or volume
-        // overlay; a redundant full-frame write there would itself cause stalls.
-        let nextPageMoving = outgoing != nil
-        needsFullRefresh = pageMoving && !nextPageMoving || changedPage && reduced
-        pageMoving = nextPageMoving
+        // The transport compares against acknowledged pixels, including page changes.
+        // Reconnects repair the whole image; settled transitions need only their delta.
         let spectrumMoving = updateSpectrum(content, dt: dt)
         animating =
             outgoing != nil || menuMoving || systemVisibility != systemTarget

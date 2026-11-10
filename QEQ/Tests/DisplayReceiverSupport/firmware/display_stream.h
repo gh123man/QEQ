@@ -46,7 +46,7 @@ private:
   uint32_t session_=0, frame_=0, acknowledged_=0, lastActivity_=0, started_=0;
   uint32_t decodeUs_=0, lcdUs_=0, wireBytes_=0, verifyUs_=0;
   uint16_t wanted_=0, received_=0;
-  bool active_=false, full_=false, hasBaseline_=false, probing_=false;
+  bool active_=false, full_=false, hasBaseline_=false, probing_=false, partialTiles_=false;
   uint8_t seen_[128] = {}; // Up to 1024 tiles; negotiated dimensions validated on HELLO.
   void process();
   void respond(Type type, Status status);

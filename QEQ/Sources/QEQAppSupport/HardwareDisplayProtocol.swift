@@ -89,13 +89,15 @@ enum DisplayWire {
     struct Capabilities {
         let display: HardwareDisplayCapabilities
         let boot: UInt32
+        let partialTiles: Bool
         init(_ data: Data) throws {
             guard data.count == 24 else { throw Failure.malformed }
             display = HardwareDisplayCapabilities(
                 width: Int(data.u16(0)), height: Int(data.u16(2)),
                 format: Int(data[8]), orientation: Int(data[9]), shape: Int(data[10]))
             boot = data.u32(20)
-            guard display.supported, data.u16(4) == 32, data.u16(6) == 32, data[11] == 3,
+            partialTiles = data[11] == 7
+            guard display.supported, data.u16(4) == 32, data.u16(6) == 32, [3, 7].contains(data[11]),
                 data.u32(12) == maxPayload
             else { throw Failure.unsupported }
         }
@@ -131,6 +133,7 @@ struct DisplayFramePlanner {
     }
     let capabilities: HardwareDisplayCapabilities
     let session: UInt32
+    var partialTiles = false
     private(set) var acknowledged: UInt32 = 0
     private(set) var baseline: Data?
     private(set) var pending: Pending?
@@ -148,8 +151,10 @@ struct DisplayFramePlanner {
         var compressed = Data(count: Int(qeq_lz4_compress_bound(32 * 32 * 2)))
         for y in stride(from: 0, to: capabilities.height, by: 32) {
             for x in stride(from: 0, to: capabilities.width, by: 32) {
-                let width = min(32, capabilities.width - x)
-                let height = min(32, capabilities.height - y)
+                var left = x
+                var top = y
+                var width = min(32, capabilities.width - x)
+                var height = min(32, capabilities.height - y)
                 var changed = full
                 if !changed, let baseline {
                     for row in y..<(y + height) {
@@ -162,11 +167,42 @@ struct DisplayFramePlanner {
                     }
                 }
                 guard changed else { continue }
+                if partialTiles && !full, let baseline {
+                    var minX = width
+                    var minY = height
+                    var maxX = 0
+                    var maxY = 0
+                    pixels.withUnsafeBytes { current in
+                        baseline.withUnsafeBytes { old in
+                            for row in 0..<height {
+                                let offset = ((y + row) * capabilities.width + x) * 2
+                                if memcmp(current.baseAddress! + offset, old.baseAddress! + offset, width * 2) == 0 {
+                                    continue
+                                }
+                                minY = min(minY, row)
+                                maxY = row
+                                for column in 0..<width {
+                                    let i = offset + column * 2
+                                    if current.loadUnaligned(fromByteOffset: i, as: UInt16.self)
+                                        != old.loadUnaligned(fromByteOffset: i, as: UInt16.self)
+                                    {
+                                        minX = min(minX, column)
+                                        maxX = max(maxX, column)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    left += minX
+                    top += minY
+                    width = maxX - minX + 1
+                    height = maxY - minY + 1
+                }
                 var raw = Data(count: width * height * 2)
                 raw.withUnsafeMutableBytes { target in
                     pixels.withUnsafeBytes { source in
                         for row in 0..<height {
-                            let start = ((y + row) * capabilities.width + x) * 2
+                            let start = ((top + row) * capabilities.width + left) * 2
                             target.baseAddress!.advanced(by: row * width * 2)
                                 .copyMemory(from: source.baseAddress!.advanced(by: start), byteCount: width * 2)
                         }
@@ -181,11 +217,11 @@ struct DisplayFramePlanner {
                 }
                 let useLZ4 = count > 0 && count < raw.count
                 var payload = Data()
-                payload.put(UInt16(x))
-                payload.put(UInt16(y))
+                payload.put(UInt16(left))
+                payload.put(UInt16(top))
                 payload.put(UInt16(width))
                 payload.put(UInt16(height))
-                payload.append(contentsOf: [useLZ4 ? 1 : 0, 0])
+                payload.append(contentsOf: [useLZ4 ? 1 : 0, partialTiles && !full ? 1 : 0])
                 payload.put(UInt16(raw.count))
                 payload.put(DisplayWire.crc(raw))
                 if useLZ4 { payload.append(compressed.prefix(Int(count))) } else { payload.append(raw) }

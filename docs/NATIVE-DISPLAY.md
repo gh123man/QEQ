@@ -110,8 +110,10 @@ screen when heartbeats stop. Frames remain tile-applied, not atomic/tear-free.
 
 The LZ4 1.10.0 codec is compiled into the app with its BSD license bundled. The
 host reuses an HC level 9 encoder, resetting its history for every independent
-32×32 tile. Output scratch space uses `LZ4_compressBound`; raw fallback and the
-wire format are unchanged. Unchanged tiles are compared before copying. macOS
+tile rectangle (at most 32×32). Output scratch space uses `LZ4_compressBound`;
+raw fallback is retained. A negotiated extension permits smaller changed rectangles
+inside each grid cell; older firmware receives full-cell tiles. Unchanged tiles
+are compared before copying. macOS
 IOUSBHost/IOKit and Metal are system frameworks. RGB565 quantization happens before
 lossless compression; exactness applies to transmitted pixels, not original RGBA.
 
@@ -139,7 +141,8 @@ swift run -c release --package-path QEQ QEQDisplayBench /tmp/qeq-metal-workload
 
 The 600-frame workload covers synthetic spectrum motion, menus, app actions,
 slots, volume, slider overlays and playback. `workload.json` identifies the
-renderer, phase, measured render duration and required full-refresh boundaries.
+renderer, phase and measured render duration. Its `force_full` field is retained
+for reproducing older benchmark boundaries; normal transitions now use deltas.
 The `.qras` files contain those exact GPU-rendered RGB565 bytes; there is no CPU
 UI fallback or `--compare` path. Use a fresh directory for each workload.
 Offline rendering is not a measurement of USB latency or visible frame rate.
@@ -418,3 +421,60 @@ later automated tests do not establish new visual acceptance or optical timing.
 The optimized `stream-v2` firmware is installed and normal QEQ was restored.
 
 Detailed measurements: [current Metal benchmark](benchmarks/metal-display-streaming-2026-11-09.json).
+
+
+### Exact dirty rectangles and live timing — 2026-11-09
+
+Following the HC9/DMA change, the host now bounds the changed pixels inside each
+32×32 cell and sends only that rectangle. The framebuffer image is unchanged;
+CRC checks cover the exact decoded rectangle, and only an accepted ACK advances
+the host's baseline. Page transitions no longer force a redundant full repaint
+when they settle. Initial connections and reconnects still send every complete
+cell. Firmware retains bounded tile scratch memory, without a full framebuffer.
+
+This is an opt-in wire-v1 extension: HELLO flags=1 requests capability bit 2
+(mask 7); old hosts send flags=0 and receive the original mask 3 and tile rules.
+The new host retries a rejected extension handshake with flags=0 and a fresh
+nonce for older firmware. Physical fallback was exercised on the preceding V2
+firmware. Tests cover stale expiry/rejection replies, nonce wrap, lost ACKs,
+partial edge cells, duplicate cells, invalid bounds, CRC failure, single-pixel
+DMA writes and exact 240×240 Metal transition reconstruction.
+
+Unlike the earlier offline replay figures, the new live benchmark measures
+**GPU rendering + planning/compression + native USB transfer + SPI-complete ACK**.
+Four alternating baseline/candidate runs used the same firmware and identical
+600-frame source workload, paced toward 30 Hz, with real QEQ MIDI feedback and
+continuous CDC capture. Baseline preserves the preceding forced-refresh boundaries
+and full-cell transfers; candidate uses dirty rectangles and acknowledged deltas.
+
+| Live metric, two runs per mode | Previous behavior | Dirty rectangles |
+| --- | ---: | ---: |
+| Changed frames / validated ACKs | 924 | 922 |
+| Wire bytes | 9,158,562 | 7,764,146 (15.2% less) |
+| Render-to-ACK median | 28.83 ms | 26.03 ms |
+| Render-to-ACK p95 | 67.29 ms | 52.38 ms (22.2% less) |
+| Changed frames over 33.33 ms | 160 | 90 (43.8% fewer) |
+| Steady spectrum p95 | 33.41 ms | 30.55 ms |
+| Steady spectrum budget misses | 26 / 358 | 0 / 358 |
+
+Steady spectrum means source frames 1–179, excluding the cold initial frame and
+later navigation back to Home. Its worst candidate frame was 31.31 ms. This
+segment met the 30 fps processing budget in the test; **navigation transitions
+still do not sustain 30 fps**. All-frame p95 remains 52.38 ms and the worst frame
+82.85 ms. These are processing times, not measured optical FPS, physical gesture
+latency, or the production worker's latest-state coalescing under load.
+
+The 120.09-second stress run passed all **1,846 ACKs**, four session openings with
+idle expiry, 1,194 consecutive CDC samples, zero sequence gaps and zero MIDI
+overflows. MIDI received/sent counters advanced by 12,240/4,920. Heap ranged
+293,300–295,364 bytes; maximum cumulative input-poll gap was 9.091 ms in both modes.
+Higher HC levels saved less than 1% in sampled tiles at extra CPU cost; byte-plane
+shuffling increased traffic. Neither experiment was adopted. HC9, safe decoding,
+ROM CRC, SPI DMA, 40 MHz clock and GPIO mappings remain as before.
+
+Validation: 105 Swift tests, full app checks/release build and app-owned screenshots;
+firmware regressions and all nine build profiles. Automated pixel reconstruction
+and ACK checks passed; physical visual acceptance of the new rectangle path awaits
+an in-person check. Normal QEQ is restored after benchmarking.
+
+Detailed measurements: [live dirty-rectangle benchmark](benchmarks/metal-dirty-rectangles-2026-11-09.json).
