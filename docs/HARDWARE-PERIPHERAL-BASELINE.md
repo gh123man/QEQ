@@ -47,6 +47,8 @@ by QEQ automatically.
 
 ## App controls on the round display
 
+The menu labels the spectrum screen **Visualizer**, with a waveform icon.
+
 Selecting an app with the dial opens a carousel: **Back, Boost, Mute, Volume,
 Slot**, initially focused on Boost. The app icon stays prominent above the smaller action and slot carousels,
 with its live volume ring and percentage visible throughout. Boost and Mute
@@ -62,10 +64,14 @@ from the Mac while its volume view is open returns it to the action carousel.
 
 Slot opens a second carousel: Back, the current controller's numbered slots with
 current owners, and Unassign. It initially focuses the app's assigned slot, or
-Slot 1. Playback also puts Back at the left and initially selects Play/Pause. Selecting a slot uses the same persistent
+Slot 1. Playback is the exception: Previous, Play/Pause and Next form the centered row,
+with Back underneath. It initially selects Play/Pause; the dial order is Previous,
+Play/Pause, Next, Back. Selecting a slot uses the same persistent
 assignment/pickup path as the Mac UI. Unassign releases the app's bindings, as on
-the Mac. All pages retain the five-second idle return; slider overlays time out
-to their underlying page. Clicking the dial while a slider's app is displayed
+the Mac. All pages retain the five-second idle return. Moving a slider or pressing
+a slot's mute button briefly shows its app, then returns to the previous page.
+While muted, the app icon has a red slash and its slot LED glows dim red. Clicking
+the dial while a slider's app is displayed
 opens that app's action carousel, initially focused on Boost. Page changes zoom/fade, and both carousels scroll
 horizontally with icons clipped by the round panel. This requires only a QEQ app
 update on the V2 firmware baseline.

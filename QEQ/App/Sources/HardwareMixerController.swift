@@ -53,7 +53,7 @@ final class HardwareMixerController {
         var menuIndex = 1
         var actionIndex = HardwareAppAction.boost.rawValue
         var slotIndex = 1
-        var musicIndex = 2
+        var musicIndex = 1
         var musicStatus = ""
         var round = false
         var overlay: Task<Void, Never>?
@@ -280,7 +280,7 @@ final class HardwareMixerController {
             let previous = session.sliderMotion.lastAccepted
             guard session.sliderMotion.accept(value) else { return }
             if session.round, previous != nil {
-                showSlider(source, session: &session)
+                showAppOverlay(source, session: &session)
                 interacted = true
             }
         }
@@ -309,7 +309,13 @@ final class HardwareMixerController {
                 session.position = scale.position(for: model.value(target).volume)
             }
         case .toggleMute:
-            if session.available, let target = session.target { model.edit(target) { $0.muted.toggle() } }
+            if session.available, let target = session.target {
+                model.edit(target) {
+                    $0.muted = !($0.enabled && $0.muted)
+                    if $0.muted { $0.enabled = true }
+                }
+                if session.round { showAppOverlay(source, session: &session) }
+            }
         case nil: break
         }
         if !interacted { session.activePair = previouslyActive }
@@ -341,17 +347,17 @@ final class HardwareMixerController {
         }
     }
 
-    private func showSlider(_ source: UInt32, session: inout Session) {
+    private func showAppOverlay(_ source: UInt32, session: inout Session) {
         session.sliderHint = false
         session.overlay?.cancel()
         session.overlay = nil
-        // The selected app already owns this view; update its volume in place.
+        // The selected app already owns this view; update it in place.
         if case .appVolume(let id) = session.page, id == session.target { return }
         session.overlay = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
             guard !Task.isCancelled, let self, var session = self.sessions[source] else { return }
             // The overlay leaves the underlying page and selection intact.
-            // Dismissing it reveals exactly where the slider interrupted the UI.
+            // Dismissing it returns to the same page and selection.
             session.overlay = nil
             session.sliderHint = false
             self.sessions[source] = session
@@ -380,7 +386,7 @@ final class HardwareMixerController {
 
     private func turn(_ delta: Int, source: UInt32, session: inout Session) {
         if session.overlay != nil {
-            showSlider(source, session: &session)
+            showAppOverlay(source, session: &session)
             session.sliderHint = true
             return
         }
@@ -434,7 +440,7 @@ final class HardwareMixerController {
             if session.menuIndex == 0 {
                 session.page = .home
             } else if session.menuIndex == 1 {
-                session.musicIndex = 2
+                session.musicIndex = 1
                 session.musicStatus = ""
                 session.page = .music
             } else {
@@ -442,13 +448,13 @@ final class HardwareMixerController {
                 session.page = .appActions(apps[session.menuIndex - 2].id)
             }
         case .music:
-            if session.musicIndex == 0 {
+            if session.musicIndex == 3 {
                 session.page = .menu
             } else {
                 session.musicStatus = ""
                 let identity = session.identity
                 midi.sendMedia(
-                    [HardwareMediaCommand.previous, .playPause, .next][session.musicIndex - 1], source: source
+                    [HardwareMediaCommand.previous, .playPause, .next][session.musicIndex], source: source
                 ) {
                     [weak self] accepted in
                     Task { @MainActor [weak self] in
@@ -526,20 +532,22 @@ final class HardwareMixerController {
                 let apps = menuApps()
                 let items =
                     [
-                        HardwareRoundScreen.Item("Home", iconKey: "home"),
+                        HardwareRoundScreen.Item("Visualizer", iconKey: "visualizer"),
                         HardwareRoundScreen.Item("Playback", iconKey: "playback"),
                     ]
                     + apps.map { HardwareRoundScreen.Item($0.name, iconKey: $0.id) }
                 for app in apps { menuIcons[app.id] = model.icon(for: app) }
                 menuIcons["playback"] = Self.navigationIcon("playpause.fill")
-                if let symbol = NSImage(systemSymbolName: "house.fill", accessibilityDescription: "Home") {
+                if let symbol = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Visualizer")?
+                    .withSymbolConfiguration(.init(paletteColors: [.white]))
+                {
                     let image = NSImage(size: NSSize(width: 128, height: 128), flipped: false) { rect in
                         NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.7, alpha: 1).setFill()
                         NSBezierPath(roundedRect: rect.insetBy(dx: 10, dy: 10), xRadius: 26, yRadius: 26).fill()
-                        symbol.draw(in: rect.insetBy(dx: 37, dy: 37))
+                        symbol.draw(in: rect.insetBy(dx: 32, dy: 32))
                         return true
                     }
-                    menuIcons["home"] = image
+                    menuIcons["visualizer"] = image
                 }
                 screen = .menu(items: items, selected: min(session.menuIndex, items.count - 1))
             case .music:
@@ -610,7 +618,8 @@ final class HardwareMixerController {
                 ? app?.name ?? (target == nil ? "Assign slider \(session.activePair + 1)" : "App unavailable") : "",
             percent: isApp ? Int((settings.volume * 100).rounded()) : 0,
             systemPercent: screen.page == .home ? session.systemPercent : nil,
-            available: isApp && app != nil, muted: isApp && settings.muted, enabled: !isApp || model.enabled,
+            available: isApp && app != nil, muted: isApp && settings.enabled && settings.muted,
+            enabled: !isApp || model.enabled,
             pickup: screen.page == .slider && !session.controls.pickedUp, red: Double(color?.redComponent ?? 0),
             green: Double(color?.greenComponent ?? 0), blue: Double(color?.blueComponent ?? 0))
         scene.roundScreen = screen
@@ -633,6 +642,12 @@ final class HardwareMixerController {
         return caps.pairs.compactMap { pair in
             let target = session.pairs[Int(pair.id) - 1].target
             let app = model.snapshot.apps.first { $0.id == target }
+            if model.enabled, let app {
+                let settings = model.value(app.id)
+                if settings.enabled && settings.muted {
+                    return device.identity.led(id: pair.led, red: 24, green: 0, blue: 0)
+                }
+            }
             let color = app.flatMap { model.appAccentColor(for: $0).usingColorSpace(.sRGB) }
             func channel(_ value: CGFloat?) -> UInt8 { UInt8((min(1, max(0, value ?? 0)) * 127).rounded()) }
             return device.identity.led(

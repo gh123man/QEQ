@@ -11,6 +11,7 @@ public final class MetalRoundDisplayRenderer {
     private enum Asset {
         case text(String, CGFloat, Bool, CGFloat)
         case icon(CGImage)
+        case muteSlash
     }
     private struct Element {
         var id: String
@@ -60,12 +61,15 @@ public final class MetalRoundDisplayRenderer {
     private var outgoing: Frame?
     private var transitionStart = 0.0
     private var entering = true
+    private var crossfading = false
     private var menuPosition: Float = 0
     private var menuFrom: Float = 0
     private var menuStart = 0.0
     private var fraction: Float = 0
     private var percent: Float = 0
     private var systemVisibility: Float = 0
+    private var systemFrom: Float = 0
+    private var systemStart = 0.0
     private var lastTime: Double?
     private var history = Array(repeating: Float(0), count: 4 * 64)
     private var spectrumInitialized = false
@@ -131,10 +135,16 @@ public final class MetalRoundDisplayRenderer {
         }
         let systemTarget: Float = isHome && scene.roundShowsSystemVolume ? 1 : 0
         if previous == nil || reduced {
+            systemFrom = systemTarget
             systemVisibility = systemTarget
         } else {
-            systemVisibility += (systemTarget - systemVisibility) * (1 - exp(-dt / 0.055))
-            if abs(systemVisibility - systemTarget) < 0.005 { systemVisibility = systemTarget }
+            let wasShowing = oldScreen?.page == .home && previous?.scene.roundShowsSystemVolume == true
+            if wasShowing != (systemTarget == 1) {
+                systemFrom = systemVisibility
+                systemStart = now
+            }
+            let p = Self.unit((now - systemStart) / 0.28)
+            systemVisibility = systemFrom + (systemTarget - systemFrom) * p * p * (3 - 2 * p)
         }
         var menuMoving = false
         if let carousel = screen.carousel {
@@ -156,6 +166,7 @@ public final class MetalRoundDisplayRenderer {
             outgoing = previous == nil || reduced ? nil : visible
             transitionStart = now
             entering = screen.page.navigationDepth > (oldScreen?.page.navigationDepth ?? 0)
+            crossfading = Self.fadeSliderTransition(from: previous, to: content)
         }
         let transition = reduced ? 1 : Self.travel(Float((now - transitionStart) / 0.34))
         visible = outgoing.map { blend($0, destination, progress: transition) } ?? destination
@@ -180,6 +191,20 @@ public final class MetalRoundDisplayRenderer {
         case .slots(let id, _, _, _): return "slots." + id
         case .app(let slider): return "app.\(slider)." + content.iconKey
         default: return String(describing: screen.page)
+        }
+    }
+    private static func fadeSliderTransition(
+        from previous: HardwareDisplayContent?, to content: HardwareDisplayContent
+    ) -> Bool {
+        switch (previous?.scene.roundScreen, content.scene.roundScreen) {
+        case (.menu(let items, let selected), .app(slider: true)):
+            return !items.indices.contains(selected) || items[selected].iconKey != content.iconKey
+        case (.app(slider: true), .menu(let items, let selected)):
+            return !items.indices.contains(selected) || items[selected].iconKey != previous?.iconKey
+        case (.app(slider: true), .app(slider: true)):
+            return true
+        default:
+            return false
         }
     }
     private static func unit(_ value: Double) -> Float { Float(value.isFinite ? min(1, max(0, value)) : 0) }
@@ -223,7 +248,8 @@ public final class MetalRoundDisplayRenderer {
         switch screen {
         case .home:
             frame.effects = SIMD4(1, 1, systemVisibility, systemVisibility)
-            frame.ring = SIMD4(fraction, 110 + 26 * (1 - systemVisibility), 0, 0)
+            // Keep the ring inside the panel throughout the fade.
+            frame.ring = SIMD4(fraction, 110 + 6 * (1 - systemVisibility), 0, 0)
             if systemVisibility > 0 {
                 text("system.value", "\(Int(percent.rounded()))%", 137, 34, width: 120, bold: true)
                 frame.elements[frame.elements.count - 1].tint.w = systemVisibility
@@ -244,8 +270,9 @@ public final class MetalRoundDisplayRenderer {
                 let y: Float = compact ? 172 : 114
                 icon(item.iconKey, content.menuIcons[item.iconKey], SIMD4(x - size / 2, y - size / 2, size, size))
                 let i = frame.elements.count - 1
-                frame.elements[i].tint.w = (1 - 0.54 * min(1, abs(distance))) * (item.enabled ? 1 : 0.3)
-                frame.elements[i].edgeFade = 1
+                let dimming: Float = compact ? 0.54 : 0.24
+                frame.elements[i].tint.w = (1 - dimming * min(1, abs(distance))) * (item.enabled ? 1 : 0.3)
+                frame.elements[i].edgeFade = compact ? 1 : 0.55
             }
             if carousel.items.indices.contains(carousel.selected) {
                 let item = carousel.items[carousel.selected]
@@ -268,7 +295,12 @@ public final class MetalRoundDisplayRenderer {
             }
         case .app(let slider):
             text("app.title." + appID, scene.label, 50, 16, width: 150, bold: true)
-            icon(appID, content.icon, SIMD4(74, 64, 92, 92))
+            let iconRect = SIMD4<Float>(74, 64, 92, 92)
+            icon(appID, content.icon, iconRect)
+            if scene.available && scene.enabled && scene.muted {
+                frame.elements.append(
+                    Element(id: "app.mute", key: "app.mute", asset: .muteSlash, rect: iconRect))
+            }
             frame.halo.y = 110
             text("app.percent", scene.available ? "\(Int(percent.rounded()))%" : "—", 180, 31, bold: true)
             let status =
@@ -284,13 +316,16 @@ public final class MetalRoundDisplayRenderer {
             text("music.heading", "PLAYBACK", 43, 11, color: secondary)
             text("music.player", player, 77, 18, bold: true)
             text("music.status", status, 100, 11, width: 159, color: secondary)
-            for (i, symbol) in ["↩", "◀◀", "▶ / Ⅱ", "▶▶"].enumerated() {
+            for (i, symbol) in ["◀◀", "▶ / Ⅱ", "▶▶"].enumerated() {
                 text(
                     "music.action.\(i)", symbol, 139, 18,
                     width: 46, bold: selected == i, color: selected == i ? frame.accent : secondary,
-                    x: Float(48 + i * 48))
+                    x: Float(74 + i * 46))
             }
-            text("music.selection", ["Back", "Previous", "Play / Pause", "Next"][min(3, max(0, selected))], 183, 14)
+            // Playback keeps its familiar transport row; Back is the exception below it.
+            text(
+                "music.action.3", "↩", 183, 23, width: 68, bold: selected == 3,
+                color: selected == 3 ? frame.accent : secondary)
         }
         return frame
     }
@@ -308,6 +343,20 @@ public final class MetalRoundDisplayRenderer {
             result.effects.y = 1 - 0.12 * p
         } else if to.effects.x > from.effects.x {
             result.effects.y = 0.88 + 0.12 * p
+        }
+        if crossfading {
+            result.elements =
+                from.elements.map { element in
+                    var fading = element
+                    fading.tint.w *= 1 - p
+                    return fading
+                }
+                + to.elements.map { element in
+                    var fading = element
+                    fading.tint.w *= p
+                    return fading
+                }
+            return result
         }
         let old = Dictionary(from.elements.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
         let newIDs = Set(to.elements.map(\.id))
@@ -408,6 +457,19 @@ public final class MetalRoundDisplayRenderer {
         else { throw Failure.allocation }
         switch element.asset {
         case .icon(let image): context.draw(image, in: CGRect(x: 0, y: 0, width: 256, height: 128))
+        case .muteSlash:
+            // The atlas stretches this tile to a square on the display.
+            context.scaleBy(x: 256.0 / 92, y: 128.0 / 92)
+            context.setLineCap(.round)
+            func stroke(_ width: CGFloat, _ color: CGColor) {
+                context.setLineWidth(width)
+                context.setStrokeColor(color)
+                context.move(to: CGPoint(x: 12, y: 12))
+                context.addLine(to: CGPoint(x: 80, y: 80))
+                context.strokePath()
+            }
+            stroke(10, CGColor(red: 0.14, green: 0.02, blue: 0.03, alpha: 1))
+            stroke(5, CGColor(red: 1, green: 0.27, blue: 0.31, alpha: 1))
         case .text(let value, let size, let bold, let width):
             // Raster dimensions are based on the asset, not its animated rectangle.
             let height = size * 1.5

@@ -91,9 +91,21 @@ import os
             icons[key] = NSWorkspace.shared.icon(forFile: path).cgImage(
                 forProposedRect: &rect, context: nil, hints: nil)
         }
+        if let symbol = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Visualizer")?
+            .withSymbolConfiguration(.init(paletteColors: [.white]))
+        {
+            let image = NSImage(size: NSSize(width: 128, height: 128), flipped: false) { rect in
+                NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.7, alpha: 1).setFill()
+                NSBezierPath(roundedRect: rect.insetBy(dx: 10, dy: 10), xRadius: 26, yRadius: 26).fill()
+                symbol.draw(in: rect.insetBy(dx: 32, dy: 32))
+                return true
+            }
+            var rect = CGRect(x: 0, y: 0, width: 128, height: 128)
+            icons["visualizer"] = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        }
         let menu: [HardwareRoundScreen.Item] = [
             .init("Music", iconKey: "music"), .init("Spotify", iconKey: "spotify"),
-            .init("Safari", iconKey: "safari"), .init("Home", iconKey: "home"),
+            .init("Safari", iconKey: "safari"), .init("Visualizer", iconKey: "visualizer"),
         ]
         let actions: [HardwareRoundScreen.Item] = [
             .init("Boost", iconKey: "boost", detail: "Off"), .init("Mute", iconKey: "mute", detail: "Off"),
