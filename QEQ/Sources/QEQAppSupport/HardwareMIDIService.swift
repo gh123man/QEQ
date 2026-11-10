@@ -225,7 +225,7 @@ public final class HardwareMIDIService {
             guard MIDIObjectGetStringProperty(source, kMIDIPropertyName, &name) == noErr else { return nil }
             let title = name?.takeRetainedValue() as String? ?? ""
             // A name is only a discovery hint. A validated version/profile handshake is required.
-            guard title.contains("QEQ Test Board") else { return nil }
+            guard title.contains("QEQ Test Board") || title.contains("QEQ Controller") else { return nil }
             var entity: MIDIEntityRef = 0
             guard MIDIEndpointGetEntity(source, &entity) == noErr, entity != 0,
                 MIDIEntityGetNumberOfDestinations(entity) == 1

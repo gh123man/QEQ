@@ -380,7 +380,8 @@ public final class HardwareDisplayService {
                         self.statuses[id] = status
                     }
                 })
-            let round = ["QEQ Test Board Display", "QEQ Test Board V2 Display"].contains(descriptor.device.productName)
+            let round = ["QEQ Test Board Display", "QEQ Test Board V2 Display", "QEQ Controller"]
+                .contains(descriptor.device.productName)
             connections[id] = (serial, round, worker)
             worker.start()
         }
