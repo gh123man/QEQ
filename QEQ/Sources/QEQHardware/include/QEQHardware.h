@@ -3,6 +3,11 @@
 #include <stdint.h>
 int qeq_lz4_compress(const void * _Nullable input, int size, void * _Nullable output, int capacity);
 int qeq_lz4_decompress(const void * _Nullable input, int size, void * _Nullable output, int capacity);
+void * _Nullable qeq_lz4_encoder_create(void);
+void qeq_lz4_encoder_destroy(void * _Nullable encoder);
+int qeq_lz4_encoder_compress(void * _Nullable encoder, const void * _Nullable input, int size,
+                            void * _Nullable output, int capacity);
+int qeq_lz4_compress_bound(int size);
 uint32_t qeq_display_crc32(const void * _Nullable input, size_t size, uint32_t seed);
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>

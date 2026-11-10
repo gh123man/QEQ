@@ -5,7 +5,8 @@ import Metal
 
 /// Offscreen, queue-confined round UI. CoreText/CG only rasterize cached sprites;
 /// Metal owns every frame's spectrum, lighting, layout, transitions and RGB565 packing.
-final class MetalRoundDisplayRenderer {
+public final class MetalRoundDisplayRenderer {
+    public enum Failure: Error { case unsupportedCapabilities, unavailable, allocation, gpu }
     static let minimumTextSize: Float = 14
     private enum Asset {
         case text(String, CGFloat, Bool, CGFloat)
@@ -68,24 +69,24 @@ final class MetalRoundDisplayRenderer {
     private var lastTime: Double?
     private var history = Array(repeating: Float(0), count: 4 * 64)
     private var spectrumInitialized = false
-    private(set) var animating = false
-    private(set) var needsFullRefresh = false
+    public private(set) var animating = false
+    public private(set) var needsFullRefresh = false
     private var pageMoving = false
-    private(set) var rasterizedLayers = 0
-    private(set) var renderedFrames = 0
+    public private(set) var rasterizedLayers = 0
+    public private(set) var renderedFrames = 0
     private(set) var elementRects: [String: SIMD4<Float>] = [:]
     private(set) var displayedVolumeFraction: Float = 0
 
-    init(_ caps: HardwareDisplayCapabilities) throws {
-        guard caps.supported else { throw HardwareDisplayRenderer.RenderError.unsupportedCapabilities }
+    public init(_ caps: HardwareDisplayCapabilities) throws {
+        guard caps.supported else { throw Failure.unsupportedCapabilities }
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
-            throw MetalHardwareDisplayRenderer.Failure.unavailable
+            throw Failure.unavailable
         }
         self.caps = caps
         self.queue = queue
         let library = try device.makeLibrary(source: Self.shader, options: nil)
         guard let kernel = library.makeFunction(name: "roundUI") else {
-            throw MetalHardwareDisplayRenderer.Failure.unavailable
+            throw Failure.unavailable
         }
         pipeline = try device.makeComputePipelineState(function: kernel)
         let descriptor = MTLTextureDescriptor()
@@ -99,14 +100,18 @@ final class MetalRoundDisplayRenderer {
         guard let atlas = device.makeTexture(descriptor: descriptor),
             let output = device.makeBuffer(length: caps.width * caps.height * 2, options: .storageModeShared),
             let sprites = device.makeBuffer(length: 96 * MemoryLayout<Sprite>.stride, options: .storageModeShared)
-        else { throw MetalHardwareDisplayRenderer.Failure.allocation }
+        else { throw Failure.allocation }
         self.atlas = atlas
         self.output = output
         spriteBuffer = sprites
     }
 
-    func render(_ content: HardwareDisplayContent, now: Double = ProcessInfo.processInfo.systemUptime) throws -> Data {
-        guard let screen = content.scene.roundScreen else { preconditionFailure("Round screen required") }
+    public func render(_ content: HardwareDisplayContent, now: Double = ProcessInfo.processInfo.systemUptime) throws
+        -> Data
+    {
+        var content = content
+        if content.scene.roundScreen == nil { content.scene.roundScreen = .app(slider: false) }
+        let screen = content.scene.roundScreen!
         let scene = content.scene
         let oldScreen = previous?.scene.roundScreen
         let changedPage = identity(content) != previous.map(identity)
@@ -395,7 +400,7 @@ final class MetalRoundDisplayRenderer {
             guard
                 let victim = cache.filter({ !protected.contains($0.key) }).min(by: { $0.value.stamp < $1.value.stamp })
             else {
-                throw MetalHardwareDisplayRenderer.Failure.allocation
+                throw Failure.allocation
             }
             slice = victim.value.slice
             cache.removeValue(forKey: victim.key)
@@ -405,7 +410,7 @@ final class MetalRoundDisplayRenderer {
                 data: nil, width: 256, height: 128, bitsPerComponent: 8, bytesPerRow: 256 * 4,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
-        else { throw MetalHardwareDisplayRenderer.Failure.allocation }
+        else { throw Failure.allocation }
         switch element.asset {
         case .icon(let image): context.draw(image, in: CGRect(x: 0, y: 0, width: 256, height: 128))
         case .text(let value, let size, let bold, let width):
@@ -464,7 +469,7 @@ final class MetalRoundDisplayRenderer {
             geometry: SIMD4(UInt32(caps.width), UInt32(caps.height), UInt32(sprites.count), UInt32(caps.shape)),
             effects: frame.effects, ring: frame.ring, accent: frame.accent, halo: frame.halo)
         guard let commands = queue.makeCommandBuffer(), let encoder = commands.makeComputeCommandEncoder() else {
-            throw MetalHardwareDisplayRenderer.Failure.allocation
+            throw Failure.allocation
         }
         encoder.setComputePipelineState(pipeline)
         encoder.setTexture(atlas, index: 0)
@@ -479,7 +484,7 @@ final class MetalRoundDisplayRenderer {
         encoder.endEncoding()
         commands.commit()
         commands.waitUntilCompleted()
-        guard commands.status == .completed else { throw MetalHardwareDisplayRenderer.Failure.gpu }
+        guard commands.status == .completed else { throw Failure.gpu }
         renderedFrames += 1
         return Data(bytes: output.contents(), count: caps.width * caps.height * 2)
     }

@@ -1,55 +1,113 @@
 import AppKit
 import QEQAppSupport
 
+/// Offline workload from the production Metal renderer. No USB client or alternate UI.
 @main struct DisplayBench {
     @MainActor static func main() throws {
-        if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--compare" {
-            try compareRenderers(directory: URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true))
-            return
+        guard CommandLine.arguments.count == 2, CommandLine.arguments[1].hasPrefix("/") else {
+            fatalError("Usage: QEQDisplayBench ABSOLUTE_OUTPUT_DIRECTORY")
         }
-        guard CommandLine.arguments.count == 2 else { fatalError("Usage: QEQDisplayBench ABSOLUTE_OUTPUT_DIRECTORY") }
         let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let capabilityURL = directory.appendingPathComponent("capabilities.json")
-        let caps: HardwareDisplayCapabilities
-        if FileManager.default.fileExists(atPath: capabilityURL.path) {
-            caps = try JSONDecoder().decode(HardwareDisplayCapabilities.self, from: Data(contentsOf: capabilityURL))
-        } else {
-            caps = HardwareDisplayCapabilities()
-            let json: [String: Int] = [
-                "width": 240, "height": 240, "format": 1, "orientation": 0, "shape": 1,
-                "tile_width": 32, "tile_height": 32, "max_payload": 2064, "spi_hz": 10_000_000, "boot": 0,
-            ]
-            try JSONSerialization.data(withJSONObject: json, options: .sortedKeys).write(to: capabilityURL)
-        }
-        let apps = [
-            ("Music", "/System/Applications/Music.app", 0.95, 0.2, 0.35),
-            ("Safari", "/Applications/Safari.app", 0.2, 0.6, 1.0),
-            ("Spotify", "/Applications/Spotify.app", 0.15, 0.8, 0.4),
+        let caps = HardwareDisplayCapabilities()
+        let renderer = try MetalRoundDisplayRenderer(caps)
+        let capabilityJSON: [String: Int] = [
+            "width": 240, "height": 240, "format": 1, "orientation": 0, "shape": 1,
+            "tile_width": 32, "tile_height": 32, "max_payload": 2064, "spi_hz": 40_000_000, "boot": 0,
         ]
-        var index = 0
-        for (name, path, r, g, b) in apps {
-            let icon = FileManager.default.fileExists(atPath: path) ? NSWorkspace.shared.icon(forFile: path) : nil
-            for volume in stride(from: 0, through: 100, by: 5) {
-                let scene = HardwareDisplayScene(
-                    label: name, percent: volume, systemPercent: 64,
-                    pickup: volume == 0, red: r, green: g, blue: b)
-                let data = try HardwareDisplayRenderer.render(scene, capabilities: caps, icon: icon)
-                try data.write(to: directory.appendingPathComponent(String(format: "%03d-%@-volume.qras", index, name)))
-                index += 1
-            }
-            for state in 0..<4 {
-                let scene = HardwareDisplayScene(
-                    label: name, percent: 100, systemPercent: 64 + state,
-                    available: state != 3, muted: state == 0, enabled: state != 1,
-                    red: r, green: g, blue: b)
-                try HardwareDisplayRenderer.render(scene, capabilities: caps, icon: icon)
-                    .write(to: directory.appendingPathComponent(String(format: "%03d-%@-state.qras", index, name)))
-                index += 1
+        try JSONSerialization.data(withJSONObject: capabilityJSON, options: [.sortedKeys])
+            .write(to: directory.appendingPathComponent("capabilities.json"))
+        var icons: [String: CGImage] = [:]
+        for (key, path) in [
+            ("music", "/System/Applications/Music.app"), ("safari", "/Applications/Safari.app"),
+            ("spotify", "/Applications/Spotify.app"),
+        ] {
+            var rect = CGRect(x: 0, y: 0, width: 128, height: 128)
+            icons[key] = NSWorkspace.shared.icon(forFile: path).cgImage(
+                forProposedRect: &rect, context: nil, hints: nil)
+        }
+        let menu: [HardwareRoundScreen.Item] = [
+            .init("Music", iconKey: "music"), .init("Spotify", iconKey: "spotify"),
+            .init("Safari", iconKey: "safari"), .init("Home", iconKey: "home"),
+        ]
+        let actions: [HardwareRoundScreen.Item] = [
+            .init("Boost", iconKey: "boost", detail: "Off"), .init("Mute", iconKey: "mute", detail: "Off"),
+            .init("Volume", iconKey: "volume"), .init("Slot", iconKey: "slot"), .init("Back", iconKey: "back"),
+        ]
+        let slots = (1...4).map { HardwareRoundScreen.Item("Slot \($0)", iconKey: "slot\($0)", detail: "Available") }
+        var frames: [[String: Any]] = []
+        for frame in 0..<600 {
+            try autoreleasepool {
+                let time = Double(frame) / 30 + 1
+                var scene = HardwareDisplayScene(
+                    label: "Music", percent: 65, systemPercent: 62, red: 0.95, green: 0.2, blue: 0.35)
+                scene.roundVolumePosition = 0.65
+                let phase: String
+                switch frame {
+                case 0..<180, 570..<600:
+                    phase = "spectrum"
+                    // Deterministic synthetic spectrum, explicitly not captured audio.
+                    let bins = (0..<192).map { index -> UInt8 in
+                        let x = Double(index)
+                        let wave = 0.5 + 0.5 * sin(x * 0.11 + time * 3.7)
+                        let envelope = 0.5 + 0.5 * sin(x * 0.027 - time * 1.3)
+                        return UInt8(min(235, max(0, 25 + 150 * wave * envelope)))
+                    }
+                    scene.roundScreen = .home(bins)
+                case 180..<270:
+                    phase = "menu"
+                    scene.roundScreen = .menu(items: menu, selected: min(3, (frame - 180) / 24))
+                case 270..<360:
+                    phase = "actions"
+                    scene.roundScreen = .appActions(
+                        appID: "music", title: "Music", items: actions, selected: min(4, (frame - 270) / 18))
+                case 360..<420:
+                    phase = "slots"
+                    scene.roundScreen = .slots(
+                        appID: "music", title: "Music", items: slots, selected: min(3, (frame - 360) / 15))
+                case 420..<540:
+                    phase = frame < 510 ? "volume" : "slider"
+                    scene.percent = Int(50 + 45 * sin(Double(frame - 420) * 0.08))
+                    scene.roundVolumePosition = Double(scene.percent) / 100
+                    scene.roundScreen = .app(slider: frame >= 510)
+                default:
+                    phase = "playback"
+                    scene.roundScreen = .music(player: "Music", selected: (frame - 540) / 10, status: "Playing")
+                }
+                let content = HardwareDisplayContent(
+                    scene: scene, icon: icons["music"], iconKey: "music", menuIcons: icons)
+                let start = DispatchTime.now().uptimeNanoseconds
+                let pixels = try renderer.render(content, now: time)
+                let duration = DispatchTime.now().uptimeNanoseconds - start
+                var raster = Data("QRAS".utf8)
+                func put<T: FixedWidthInteger>(_ value: T) {
+                    var little = value.littleEndian
+                    withUnsafeBytes(of: &little) { raster.append(contentsOf: $0) }
+                }
+                put(UInt16(caps.width))
+                put(UInt16(caps.height))
+                raster.append(contentsOf: [1, 0, 1, 0])
+                put(start)
+                put(duration)
+                put(UInt32(0))
+                raster.append(pixels)
+                let name = String(format: "%04d-%@.qras", frame, phase)
+                try raster.write(to: directory.appendingPathComponent(name))
+                frames.append([
+                    "file": name, "phase": phase, "render_us": Double(duration) / 1000,
+                    "force_full": renderer.needsFullRefresh, "animating": renderer.animating,
+                ])
             }
         }
+        let report: [String: Any] = [
+            "renderer": "MetalRoundDisplayRenderer", "frames": frames, "sample_hz": 30,
+            "note":
+                "Production GPU UI; deterministic synthetic spectrum and navigation. Offline rendering, not display FPS.",
+        ]
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            .write(to: directory.appendingPathComponent("workload.json"))
         print(
-            "Rendered \(index) QEQ controller scenes at \(caps.width)×\(caps.height), RGB565 LE, using the live app renderer."
+            "Rendered 600 frames with the production Metal round UI: spectrum, menu, actions, slots, volume, slider, playback."
         )
     }
 }

@@ -139,6 +139,7 @@ void Receiver::process() {
     seen_[index/8]|=1u<<(index%8); ++received_; return;
   }
   if(type==commit && !length && received_==wanted_) {
+    const uint32_t lcdStart=sink_.microsNow(); sink_.flush(); lcdUs_+=uint32_t(sink_.microsNow()-lcdStart);
     acknowledged_=frame_; hasBaseline_=true; respond(ack,ok); active_=false; return;
   }
   fail(incomplete);

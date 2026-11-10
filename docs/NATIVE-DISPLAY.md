@@ -12,7 +12,8 @@ QEQ discovers and assigns each physical pair independently.
 QEQ automatically discovers the board's vendor display interface. Both HW1 and
 HW2 use the Metal round UI on the display worker. CoreText and Core Graphics only
 rasterize cached text/icon sprites; neither board requires a separate host process.
-The original seven-layer Metal screen remains available for non-round scenes.
+The Metal round UI is the only renderer, including rectangular negotiated outputs.
+The retired CPU and seven-layer renderers have been removed from the app and benchmarks.
 
 ## Hardware compatibility and setup
 
@@ -44,7 +45,7 @@ the audio callback or waits on USB/Metal from the main actor.
 The round display uses an offscreen Metal compute pipeline, not a Mac window
 or CAMetalLayer. A bounded 96-slice texture atlas caches text and app icons.
 Metal composites the sprites, circular clipping, volume ring, app halo, spectrum
-and RGB565 output. The CPU reference renderer remains for comparison tests.
+and RGB565 output. Tests and benchmarks use this same production renderer.
 
 The luminous spectrum preserves the horizontal frequency ordering and −90…0 dBFS
 normalization of the app. It resamples to 64 points, with fast attack, slower decay,
@@ -107,11 +108,14 @@ Sleep/stop cancels work, closes interfaces, and drops pending scenes. Wake/start
 re-registers discovery and reopens connected boards. The firmware restores its local
 screen when heartbeats stop. Frames remain tile-applied, not atomic/tear-free.
 
-The LZ4 1.10.0 codec is compiled into the app with its BSD license bundled. macOS
+The LZ4 1.10.0 codec is compiled into the app with its BSD license bundled. The
+host reuses an HC level 9 encoder, resetting its history for every independent
+32×32 tile. Output scratch space uses `LZ4_compressBound`; raw fallback and the
+wire format are unchanged. Unchanged tiles are compared before copying. macOS
 IOUSBHost/IOKit and Metal are system frameworks. RGB565 quantization happens before
 lossless compression; exactness applies to transmitted pixels, not original RGBA.
 
-## Measured CPU improvement
+## Historical renderer comparison
 
 On the development Mac, an optimized 500-frame volume sweep using the same app
 icon and layout measured:
@@ -126,11 +130,19 @@ That is about **96% less render-stage CPU**, including driver CPU work. It is no
 are outside this comparison. No GPU work is scheduled for unchanged content by the
 service. Results: [JSON](benchmarks/native-display-rendering-2026-11-08.json).
 
-Reproduce the optimized comparison and app-owned PNG preview:
+Those renderers are retired; the historical numbers above do not describe the
+current round UI. Generate a fresh workload with the production Metal renderer:
 
 ```sh
-swift run -c release --package-path QEQ QEQDisplayBench --compare /tmp/qeq-renderers
+swift run -c release --package-path QEQ QEQDisplayBench /tmp/qeq-metal-workload
 ```
+
+The 600-frame workload covers synthetic spectrum motion, menus, app actions,
+slots, volume, slider overlays and playback. `workload.json` identifies the
+renderer, phase, measured render duration and required full-refresh boundaries.
+The `.qras` files contain those exact GPU-rendered RGB565 bytes; there is no CPU
+UI fallback or `--compare` path. Use a fresh directory for each workload.
+Offline rendering is not a measurement of USB latency or visible frame rate.
 
 The earlier physical USB/LCD timings remain in
 [the prototype report](DISPLAY-STREAMING-RESULTS.md); they do not measure the new
@@ -354,3 +366,55 @@ single unchanged boot identity. The combined fixes, rather than either isolated
 trial, are the current V1 deployment. Firmware tests/all nine builds and the
 87-test QEQ suite/macOS build passed for this implementation. Physical validation
 covers V1; V2 uses the same corrected driver but still needs its own device run.
+
+
+### Metal UI compression and DMA — 2026-11-09
+
+The app and benchmark now use only `MetalRoundDisplayRenderer`. The legacy CPU
+renderers, older seven-layer Metal renderer and comparison executable were removed.
+A fresh 600-frame workload exercises spectrum, menus, actions, slots, volume,
+slider and playback transitions; 462 changed/forced frames reach the wire. The
+benchmark preserves the renderer's full-refresh boundaries. Old UI replay results
+above are historical and are not evidence for the current renderer.
+
+The host uses LZ4 HC level 9 with reusable state reset for each independent tile,
+a compress-bound-sized scratch buffer, and early rejection of unchanged tiles.
+The ESP keeps the safe decoder, compiled at `-O3`, and its existing ROM CRC. SPI DMA
+uses two owned 2 KiB internal buffers, allowing the next tile's CPU work to overlap
+pixel transmission. COMMIT drains DMA before a successful ACK. Protocol, GPIOs,
+40 MHz clock, USB FIFO correction and cross-core synchronization are unchanged.
+There is no custom SIMD decoder or LZ4 hardware engine in this implementation.
+
+Matched single-pass replay on the attached V2, before → after:
+
+| Current Metal workload | Before | After |
+| --- | ---: | ---: |
+| Wire bytes | 5,943,424 | 4,579,281 (23% less) |
+| All-frame transfer median | 29.84 ms | 24.33 ms (18% less) |
+| All-frame transfer p95 | 73.70 ms | 52.31 ms (29% less) |
+| Spectrum transfer median / p95 | 32.44 / 38.93 ms | 26.31 / 30.20 ms |
+| ESP decode median | 4.24 ms | 2.53 ms |
+
+This is **not a locked 30 fps result**. With real QEQ MIDI feedback active, six
+replays plus six reopenings passed **2,784 validated ACKs** over 120 seconds.
+Spectrum transfer median/p95 were 27.95/35.52 ms; including host re-encoding and
+round-trip verification, 29.06/37.63 ms. Rendering is additional. Heavy transitions
+remain slower: the single-pass all-frame p95 was 52.31 ms, before host preparation.
+The sustained run delivered 1,194 consecutive CDC samples, no sequence gaps or
+MIDI overflows, and continuing MIDI traffic in both directions. Maximum recorded
+input-poll gap was 7.145 ms; no physical gesture latency was measured. Heap ranged
+293,300–295,364 bytes, including the temporary disconnected-screen canvas.
+
+The LCD setting is **40 MHz SPI**, not a measured 40 Hz panel refresh. A full
+240×240 RGB565 transfer alone takes at least 23.04 ms at that clock; partial updates
+can be faster. ACK measures completed SPI output, not visible panel scanout. DMA
+`lcd_us` counts CPU setup/wait including the final drain; it excludes transmission
+time overlapped with other work and must not be read as total physical bus time.
+
+Validation: 100 Swift tests, script tests, release macOS build, app-owned screenshot
+refresh, seven firmware C++ test executables, 25 Python tests and all nine firmware
+profiles. The user confirmed correct DMA output before the current-UI replay; the
+later automated tests do not establish new visual acceptance or optical timing.
+The optimized `stream-v2` firmware is installed and normal QEQ was restored.
+
+Detailed measurements: [current Metal benchmark](benchmarks/metal-display-streaming-2026-11-09.json).

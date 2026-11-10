@@ -2,25 +2,24 @@ import Foundation
 import QEQAppSupport
 import Testing
 
-@Test @MainActor func hardwareRasterUsesNegotiatedGeometryAndExactPixelBytes() throws {
-    let scene = HardwareDisplayScene(label: "Music", percent: 56, systemPercent: 42)
-    for c in [
+@Test func metalDisplayUsesNegotiatedGeometryAndDeterministicPixelBytes() throws {
+    guard ProcessInfo.processInfo.environment["QEQ_HARDWARE_TESTS"] != "0" else { return }
+    var scene = HardwareDisplayScene(label: "Music", percent: 56, systemPercent: 42)
+    scene.reduceMotion = true
+    let content = HardwareDisplayContent(scene: scene, icon: nil, iconKey: "music")
+    for caps in [
         HardwareDisplayCapabilities(), HardwareDisplayCapabilities(width: 320, height: 180, orientation: 1, shape: 0),
     ] {
-        let first = try HardwareDisplayRenderer.render(scene, capabilities: c)
-        let second = try HardwareDisplayRenderer.render(scene, capabilities: c)
-        #expect(first.count == 32 + c.width * c.height * 2)
-        #expect(Array(first.prefix(4)) == Array("QRAS".utf8))
-        #expect(Int(first[4]) + Int(first[5]) * 256 == c.width)
-        #expect(Int(first[6]) + Int(first[7]) * 256 == c.height)
-        #expect(first[8] == 1 && first[9] == c.orientation && first[10] == c.shape)
-        #expect(first.dropFirst(32) == second.dropFirst(32))
-        if c.shape == 1 { #expect(first[32] == 0 && first[33] == 0) }
+        let renderer = try MetalRoundDisplayRenderer(caps)
+        let first = try renderer.render(content, now: 1)
+        #expect(first.count == caps.width * caps.height * 2)
+        #expect(try renderer.render(content, now: 2) == first)
+        if caps.shape == 1 { #expect(first[0] == 0 && first[1] == 0) }
     }
-    #expect(throws: HardwareDisplayRenderer.RenderError.self) {
-        try HardwareDisplayRenderer.render(scene, capabilities: HardwareDisplayCapabilities(width: 0))
+    #expect(throws: MetalRoundDisplayRenderer.Failure.self) {
+        try MetalRoundDisplayRenderer(HardwareDisplayCapabilities(width: 0))
     }
-    #expect(throws: HardwareDisplayRenderer.RenderError.self) {
-        try HardwareDisplayRenderer.render(scene, capabilities: HardwareDisplayCapabilities(format: 2))
+    #expect(throws: MetalRoundDisplayRenderer.Failure.self) {
+        try MetalRoundDisplayRenderer(HardwareDisplayCapabilities(format: 2))
     }
 }

@@ -89,3 +89,42 @@ import Testing
     let landscape = try MetalRoundDisplayRenderer(HardwareDisplayCapabilities(width: 320, height: 180, shape: 0))
     #expect(try landscape.render(content, now: 1).count == 320 * 180 * 2)
 }
+
+@Test func metalCarouselRetargetsVisibleGeometryAndKeepsAppHeaderStable() throws {
+    guard ProcessInfo.processInfo.environment["QEQ_HARDWARE_TESTS"] != "0" else { return }
+    let renderer = try MetalRoundDisplayRenderer(HardwareDisplayCapabilities())
+    let items: [HardwareRoundScreen.Item] = [
+        .init("Music", iconKey: "music"), .init("Spotify", iconKey: "spotify"), .init("Home", iconKey: "home"),
+    ]
+    var scene = HardwareDisplayScene(label: "Music", percent: 50, systemPercent: 50)
+    scene.roundVolumePosition = 0.5
+    scene.roundScreen = .menu(items: items, selected: 0)
+    var content = HardwareDisplayContent(scene: scene, icon: nil, iconKey: "music")
+    _ = try renderer.render(content, now: 1)
+    content.scene.roundScreen = .menu(items: items, selected: 2)
+    _ = try renderer.render(content, now: 2)
+    _ = try renderer.render(content, now: 2.1)
+    let moving = renderer.elementRects.filter { $0.key.hasPrefix("icon.") }
+    content.scene.roundScreen = .menu(items: items, selected: 0)
+    _ = try renderer.render(content, now: 2.1)
+    #expect(renderer.elementRects.filter { $0.key.hasPrefix("icon.") } == moving)
+    _ = try renderer.render(content, now: 2.5)
+    #expect(!renderer.animating)
+    content.scene.reduceMotion = true
+    for slots in [false, true] {
+        func page(_ selected: Int) -> HardwareRoundScreen {
+            slots
+                ? .slots(appID: "music", title: "Music", items: items, selected: selected)
+                : .appActions(appID: "music", title: "Music", items: items, selected: selected)
+        }
+        content.scene.roundScreen = page(0)
+        let first = try renderer.render(content, now: 3)
+        content.scene.roundScreen = page(1)
+        let second = try renderer.render(content, now: 4)
+        #expect(first.prefix(240 * 150 * 2) == second.prefix(240 * 150 * 2))
+        #expect(first != second && !renderer.animating)
+        content.scene.roundVolumePosition = 1
+        #expect(try renderer.render(content, now: 5) != second)
+        content.scene.roundVolumePosition = 0.5
+    }
+}

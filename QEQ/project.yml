@@ -23,7 +23,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/QEQHardware
-        excludes: ["LZ4/LICENSE"]
+        excludes: ["LZ4/LICENSE", "LZ4/README.md"]
     dependencies:
       - sdk: IOUSBHost.framework
       - sdk: IOKit.framework

@@ -24,11 +24,13 @@ public:
   virtual Capabilities caps() const = 0;
   virtual uint32_t microsNow() const = 0;
   virtual void pixels(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t* rgb565) = 0;
+  // Complete any queued panel writes before acknowledging a frame.
+  virtual void flush() {}
   virtual void disconnected() = 0;
   virtual void reply(const uint8_t* data, size_t size) = 0;
   virtual uint32_t inputGapUs() const = 0;
 };
-// Single owner/task. No unbounded frame queue or frame buffer; tiles reach LCD before ACK.
+// Single owner/task. No unbounded frame queue or frame buffer; flush completes tiles before ACK.
 class Receiver {
 public:
   explicit Receiver(Sink& sink): sink_(sink) {}

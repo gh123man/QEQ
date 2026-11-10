@@ -114,6 +114,13 @@ extension Data {
     fileprivate func u32(_ offset: Int) -> UInt32 { UInt32(u16(offset)) | UInt32(u16(offset + 2)) << 16 }
 }
 
+// Queue-confined with its planner. Copies of a planner share scratch codec state,
+// but every invocation resets history; no tile depends on an earlier tile/frame.
+private final class DisplayTileEncoder {
+    let handle = qeq_lz4_encoder_create()
+    deinit { qeq_lz4_encoder_destroy(handle) }
+}
+
 struct DisplayFramePlanner {
     struct Pending {
         let frame: UInt32
@@ -127,6 +134,7 @@ struct DisplayFramePlanner {
     private(set) var acknowledged: UInt32 = 0
     private(set) var baseline: Data?
     private(set) var pending: Pending?
+    private let encoder = DisplayTileEncoder()
 
     mutating func prepare(_ pixels: Data, forceFull: Bool = false) throws -> Pending? {
         guard pending == nil, acknowledged < UInt32.max else { throw DisplayWire.Failure.sequence }
@@ -137,28 +145,41 @@ struct DisplayFramePlanner {
         let full = baseline == nil || forceFull
         var tileMessages = Data()
         var tileCount = 0
+        var compressed = Data(count: Int(qeq_lz4_compress_bound(32 * 32 * 2)))
         for y in stride(from: 0, to: capabilities.height, by: 32) {
             for x in stride(from: 0, to: capabilities.width, by: 32) {
                 let width = min(32, capabilities.width - x)
                 let height = min(32, capabilities.height - y)
-                var raw = Data(capacity: width * height * 2)
                 var changed = full
-                for row in y..<(y + height) {
-                    let start = (row * capabilities.width + x) * 2
-                    let range = start..<(start + width * 2)
-                    raw.append(pixels.subdata(in: range))
-                    if !changed, let baseline, pixels[range] != baseline[range] { changed = true }
+                if !changed, let baseline {
+                    for row in y..<(y + height) {
+                        let start = (row * capabilities.width + x) * 2
+                        let range = start..<(start + width * 2)
+                        if pixels[range] != baseline[range] {
+                            changed = true
+                            break
+                        }
+                    }
                 }
                 guard changed else { continue }
-                var compressed = Data(count: raw.count)  // Only keep compression smaller than raw.
+                var raw = Data(count: width * height * 2)
+                raw.withUnsafeMutableBytes { target in
+                    pixels.withUnsafeBytes { source in
+                        for row in 0..<height {
+                            let start = ((y + row) * capabilities.width + x) * 2
+                            target.baseAddress!.advanced(by: row * width * 2)
+                                .copyMemory(from: source.baseAddress!.advanced(by: start), byteCount: width * 2)
+                        }
+                    }
+                }
                 let count = raw.withUnsafeBytes { source in
                     compressed.withUnsafeMutableBytes { target in
-                        qeq_lz4_compress(
-                            source.baseAddress, Int32(source.count), target.baseAddress, Int32(target.count))
+                        qeq_lz4_encoder_compress(
+                            encoder.handle, source.baseAddress, Int32(source.count), target.baseAddress,
+                            Int32(target.count))
                     }
                 }
                 let useLZ4 = count > 0 && count < raw.count
-                if useLZ4 { compressed.count = Int(count) }
                 var payload = Data()
                 payload.put(UInt16(x))
                 payload.put(UInt16(y))
@@ -167,7 +188,7 @@ struct DisplayFramePlanner {
                 payload.append(contentsOf: [useLZ4 ? 1 : 0, 0])
                 payload.put(UInt16(raw.count))
                 payload.put(DisplayWire.crc(raw))
-                payload.append(useLZ4 ? compressed : raw)
+                if useLZ4 { payload.append(compressed.prefix(Int(count))) } else { payload.append(raw) }
                 tileMessages.append(
                     DisplayWire.Message(
                         kind: .tile, session: session, frame: frame,

@@ -1,0 +1,494 @@
+{
+  "date": "2026-11-09",
+  "board": "ESP32-S3 hardware V2",
+  "panel": "GC9A01 240x240 RGB565, 40 MHz SPI",
+  "renderer": "MetalRoundDisplayRenderer",
+  "workload": "600 freshly rendered frames; 462 changed/forced frames transmitted",
+  "app_base": "b9a19c0 (includes fetched origin/main aac346d)",
+  "firmware_base": "88fb9b1 (fetched origin/main)",
+  "workload_sha256": "d441626cc82f481683cdf7d709eaa96a8d5f10aab6614ef4083e9d511a84b437",
+  "note": "Synthetic current-UI workload at logical 30 Hz, replayed unpaced. Transfer begins after preparation and ends at SPI-complete ACK; no panel scanout/photodiode measurement. Host reencode verification includes decoding the fixture, compression, round-trip verification and framing; render times are offline. Legacy animation trials are excluded.",
+  "baseline": {
+    "all": {
+      "frames": 462,
+      "wire_bytes": 5943424,
+      "transfer_ms": {
+        "p50": 29.835,
+        "p95": 73.7,
+        "maximum": 87.133,
+        "mean": 27.002
+      },
+      "decode_ms": {
+        "p50": 4.239,
+        "p95": 11.754,
+        "maximum": 13.28,
+        "mean": 3.851
+      }
+    },
+    "phases": {
+      "actions": {
+        "frames": 47,
+        "wire_bytes": 586046,
+        "transfer_ms": {
+          "p50": 8.411,
+          "p95": 82.433,
+          "maximum": 83.167,
+          "mean": 24.789
+        },
+        "decode_ms": {
+          "p50": 1.156,
+          "p95": 12.518,
+          "maximum": 12.84,
+          "mean": 3.679
+        }
+      },
+      "menu": {
+        "frames": 38,
+        "wire_bytes": 534532,
+        "transfer_ms": {
+          "p50": 30.943,
+          "p95": 45.446,
+          "maximum": 53.373,
+          "mean": 29.651
+        },
+        "decode_ms": {
+          "p50": 4.086,
+          "p95": 6.596,
+          "maximum": 7.687,
+          "mean": 3.989
+        }
+      },
+      "playback": {
+        "frames": 12,
+        "wire_bytes": 342245,
+        "transfer_ms": {
+          "p50": 59.261,
+          "p95": 80.235,
+          "maximum": 84.553,
+          "mean": 58.504
+        },
+        "decode_ms": {
+          "p50": 10.022,
+          "p95": 12.323,
+          "maximum": 12.738,
+          "mean": 9.05
+        }
+      },
+      "slider": {
+        "frames": 29,
+        "wire_bytes": 199730,
+        "transfer_ms": {
+          "p50": 11.319,
+          "p95": 16.754,
+          "maximum": 87.133,
+          "mean": 14.391
+        },
+        "decode_ms": {
+          "p50": 1.528,
+          "p95": 2.344,
+          "maximum": 13.066,
+          "mean": 1.936
+        }
+      },
+      "slots": {
+        "frames": 38,
+        "wire_bytes": 220511,
+        "transfer_ms": {
+          "p50": 8.205,
+          "p95": 20.849,
+          "maximum": 82.251,
+          "mean": 12.113
+        },
+        "decode_ms": {
+          "p50": 1.13,
+          "p95": 2.751,
+          "maximum": 12.794,
+          "mean": 1.657
+        }
+      },
+      "spectrum": {
+        "frames": 209,
+        "wire_bytes": 3211307,
+        "transfer_ms": {
+          "p50": 32.437,
+          "p95": 38.929,
+          "maximum": 53.998,
+          "mean": 32.895
+        },
+        "decode_ms": {
+          "p50": 4.614,
+          "p95": 6.035,
+          "maximum": 7.899,
+          "mean": 4.712
+        }
+      },
+      "volume": {
+        "frames": 89,
+        "wire_bytes": 849053,
+        "transfer_ms": {
+          "p50": 12.297,
+          "p95": 82.023,
+          "maximum": 85.828,
+          "mean": 19.418
+        },
+        "decode_ms": {
+          "p50": 1.631,
+          "p95": 12.336,
+          "maximum": 13.28,
+          "mean": 2.718
+        }
+      }
+    }
+  },
+  "optimized": {
+    "all": {
+      "frames": 462,
+      "wire_bytes": 4579281,
+      "transfer_ms": {
+        "p50": 24.332,
+        "p95": 52.312,
+        "maximum": 66.643,
+        "mean": 21.298
+      },
+      "decode_ms": {
+        "p50": 2.528,
+        "p95": 6.162,
+        "maximum": 7.234,
+        "mean": 2.234
+      },
+      "host_reencode_verify_ms": {
+        "p50": 0.566,
+        "p95": 2.219,
+        "maximum": 3.67,
+        "mean": 0.81
+      },
+      "reencode_verify_plus_transfer_ms": {
+        "p50": 25.04,
+        "p95": 54.741,
+        "maximum": 69.662,
+        "mean": 22.107
+      }
+    },
+    "phases": {
+      "actions": {
+        "frames": 47,
+        "wire_bytes": 413350,
+        "transfer_ms": {
+          "p50": 6.624,
+          "p95": 61.714,
+          "maximum": 62.488,
+          "mean": 18.632
+        },
+        "decode_ms": {
+          "p50": 0.649,
+          "p95": 6.874,
+          "maximum": 7.037,
+          "mean": 2.023
+        },
+        "host_reencode_verify_ms": {
+          "p50": 0.382,
+          "p95": 2.568,
+          "maximum": 3.67,
+          "mean": 0.85
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 6.995,
+          "p95": 64.214,
+          "maximum": 64.707,
+          "mean": 19.483
+        }
+      },
+      "menu": {
+        "frames": 38,
+        "wire_bytes": 428207,
+        "transfer_ms": {
+          "p50": 25.707,
+          "p95": 37.634,
+          "maximum": 39.074,
+          "mean": 24.205
+        },
+        "decode_ms": {
+          "p50": 2.589,
+          "p95": 4.198,
+          "maximum": 4.699,
+          "mean": 2.49
+        },
+        "host_reencode_verify_ms": {
+          "p50": 1.005,
+          "p95": 2.126,
+          "maximum": 2.395,
+          "mean": 0.99
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 27.074,
+          "p95": 39.769,
+          "maximum": 40.667,
+          "mean": 25.195
+        }
+      },
+      "playback": {
+        "frames": 12,
+        "wire_bytes": 226846,
+        "transfer_ms": {
+          "p50": 39.999,
+          "p95": 58.756,
+          "maximum": 61.015,
+          "mean": 40.217
+        },
+        "decode_ms": {
+          "p50": 5.192,
+          "p95": 6.619,
+          "maximum": 6.839,
+          "mean": 4.818
+        },
+        "host_reencode_verify_ms": {
+          "p50": 2.026,
+          "p95": 2.88,
+          "maximum": 3.558,
+          "mean": 1.962
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 42.456,
+          "p95": 60.989,
+          "maximum": 63.034,
+          "mean": 42.179
+        }
+      },
+      "slider": {
+        "frames": 29,
+        "wire_bytes": 146887,
+        "transfer_ms": {
+          "p50": 8.9,
+          "p95": 12.993,
+          "maximum": 66.643,
+          "mean": 11.141
+        },
+        "decode_ms": {
+          "p50": 0.846,
+          "p95": 1.355,
+          "maximum": 7.124,
+          "mean": 1.099
+        },
+        "host_reencode_verify_ms": {
+          "p50": 0.426,
+          "p95": 0.95,
+          "maximum": 3.019,
+          "mean": 0.552
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 9.463,
+          "p95": 13.471,
+          "maximum": 69.662,
+          "mean": 11.693
+        }
+      },
+      "slots": {
+        "frames": 38,
+        "wire_bytes": 160811,
+        "transfer_ms": {
+          "p50": 6.5,
+          "p95": 16.312,
+          "maximum": 62.147,
+          "mean": 9.478
+        },
+        "decode_ms": {
+          "p50": 0.63,
+          "p95": 1.631,
+          "maximum": 6.824,
+          "mean": 0.934
+        },
+        "host_reencode_verify_ms": {
+          "p50": 0.205,
+          "p95": 1.016,
+          "maximum": 1.646,
+          "mean": 0.359
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 6.683,
+          "p95": 17.396,
+          "maximum": 63.793,
+          "mean": 9.838
+        }
+      },
+      "spectrum": {
+        "frames": 209,
+        "wire_bytes": 2589465,
+        "transfer_ms": {
+          "p50": 26.307,
+          "p95": 30.198,
+          "maximum": 41.851,
+          "mean": 26.602
+        },
+        "decode_ms": {
+          "p50": 2.728,
+          "p95": 3.395,
+          "maximum": 4.392,
+          "mean": 2.785
+        },
+        "host_reencode_verify_ms": {
+          "p50": 0.745,
+          "p95": 1.624,
+          "maximum": 2.555,
+          "mean": 0.885
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 27.184,
+          "p95": 32.058,
+          "maximum": 44.406,
+          "mean": 27.487
+        }
+      },
+      "volume": {
+        "frames": 89,
+        "wire_bytes": 613715,
+        "transfer_ms": {
+          "p50": 9.499,
+          "p95": 62.059,
+          "maximum": 64.432,
+          "mean": 14.813
+        },
+        "decode_ms": {
+          "p50": 0.956,
+          "p95": 6.652,
+          "maximum": 7.234,
+          "mean": 1.521
+        },
+        "host_reencode_verify_ms": {
+          "p50": 0.426,
+          "p95": 2.047,
+          "maximum": 3.59,
+          "mean": 0.655
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 9.883,
+          "p95": 63.729,
+          "maximum": 68.022,
+          "mean": 15.468
+        }
+      }
+    }
+  },
+  "configuration": {
+    "host": "LZ4 HC9 with per-connection state reset per block and compressBound scratch",
+    "firmware": "LZ4 -O3, normal safe decoder, two internal DMA tile buffers, polling-start/end overlap, final COMMIT drain, existing ROM CRC",
+    "protocol_changed": false
+  },
+  "current_ui_stress": {
+    "samples": 1194,
+    "elapsed_s": 120.18211849988438,
+    "serial_sequence_gaps": 0,
+    "errors": [],
+    "heap_range": [
+      293300,
+      295364
+    ],
+    "midi_overflows": 0,
+    "midi_received": [
+      11980,
+      24220
+    ],
+    "midi_sent": [
+      4847,
+      9767
+    ],
+    "replay_frames": 2772,
+    "reopen_frames": 12,
+    "max_input_gap_us": 7145,
+    "transfer_p50_ms": 25.9831665,
+    "transfer_p95_ms": 60.377875,
+    "phases": {
+      "actions": {
+        "frames": 282,
+        "transfer_ms": {
+          "p50": 6.872,
+          "p95": 66.265,
+          "maximum": 67.428
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 7.27,
+          "p95": 69.18,
+          "maximum": 70.836
+        }
+      },
+      "menu": {
+        "frames": 228,
+        "transfer_ms": {
+          "p50": 27.591,
+          "p95": 40.133,
+          "maximum": 42.259
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 28.663,
+          "p95": 41.663,
+          "maximum": 44.627
+        }
+      },
+      "playback": {
+        "frames": 72,
+        "transfer_ms": {
+          "p50": 42.075,
+          "p95": 65.499,
+          "maximum": 66.801
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 44.422,
+          "p95": 68.151,
+          "maximum": 70.824
+        }
+      },
+      "slider": {
+        "frames": 174,
+        "transfer_ms": {
+          "p50": 9.689,
+          "p95": 14.224,
+          "maximum": 71.219
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 10.07,
+          "p95": 14.948,
+          "maximum": 74.766
+        }
+      },
+      "slots": {
+        "frames": 228,
+        "transfer_ms": {
+          "p50": 6.794,
+          "p95": 17.748,
+          "maximum": 67.83
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 7.189,
+          "p95": 18.57,
+          "maximum": 71.347
+        }
+      },
+      "spectrum": {
+        "frames": 1254,
+        "transfer_ms": {
+          "p50": 27.953,
+          "p95": 35.516,
+          "maximum": 44.705
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 29.061,
+          "p95": 37.63,
+          "maximum": 47.305
+        }
+      },
+      "volume": {
+        "frames": 534,
+        "transfer_ms": {
+          "p50": 10.101,
+          "p95": 67.104,
+          "maximum": 72.069
+        },
+        "reencode_verify_plus_transfer_ms": {
+          "p50": 10.666,
+          "p95": 69.882,
+          "maximum": 74.549
+        }
+      }
+    },
+    "note": "Real QEQ MIDI feedback active throughout; six unpaced replays and six client reopenings, including idle expiry. All ACKs validated session, frame, status, decoded bytes, tile count and CRC. No physical input gestures or optical timing measured."
+  }
+}

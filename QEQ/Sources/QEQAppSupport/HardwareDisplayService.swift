@@ -32,24 +32,14 @@ extension DisplayPixelRenderer {
     var frameInterval: TimeInterval { 0 }
 }
 private final class NativeDisplayRenderer: DisplayPixelRenderer {
-    private let capabilities: HardwareDisplayCapabilities
-    private var metal: MetalHardwareDisplayRenderer?
-    private let round: MetalRoundDisplayRenderer
-    private var usesRoundScreen = false
-    var animating: Bool { usesRoundScreen && round.animating }
-    var needsFullRefresh: Bool { usesRoundScreen && round.needsFullRefresh }
-    var frameInterval: TimeInterval { usesRoundScreen ? 1.0 / 30 : 0 }
+    private let renderer: MetalRoundDisplayRenderer
+    var animating: Bool { renderer.animating }
+    var needsFullRefresh: Bool { renderer.needsFullRefresh }
+    var frameInterval: TimeInterval { 1.0 / 30 }
     init(_ capabilities: HardwareDisplayCapabilities) throws {
-        self.capabilities = capabilities
-        round = try MetalRoundDisplayRenderer(capabilities)
+        renderer = try MetalRoundDisplayRenderer(capabilities)
     }
-    func pixels(_ content: HardwareDisplayContent) throws -> Data {
-        usesRoundScreen = content.scene.roundScreen != nil
-        if usesRoundScreen { return try round.render(content) }
-        let renderer = try metal ?? MetalHardwareDisplayRenderer(capabilities: capabilities)
-        metal = renderer
-        return try renderer.render(content.scene, icon: content.icon, iconKey: content.iconKey)
-    }
+    func pixels(_ content: HardwareDisplayContent) throws -> Data { try renderer.render(content) }
 }
 
 /// A synchronous session owned only by one background queue. ACK loss always discards this session.

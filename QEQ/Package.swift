@@ -13,7 +13,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "QEQHardware", path: "Sources/QEQHardware", exclude: ["LZ4/LICENSE"],
+            name: "QEQHardware", path: "Sources/QEQHardware", exclude: ["LZ4/LICENSE", "LZ4/README.md"],
             publicHeadersPath: "include", cSettings: [.unsafeFlags(["-fobjc-arc"])],
             linkerSettings: [.linkedFramework("IOUSBHost"), .linkedFramework("IOKit"), .linkedLibrary("z")]),
         .target(
