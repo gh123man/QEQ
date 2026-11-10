@@ -47,6 +47,7 @@ final class DisplayUSBSession {
         var frame: UInt32
         var bytes: Int
         var tiles: Int
+        var batches: Int
         var prepareMS: Double
         var transferMS: Double
         var lcdMS: Double
@@ -59,34 +60,36 @@ final class DisplayUSBSession {
     let port: any DisplayBulkPort
     private(set) var nonce: UInt32
     let requestPartialTiles: Bool
+    let requestRectangleBatches: Bool
     private var decoder = DisplayWire.Decoder()
     private var received: [DisplayWire.Message] = []
     private(set) var planner: DisplayFramePlanner?
     init(
         port: any DisplayBulkPort, nonce: UInt32 = UInt32.random(in: 1...UInt32.max),
-        requestPartialTiles: Bool = true
+        requestPartialTiles: Bool = true, requestRectangleBatches: Bool = false
     ) {
         self.port = port
         self.nonce = nonce
         self.requestPartialTiles = requestPartialTiles
+        self.requestRectangleBatches = requestRectangleBatches
     }
     func negotiate() throws -> HardwareDisplayCapabilities {
         activity = "writing HELLO"
-        var requestingPartialTiles = requestPartialTiles
-        try port.write(DisplayWire.Message(kind: .hello, flags: requestPartialTiles ? 1 : 0, session: nonce).encoded())
+        var flags: UInt16 = requestPartialTiles ? (requestRectangleBatches ? 3 : 1) : 0
+        try port.write(DisplayWire.Message(kind: .hello, flags: flags, session: nonce).encoded())
         activity = "reading capabilities"
         for _ in 0..<8 {
             let reply = try readMessage()
-            // Pre-extension receivers reject HELLO flags before adopting the nonce.
-            // Retry their original handshake once, retaining full-cell tile encoding.
-            if requestingPartialTiles, reply.kind == .ack, reply.flags == 0, reply.payload.count == 32,
+            // Older receivers reject unsupported flags before adopting the nonce.
+            // Fall back to partial tiles, then to the original full-cell handshake.
+            if flags != 0, reply.kind == .ack, reply.flags == 0, reply.payload.count == 32,
                 reply.payload.prefix(4) == Data([1, 0, 0, 0])
             {
-                requestingPartialTiles = false
+                flags = flags == 3 ? 1 : 0
                 // A stale rejection may precede this attempt's capabilities. Give the
                 // fallback a distinct nonce so those buffered replies cannot be adopted.
                 nonce = nonce == .max ? 1 : nonce + 1
-                try port.write(DisplayWire.Message(kind: .hello, session: nonce).encoded())
+                try port.write(DisplayWire.Message(kind: .hello, flags: flags, session: nonce).encoded())
                 continue
             }
             if reply.session != nonce { continue }  // A prior host's expiry reply may still be buffered.
@@ -94,7 +97,10 @@ final class DisplayUSBSession {
                 throw DisplayWire.Failure.sequence
             }
             let caps = try DisplayWire.Capabilities(reply.payload)
-            planner = DisplayFramePlanner(capabilities: caps.display, session: nonce, partialTiles: caps.partialTiles)
+            planner = DisplayFramePlanner(
+                capabilities: caps.display, session: nonce,
+                partialTiles: caps.partialTiles && flags & 1 != 0,
+                rectangleBatches: caps.rectangleBatches && flags == 3)
             return caps.display
         }
         throw DisplayWire.Failure.sequence
@@ -116,7 +122,7 @@ final class DisplayUSBSession {
             UInt32(littleEndian: $0.loadUnaligned(fromByteOffset: 8, as: UInt32.self))
         }
         lastFrameTiming = FrameTiming(
-            frame: frame.frame, bytes: frame.wire.count, tiles: frame.tiles,
+            frame: frame.frame, bytes: frame.wire.count, tiles: frame.tiles, batches: frame.batches,
             prepareMS: (prepared - started) * 1000,
             transferMS: (ProcessInfo.processInfo.systemUptime - prepared) * 1000,
             lcdMS: Double(lcdUS) / 1000,
@@ -239,7 +245,7 @@ final class DisplayConnection: @unchecked Sendable {
             do {
                 if session == nil {
                     setStatus("Connecting display")
-                    let next = DisplayUSBSession(port: try makePort())
+                    let next = DisplayUSBSession(port: try makePort(), requestRectangleBatches: true)
                     session = next  // Close even when negotiation fails.
                     let caps = try next.negotiate()
                     logger.notice("Display connected: \(caps.width)x\(caps.height)")
@@ -424,9 +430,12 @@ public final class HardwareDisplayService {
         private let session: DisplayUSBSession
         public let capabilities: HardwareDisplayCapabilities
         public var partialTiles: Bool { session.planner?.partialTiles == true }
+        public var rectangleBatches: Bool { session.planner?.rectangleBatches == true }
         private var heartbeatAt = 0.0
-        public init(device: QEQUSBDevice, partialTiles: Bool = true) throws {
-            session = DisplayUSBSession(port: try NativeDisplayPort(device), requestPartialTiles: partialTiles)
+        public init(device: QEQUSBDevice, partialTiles: Bool = true, rectangleBatches: Bool = false) throws {
+            session = DisplayUSBSession(
+                port: try NativeDisplayPort(device), requestPartialTiles: partialTiles,
+                requestRectangleBatches: rectangleBatches)
             do { capabilities = try session.negotiate() } catch {
                 session.close()
                 throw error
@@ -439,7 +448,7 @@ public final class HardwareDisplayService {
                 return [
                     "sent": 1, "frame": Double(t.frame), "wire_bytes": Double(t.bytes), "tiles": Double(t.tiles),
                     "prepare_ms": t.prepareMS, "transfer_ms": t.transferMS, "lcd_ms": t.lcdMS, "decode_ms": t.decodeMS,
-                    "verify_ms": t.verifyMS, "input_gap_us": Double(t.inputGapUS),
+                    "verify_ms": t.verifyMS, "input_gap_us": Double(t.inputGapUS), "batches": Double(t.batches),
                 ]
             }
             if ProcessInfo.processInfo.systemUptime >= heartbeatAt {

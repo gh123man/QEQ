@@ -20,9 +20,12 @@ enum DisplayWire {
         case ack
         case ping
         case pong
+        case rectangleBatch = 11
     }
     static let headerSize = 28
     static let maxPayload = 2064
+    static let maxBatchBytes = 8192
+    static let maxBatchRectangles = 8
     struct Message: Equatable {
         var kind: Kind
         var flags: UInt16 = 0
@@ -90,14 +93,16 @@ enum DisplayWire {
         let display: HardwareDisplayCapabilities
         let boot: UInt32
         let partialTiles: Bool
+        let rectangleBatches: Bool
         init(_ data: Data) throws {
             guard data.count == 24 else { throw Failure.malformed }
             display = HardwareDisplayCapabilities(
                 width: Int(data.u16(0)), height: Int(data.u16(2)),
                 format: Int(data[8]), orientation: Int(data[9]), shape: Int(data[10]))
             boot = data.u32(20)
-            partialTiles = data[11] == 7
-            guard display.supported, data.u16(4) == 32, data.u16(6) == 32, [3, 7].contains(data[11]),
+            partialTiles = data[11] & 4 != 0
+            rectangleBatches = data[11] & 8 != 0
+            guard display.supported, data.u16(4) == 32, data.u16(6) == 32, [3, 7, 15].contains(data[11]),
                 data.u32(12) == maxPayload
             else { throw Failure.unsupported }
         }
@@ -117,7 +122,7 @@ extension Data {
 }
 
 // Queue-confined with its planner. Copies of a planner share scratch codec state,
-// but every invocation resets history; no tile depends on an earlier tile/frame.
+// but every invocation resets history. Compression never depends on an earlier packet.
 private final class DisplayTileEncoder {
     let handle = qeq_lz4_encoder_create()
     deinit { qeq_lz4_encoder_destroy(handle) }
@@ -129,11 +134,28 @@ struct DisplayFramePlanner {
         let pixels: Data
         let wire: Data
         let tiles: Int
+        let batches: Int
         let full: Bool
     }
     let capabilities: HardwareDisplayCapabilities
     let session: UInt32
+    private struct Rectangle {
+        let x: UInt16
+        let y: UInt16
+        let width: UInt16
+        let height: UInt16
+        let pixels: Data
+
+        func appendGeometry(to data: inout Data) {
+            data.put(x)
+            data.put(y)
+            data.put(width)
+            data.put(height)
+        }
+    }
+
     var partialTiles = false
+    var rectangleBatches = false
     private(set) var acknowledged: UInt32 = 0
     private(set) var baseline: Data?
     private(set) var pending: Pending?
@@ -146,9 +168,69 @@ struct DisplayFramePlanner {
         }
         let frame = acknowledged + 1
         let full = baseline == nil || forceFull
+        let base = full ? 0 : acknowledged
+        let useBatches = rectangleBatches
+        let partial = partialTiles && !full
+        let encoderHandle = encoder.handle
+        let session = self.session
         var tileMessages = Data()
         var tileCount = 0
-        var compressed = Data(count: Int(qeq_lz4_compress_bound(32 * 32 * 2)))
+        var batchCount = 0
+        var group: [Rectangle] = []
+        var groupBytes = 0
+        var compressed = Data(count: Int(qeq_lz4_compress_bound(useBatches ? 8192 : 2048)))
+
+        func compress(_ raw: Data) -> Int {
+            let count = raw.withUnsafeBytes { source in
+                compressed.withUnsafeMutableBytes { target in
+                    qeq_lz4_encoder_compress(
+                        encoderHandle, source.baseAddress, Int32(source.count), target.baseAddress,
+                        Int32(target.count))
+                }
+            }
+            return count > 0 && count < raw.count ? Int(count) : 0
+        }
+
+        func appendTile(_ rect: Rectangle) {
+            let count = compress(rect.pixels)
+            var payload = Data()
+            rect.appendGeometry(to: &payload)
+            payload.append(contentsOf: [count > 0 ? 1 : 0, partial ? 1 : 0])
+            payload.put(UInt16(rect.pixels.count))
+            payload.put(DisplayWire.crc(rect.pixels))
+            if count > 0 { payload.append(compressed.prefix(count)) } else { payload.append(rect.pixels) }
+            tileMessages.append(
+                DisplayWire.Message(kind: .tile, session: session, frame: frame, base: base, payload: payload).encoded()
+            )
+        }
+
+        func appendGroup(_ rectangles: ArraySlice<Rectangle>) {
+            if rectangles.count == 1 {
+                appendTile(rectangles[rectangles.startIndex])
+                return
+            }
+            var raw = Data()
+            raw.reserveCapacity(rectangles.reduce(0) { $0 + $1.pixels.count })
+            for rect in rectangles { raw.append(rect.pixels) }
+            let count = compress(raw)
+            let bodySize = count > 0 ? count : raw.count
+            if 8 + rectangles.count * 8 + bodySize > DisplayWire.maxPayload {
+                let middle = rectangles.startIndex + rectangles.count / 2
+                appendGroup(rectangles[..<middle])
+                appendGroup(rectangles[middle...])
+                return
+            }
+            var payload = Data([UInt8(rectangles.count), count > 0 ? 1 : 0])
+            payload.put(UInt16(raw.count))
+            payload.put(DisplayWire.crc(raw))
+            for rect in rectangles { rect.appendGeometry(to: &payload) }
+            if count > 0 { payload.append(compressed.prefix(count)) } else { payload.append(raw) }
+            tileMessages.append(
+                DisplayWire.Message(
+                    kind: .rectangleBatch, session: session, frame: frame, base: base, payload: payload
+                ).encoded())
+            batchCount += 1
+        }
         for y in stride(from: 0, to: capabilities.height, by: 32) {
             for x in stride(from: 0, to: capabilities.width, by: 32) {
                 var left = x
@@ -208,32 +290,26 @@ struct DisplayFramePlanner {
                         }
                     }
                 }
-                let count = raw.withUnsafeBytes { source in
-                    compressed.withUnsafeMutableBytes { target in
-                        qeq_lz4_encoder_compress(
-                            encoder.handle, source.baseAddress, Int32(source.count), target.baseAddress,
-                            Int32(target.count))
+                let rect = Rectangle(
+                    x: UInt16(left), y: UInt16(top), width: UInt16(width), height: UInt16(height), pixels: raw)
+                if useBatches {
+                    if group.count == DisplayWire.maxBatchRectangles
+                        || groupBytes + raw.count > DisplayWire.maxBatchBytes
+                    {
+                        appendGroup(group[...])
+                        group.removeAll(keepingCapacity: true)
+                        groupBytes = 0
                     }
+                    group.append(rect)
+                    groupBytes += raw.count
+                } else {
+                    appendTile(rect)
                 }
-                let useLZ4 = count > 0 && count < raw.count
-                var payload = Data()
-                payload.put(UInt16(left))
-                payload.put(UInt16(top))
-                payload.put(UInt16(width))
-                payload.put(UInt16(height))
-                payload.append(contentsOf: [useLZ4 ? 1 : 0, partialTiles && !full ? 1 : 0])
-                payload.put(UInt16(raw.count))
-                payload.put(DisplayWire.crc(raw))
-                if useLZ4 { payload.append(compressed.prefix(Int(count))) } else { payload.append(raw) }
-                tileMessages.append(
-                    DisplayWire.Message(
-                        kind: .tile, session: session, frame: frame,
-                        base: full ? 0 : acknowledged, payload: payload
-                    ).encoded())
                 tileCount += 1
             }
         }
         guard tileCount > 0 else { return nil }
+        if !group.isEmpty { appendGroup(group[...]) }
         var count = Data()
         count.put(UInt16(tileCount))
         var wire = DisplayWire.Message(
@@ -243,7 +319,8 @@ struct DisplayFramePlanner {
         wire.append(tileMessages)
         wire.append(
             DisplayWire.Message(kind: .commit, session: session, frame: frame, base: full ? 0 : acknowledged).encoded())
-        let prepared = Pending(frame: frame, pixels: pixels, wire: wire, tiles: tileCount, full: full)
+        let prepared = Pending(
+            frame: frame, pixels: pixels, wire: wire, tiles: tileCount, batches: batchCount, full: full)
         pending = prepared
         return prepared
     }

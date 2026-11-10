@@ -9,12 +9,13 @@ import os
         let args = CommandLine.arguments
         guard args.count >= 2, args[1].hasPrefix("/") else {
             fatalError(
-                "Usage: QEQDisplayBench ABS_OUTPUT [--stream SERIAL] [--legacy-tiles] [--refresh-boundaries ABS_MANIFEST]"
+                "Usage: QEQDisplayBench ABS_OUTPUT [--stream SERIAL] [--legacy-tiles | --batch-rectangles] [--refresh-boundaries ABS_MANIFEST]"
             )
         }
         var serial: String?
         var boundaries: String?
         var partialTiles = true
+        var rectangleBatches = false
         var argument = 2
         while argument < args.count {
             switch args[argument] {
@@ -25,9 +26,13 @@ import os
             case "--legacy-tiles":
                 partialTiles = false
                 argument += 1
+            case "--batch-rectangles":
+                rectangleBatches = true
+                argument += 1
             default: fatalError("Unknown option: \(args[argument])")
             }
         }
+        guard partialTiles || !rectangleBatches else { fatalError("Batching requires partial tiles") }
         var forceRefresh = Set<String>()
         if let boundaries {
             let manifest =
@@ -54,9 +59,14 @@ import os
             guard result == .success, let device = found.withLock({ $0.first }) else {
                 fatalError("Exactly one display with serial \(serial) must be attached")
             }
-            link = try HardwareDisplayBenchmark(device: device, partialTiles: partialTiles)
+            let benchmark = try HardwareDisplayBenchmark(
+                device: device, partialTiles: partialTiles, rectangleBatches: rectangleBatches)
+            guard !rectangleBatches || benchmark.rectangleBatches else {
+                fatalError("Device did not negotiate rectangle batches")
+            }
+            link = benchmark
             print(
-                "Connected \(serial), partial tiles: \(link!.partialTiles). Stop QEQ's display client before benchmarking."
+                "Connected \(serial), partial tiles: \(benchmark.partialTiles), rectangle batches: \(benchmark.rectangleBatches)."
             )
         }
         let directory = URL(fileURLWithPath: args[1], isDirectory: true)
@@ -168,6 +178,7 @@ import os
         let report: [String: Any] = [
             "renderer": "MetalRoundDisplayRenderer", "frames": frames, "sample_hz": 30,
             "mode": link == nil ? "offline" : "live", "partial_tiles": link?.partialTiles ?? false,
+            "rectangle_batches": link?.rectangleBatches ?? false,
             "note":
                 "Production GPU UI; deterministic synthetic spectrum/navigation. Live total_ms covers rendering, planning, encoding and SPI-complete ACK; offline timings cover rendering only. Neither measures visible panel scanout.",
         ]

@@ -429,3 +429,62 @@ private final class StaleRejectionPort: DisplayBulkPort {
     #expect(try session.send(pixels))
     #expect(port.receiver.pixelCRC == DisplayWire.crc(pixels))
 }
+
+@Test func batchingFallsBackToThePartialTileReceiver() throws {
+    let port = ReceiverPort()
+    let session = DisplayUSBSession(port: port, nonce: 70, requestRectangleBatches: true)
+    _ = try session.negotiate()
+    #expect(port.writes.filter { $0.kind == .hello }.map(\.flags) == [3, 1])
+    #expect(session.planner?.partialTiles == true && session.planner?.rectangleBatches == false)
+    let pixels = Data(repeating: 91, count: 4096)
+    #expect(try session.send(pixels))
+    #expect(port.pixelCRC == DisplayWire.crc(pixels))
+}
+
+@Test func batchingPreservesRectangleOrderAndOneAcknowledgedBaseline() throws {
+    var planner = DisplayFramePlanner(
+        capabilities: HardwareDisplayCapabilities(width: 64, height: 32, format: 1, orientation: 0, shape: 0),
+        session: 70, partialTiles: true, rectangleBatches: true)
+    let pixels = Data((0..<4096).map { UInt8(truncatingIfNeeded: $0 / 16) })
+    let first = try #require(try planner.prepare(pixels))
+    var decoder = DisplayWire.Decoder()
+    let messages = try decoder.feed(first.wire)
+    #expect(messages.map(\.kind) == [.begin, .rectangleBatch, .commit])
+    #expect(first.batches == 1 && first.tiles == 2 && messages[0].payload == Data([2, 0]))
+    let batch = messages[1].payload
+    #expect(batch.prefix(4) == Data([2, 1, 0, 16]))
+    #expect(batch[8..<24] == Data([0, 0, 0, 0, 32, 0, 32, 0, 32, 0, 0, 0, 32, 0, 32, 0]))
+    var decoded = Data(count: 4096)
+    let encoded = Data(batch.dropFirst(24))
+    let count = decoded.withUnsafeMutableBytes { target in
+        encoded.withUnsafeBytes { source in
+            qeq_lz4_decompress(source.baseAddress, Int32(source.count), target.baseAddress, Int32(target.count))
+        }
+    }
+    var expected = Data()
+    for column in [0, 64] {
+        for row in 0..<32 {
+            let offset = row * 128 + column
+            expected.append(pixels[offset..<(offset + 64)])
+        }
+    }
+    #expect(count == 4096 && decoded == expected)
+    #expect(planner.acknowledged == 0)
+    #expect(throws: DisplayWire.Failure.self) { try planner.prepare(pixels) }
+
+    var payload = Data(repeating: 0, count: 32)
+    payload[16] = 2
+    let bytes = UInt32(first.wire.count).littleEndian
+    withUnsafeBytes(of: bytes) { payload.replaceSubrange(20..<24, with: $0) }
+    try planner.accept(.init(kind: .ack, session: 70, frame: 1, base: 1, payload: payload))
+    #expect(planner.acknowledged == 1 && planner.baseline == pixels)
+
+    var changed = pixels
+    changed[0] ^= 1
+    changed[64] ^= 1
+    let second = try #require(try planner.prepare(changed))
+    let delta = try decoder.feed(second.wire)
+    #expect(delta.map(\.kind) == [.begin, .rectangleBatch, .commit])
+    #expect(delta[1].base == 1 && delta[1].payload.prefix(4) == Data([2, 0, 4, 0]))
+    #expect(delta[1].payload.suffix(4) == Data([changed[0], changed[1], changed[64], changed[65]]))
+}
